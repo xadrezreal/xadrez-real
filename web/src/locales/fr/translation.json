@@ -1,0 +1,13 @@
+{
+  "loading": "Chargement...",
+  "nav": {
+    "home": "Accueil",
+    "store": "Boutique",
+    "create_tournament": "Créer un tournoi",
+    "wager": "Parier",
+    "tournaments": "Tournois",
+    "champions": "Champions",
+    "wallet": "Portefeuille",
+    "profile": "Profil"
+  }
+}

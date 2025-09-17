@@ -1,0 +1,13 @@
+{
+  "loading": "लोड हो रहा है...",
+  "nav": {
+    "home": "होम",
+    "store": "स्टोर",
+    "create_tournament": "टूर्नामेंट बनाएं",
+    "wager": "शर्त",
+    "tournaments": "टूर्नामेंट",
+    "champions": "चैंपियन",
+    "wallet": "वॉलेट",
+    "profile": "प्रोफ़ाइल"
+  }
+}

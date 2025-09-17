@@ -1,0 +1,13 @@
+{
+  "loading": "Cargando...",
+  "nav": {
+    "home": "Inicio",
+    "store": "Tienda",
+    "create_tournament": "Crear Torneo",
+    "wager": "Apostar",
+    "tournaments": "Torneos",
+    "champions": "Campeones",
+    "wallet": "Cartera",
+    "profile": "Perfil"
+  }
+}

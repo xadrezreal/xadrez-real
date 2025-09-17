@@ -1,0 +1,13 @@
+{
+  "loading": "جار التحميل...",
+  "nav": {
+    "home": "الرئيسية",
+    "store": "المتجر",
+    "create_tournament": "إنشاء بطولة",
+    "wager": "رهان",
+    "tournaments": "البطولات",
+    "champions": "الأبطال",
+    "wallet": "المحفظة",
+    "profile": "الملف الشخصي"
+  }
+}

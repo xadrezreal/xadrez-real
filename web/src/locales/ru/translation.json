@@ -1,0 +1,13 @@
+{
+  "loading": "Загрузка...",
+  "nav": {
+    "home": "Главная",
+    "store": "Магазин",
+    "create_tournament": "Создать турнир",
+    "wager": "Ставка",
+    "tournaments": "Турниры",
+    "champions": "Чемпионы",
+    "wallet": "Кошелек",
+    "profile": "Профиль"
+  }
+}

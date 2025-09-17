@@ -1,0 +1,13 @@
+{
+  "loading": "লোড হচ্ছে...",
+  "nav": {
+    "home": "হোম",
+    "store": "স্টোর",
+    "create_tournament": "টুর্নামেন্ট তৈরি করুন",
+    "wager": "বাজি",
+    "tournaments": "টুর্নামেন্ট",
+    "champions": "চ্যাম্পিয়ন",
+    "wallet": "ওয়ালেট",
+    "profile": "প্রোফাইল"
+  }
+}

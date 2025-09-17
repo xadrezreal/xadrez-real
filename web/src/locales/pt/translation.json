@@ -1,0 +1,81 @@
+{
+  "nav": {
+    "home": "Início",
+    "profile": "Perfil",
+    "play_now": "Jogar Agora",
+    "tournaments": "Torneios",
+    "champions": "Campeões",
+    "wallet": "Carteira",
+    "premium": "Premium",
+    "store": "Loja",
+    "cart": "Carrinho",
+    "create_tournament": "Criar Torneio",
+    "wager": "Aposta"
+  },
+  "home": {
+    "welcome": "Bem-vindo ao Xadrez Real",
+    "description": "A plataforma definitiva para entusiastas do xadrez. Jogue, compita e vença.",
+    "play_now_button": "Jogar Agora",
+    "live_games_title": "Partidas ao Vivo",
+    "ongoing_tournaments_title": "Torneios em Andamento",
+    "top_players_title": "Melhores Jogadores",
+    "no_live_games": "Nenhuma partida ao vivo no momento.",
+    "no_ongoing_tournaments": "Nenhum torneio em andamento."
+  },
+  "profile": {
+    "title": "Perfil - Xadrez Real",
+    "meta_description": "Gerencie seu perfil de jogador, veja seu histórico de jogos e muito mais.",
+    "heading": "Área de Perfil",
+    "message": "O recurso de perfil está desativado. Você está jogando como convidado.",
+    "feature_disabled_title": "Recurso Desativado",
+    "feature_disabled_description": "A funcionalidade de perfil foi removida. Você pode jogar como convidado."
+  },
+  "wallet": {
+    "balance": "Saldo da Carteira",
+    "deposit": "Depositar",
+    "withdraw": "Sacar",
+    "transaction_history": "Histórico de Transações",
+    "no_transactions": "Nenhuma transação ainda."
+  },
+  "matchmaking": {
+    "title": "Buscar Partida",
+    "description": "Escolha suas configurações e encontre um oponente.",
+    "time_control": "Controle de Tempo",
+    "wager": "Valor da Aposta",
+    "searching_title": "Procurando um Oponente...",
+    "searching_description": "Por favor, aguarde. Estamos encontrando um jogador para você.",
+    "cancel_button": "Cancelar Busca",
+    "find_match_button": "Encontrar Partida",
+    "insufficient_balance": "Saldo insuficiente para esta aposta."
+  },
+  "game": {
+    "draw_offer": "O oponente ofereceu um empate.",
+    "accept": "Aceitar",
+    "decline": "Recusar",
+    "draw_offered": "Empate oferecido. Aguardando resposta.",
+    "game_over": "Fim de Jogo",
+    "checkmate": "Xeque-mate!",
+    "stalemate": "Empate por Afogamento!",
+    "threefold_repetition": "Empate por Repetição!",
+    "insufficient_material": "Empate por Material Insuficiente!",
+    "draw": "Empate!",
+    "by_agreement": "por acordo",
+    "time_out": "por tempo",
+    "resignation": "por desistência",
+    "player_wins": "{{player}} vence",
+    "you_win": "Você Venceu!",
+    "you_lose": "Você Perdeu!",
+    "new_game_button": "Novo Jogo",
+    "return_home_button": "Voltar ao Início",
+    "promote_pawn": "Promover Peão",
+    "chat_placeholder": "Digite sua mensagem...",
+    "send_button": "Enviar"
+  },
+  "tournament": {
+    "title": "Torneios",
+    "create_new": "Criar Novo Torneio",
+    "no_tournaments": "Nenhum torneio disponível no momento.",
+    "register": "Inscrever-se",
+    "view_bracket": "Ver Chaveamento"
+  }
+}

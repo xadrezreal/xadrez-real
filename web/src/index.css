@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden; /* Prevent scrolling on the body */
+}
+
+body {
+  @apply bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 text-gray-200;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-cyan-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-cyan-500;
+}
+
+main {
+  height: calc(100vh - 100px); /* Adjust based on header height */
+  overflow-y: auto;
+}

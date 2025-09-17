@@ -1,0 +1,13 @@
+{
+  "loading": "Wird geladen...",
+  "nav": {
+    "home": "Startseite",
+    "store": "Shop",
+    "create_tournament": "Turnier erstellen",
+    "wager": "Wette",
+    "tournaments": "Turniere",
+    "champions": "Champions",
+    "wallet": "Brieftasche",
+    "profile": "Profil"
+  }
+}

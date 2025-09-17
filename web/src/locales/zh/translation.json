@@ -1,0 +1,13 @@
+{
+  "loading": "加载中...",
+  "nav": {
+    "home": "首页",
+    "store": "商店",
+    "create_tournament": "创建比赛",
+    "wager": "下注",
+    "tournaments": "比赛",
+    "champions": "冠军",
+    "wallet": "钱包",
+    "profile": "个人资料"
+  }
+}

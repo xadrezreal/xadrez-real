@@ -1,0 +1,337 @@
+import React, { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
+import ChessBoard from "./ChessBoard";
+import GameOverModal from "./GameOverModal";
+import Chat from "./Chat";
+import MoveHistory from "./MoveHistory";
+import PlayerInfo from "./PlayerInfo";
+import CapturedPieces from "./CapturedPieces";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
+import { useChessGame } from "../hooks/useChessGame";
+import PromotionModal from "./PromotionModal";
+import BoardAppearance from "./BoardAppearance";
+import { useToast } from "./ui/use-toast";
+import { Button } from "./ui/button";
+import {
+  Home,
+  Flag,
+  HeartHandshake as Handshake,
+  MessageSquare,
+  History,
+  Palette,
+  X,
+  Users,
+  Loader2,
+} from "lucide-react";
+import { isMobile } from "react-device-detect";
+
+const Toolbar = ({
+  onTogglePanel,
+  onResign,
+  onDrawOffer,
+  onReturnHome,
+  gameStatus,
+  isBotGame,
+}) => (
+  <motion.div
+    className="absolute left-2 top-1/2 -translate-y-1/2 bg-slate-800/60 backdrop-blur-md p-2 rounded-xl border border-slate-700 flex flex-col gap-3"
+    initial={{ x: -100 }}
+    animate={{ x: 0 }}
+    transition={{ duration: 0.5 }}
+  >
+    <Button
+      onClick={onReturnHome}
+      variant="ghost"
+      size="icon"
+      className="text-gray-300 hover:bg-cyan-500/20 hover:text-cyan-300"
+    >
+      <Home className="w-6 h-6" />
+    </Button>
+    <Button
+      onClick={() => onTogglePanel("history")}
+      variant="ghost"
+      size="icon"
+      className="text-gray-300 hover:bg-cyan-500/20 hover:text-cyan-300"
+    >
+      <History className="w-6 h-6" />
+    </Button>
+    {!isBotGame && (
+      <Button
+        onClick={() => onTogglePanel("chat")}
+        variant="ghost"
+        size="icon"
+        className="text-gray-300 hover:bg-cyan-500/20 hover:text-cyan-300"
+      >
+        <MessageSquare className="w-6 h-6" />
+      </Button>
+    )}
+    <Button
+      onClick={() => onTogglePanel("appearance")}
+      variant="ghost"
+      size="icon"
+      className="text-gray-300 hover:bg-cyan-500/20 hover:text-cyan-300"
+    >
+      <Palette className="w-6 h-6" />
+    </Button>
+    <Button
+      onClick={onResign}
+      disabled={gameStatus !== "playing"}
+      variant="ghost"
+      size="icon"
+      className="text-red-400 hover:bg-red-500/20 hover:text-red-300"
+    >
+      <Flag className="w-6 h-6" />
+    </Button>
+    {!isBotGame && (
+      <Button
+        onClick={onDrawOffer}
+        disabled={gameStatus !== "playing"}
+        variant="ghost"
+        size="icon"
+        className="text-yellow-400 hover:bg-yellow-500/20 hover:text-yellow-300"
+      >
+        <Handshake className="w-6 h-6" />
+      </Button>
+    )}
+  </motion.div>
+);
+
+const SidePanel = ({ children, onClose, position = "left" }) => {
+  const variants = {
+    hidden: { x: position === "left" ? "-100%" : "100%", opacity: 0 },
+    visible: { x: 0, opacity: 1 },
+  };
+
+  return (
+    <motion.div
+      className={`absolute top-0 h-full p-4 z-20 ${
+        position === "left" ? "left-0" : "right-0"
+      }`}
+      initial="hidden"
+      animate="visible"
+      exit="hidden"
+      variants={variants}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+    >
+      <div className="relative bg-slate-800/80 backdrop-blur-lg border border-slate-700 rounded-2xl w-72 h-full flex flex-col">
+        <Button
+          onClick={onClose}
+          variant="ghost"
+          size="icon"
+          className="absolute top-2 right-2 text-gray-400 hover:text-white z-10"
+        >
+          <X className="w-5 h-5" />
+        </Button>
+        {children}
+      </div>
+    </motion.div>
+  );
+};
+
+const WaitingForOpponent = () => {
+  const navigate = useNavigate();
+  return (
+    <motion.div
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-40 p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div
+        className="bg-gradient-to-br from-gray-900 to-black p-8 rounded-3xl border-2 border-cyan-500/50 shadow-2xl max-w-lg w-full text-center"
+        initial={{ scale: 0.5, y: 50 }}
+        animate={{ scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      >
+        <div className="flex items-center justify-center gap-4 mb-6">
+          <Loader2 className="w-12 h-12 text-cyan-400 animate-spin" />
+          <Users className="w-16 h-16 text-cyan-400 animate-pulse" />
+        </div>
+        <h2 className="text-3xl font-bold text-white mb-4">
+          Aguardando Oponente
+        </h2>
+        <p className="text-gray-300 mb-6">
+          A partida começará assim que seu oponente se conectar.
+        </p>
+        <Button
+          onClick={() => navigate("/")}
+          variant="outline"
+          className="text-white"
+        >
+          Voltar para o Início
+        </Button>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+const ChessGame = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const params = useParams();
+  const { toast } = useToast();
+  const [activePanel, setActivePanel] = useState(null);
+  const { gameType } = location.state || { gameType: "online" };
+
+  const {
+    game,
+    board,
+    gameStatus,
+    winner,
+    whiteTime,
+    blackTime,
+    moveHistory,
+    messages,
+    capturedPieces,
+    selectedSquare,
+    playerColor,
+    isPlayerTurn,
+    currentPlayer,
+    whitePlayerInfo,
+    blackPlayerInfo,
+    promotionMove,
+    lastMove,
+    isGameLoading,
+    isWaitingForOpponent,
+    handleMove,
+    handleSquareClick,
+    handleResign,
+    handleDrawOffer,
+    handleSendMessage,
+    handleNewGame,
+    handleRematch,
+    handlePromotion,
+    gameData,
+  } = useChessGame({ gameId: params.gameId, gameType });
+
+  const formatTime = (seconds) =>
+    `${Math.floor(seconds / 60)
+      .toString()
+      .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
+
+  const handleReviewGame = () => {
+    toast({
+      title: "🚧 Funcionalidade em desenvolvimento!",
+      description: "O modo de revisão de jogo estará disponível em breve! 🚀",
+    });
+  };
+
+  const togglePanel = (panel) => {
+    setActivePanel(activePanel === panel ? null : panel);
+  };
+
+  const opponentInfo =
+    playerColor === "white" ? blackPlayerInfo : whitePlayerInfo;
+  const opponentTime = playerColor === "white" ? blackTime : whiteTime;
+  const opponentCaptured =
+    playerColor === "white" ? capturedPieces.w : capturedPieces.b;
+
+  const ownInfo = playerColor === "white" ? whitePlayerInfo : blackPlayerInfo;
+  const ownTime = playerColor === "white" ? whiteTime : blackTime;
+  const ownCaptured =
+    playerColor === "white" ? capturedPieces.b : capturedPieces.w;
+
+  if (isGameLoading || isWaitingForOpponent) {
+    return <WaitingForOpponent />;
+  }
+
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+        <Toolbar
+          onTogglePanel={togglePanel}
+          onResign={handleResign}
+          onDrawOffer={handleDrawOffer}
+          onReturnHome={() => navigate("/")}
+          gameStatus={gameStatus}
+          isBotGame={gameType === "bot"}
+        />
+
+        <AnimatePresence>
+          {activePanel && (
+            <SidePanel
+              onClose={() => setActivePanel(null)}
+              position={
+                isMobile || activePanel === "history" ? "left" : "right"
+              }
+            >
+              {activePanel === "chat" && (
+                <Chat
+                  messages={messages}
+                  onSendMessage={handleSendMessage}
+                  gameId={gameData?.game_id_text}
+                />
+              )}
+              {activePanel === "history" && <MoveHistory moves={moveHistory} />}
+              {activePanel === "appearance" && <BoardAppearance />}
+            </SidePanel>
+          )}
+        </AnimatePresence>
+
+        <div className="w-full h-full flex flex-col items-center justify-between py-4">
+          {/* Opponent Info */}
+          <div className="w-full max-w-2xl">
+            <PlayerInfo
+              player={opponentInfo}
+              isCurrent={currentPlayer !== playerColor}
+              time={formatTime(opponentTime)}
+            />
+            <CapturedPieces pieces={opponentCaptured} />
+          </div>
+
+          {/* Chessboard */}
+          <motion.div
+            className="my-4"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, type: "spring", stiffness: 100 }}
+          >
+            <ChessBoard
+              board={board}
+              onMove={handleMove}
+              orientation={playerColor}
+              isPlayerTurn={isPlayerTurn}
+              onSquareClick={handleSquareClick}
+              selectedSquare={selectedSquare}
+              game={game}
+              lastMove={lastMove}
+            />
+          </motion.div>
+
+          {/* Player Info */}
+          <div className="w-full max-w-2xl">
+            <CapturedPieces pieces={ownCaptured} />
+            <PlayerInfo
+              player={ownInfo}
+              isCurrent={currentPlayer === playerColor}
+              time={formatTime(ownTime)}
+            />
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {gameStatus !== "playing" && gameStatus !== "waiting" && (
+            <GameOverModal
+              gameStatus={gameStatus}
+              winner={winner}
+              onNewGame={handleNewGame}
+              onRematch={gameType === "bot" ? null : handleRematch}
+              onReturnHome={() => navigate("/")}
+              onReviewGame={handleReviewGame}
+            />
+          )}
+          {promotionMove && (
+            <PromotionModal
+              onSelect={handlePromotion}
+              color={currentPlayer === "white" ? "w" : "b"}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+    </DndProvider>
+  );
+};
+
+export default ChessGame;

@@ -1,0 +1,14 @@
+{
+  "loading": "Loading...",
+  "nav": {
+    "home": "Home",
+    "store": "Store",
+    "create_tournament": "Create",
+    "wager": "Wager",
+    "tournaments": "Tournaments",
+    "champions": "Champions",
+    "wallet": "Wallet",
+    "profile": "Profile",
+    "play_now": "Play Now"
+  }
+}
