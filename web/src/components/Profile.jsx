@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "../contexts/AuthContext"; // Mudança aqui
+import { useAuth } from "../contexts/AuthContext";
 import ProfileView from "./profile/ProfileView";
 import LoginForm from "./profile/LoginForm";
 import SignUpForm from "./profile/SignUpForm";
@@ -15,7 +15,7 @@ const containerVariants = {
 };
 
 const Profile = () => {
-  const { user, isAuthenticated, initialLoading } = useAuth(); // Mudança aqui
+  const { user, isAuthenticated, initialLoading } = useAuth();
   const [view, setView] = useState("login");
   const { toast } = useToast();
   const location = useLocation();
@@ -33,7 +33,6 @@ const Profile = () => {
     }
   }, [location, toast, navigate]);
 
-  // Mostrar mensagem se veio de uma rota protegida
   useEffect(() => {
     if (location.state?.message) {
       toast({
@@ -47,7 +46,6 @@ const Profile = () => {
 
   const renderContent = () => {
     if (isAuthenticated && user) {
-      // Mudança aqui
       return <ProfileView />;
     }
 
@@ -77,7 +75,7 @@ const Profile = () => {
   return (
     <>
       <Helmet>
-        <title>Perfil e Autenticação - Xadrez Real</title>
+        <title>Perfil - Xadrez Real</title>
         <meta
           name="description"
           content="Acesse seu perfil, faça login ou crie uma conta para jogar no Xadrez Real."
@@ -85,7 +83,7 @@ const Profile = () => {
       </Helmet>
       <motion.div
         className="max-w-md mx-auto"
-        key={isAuthenticated ? "profile-view" : view} // Mudança aqui
+        key={isAuthenticated ? "profile-view" : view}
         variants={containerVariants}
         initial="hidden"
         animate="visible"
