@@ -10,8 +10,8 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { LogIn } from "lucide-react";
-import { useSupabaseAuth } from "../../contexts/SupabaseAuthContext";
+import { LogIn, Loader2 } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 const itemVariants = {
@@ -20,13 +20,34 @@ const itemVariants = {
 };
 
 const LoginForm = ({ setView }) => {
-  const { signIn, loading } = useSupabaseAuth();
+  const { signIn, loading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState({});
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = "Por favor, insira um e-mail válido.";
+    }
+
+    if (!password || password.length < 6) {
+      newErrors.password = "A senha deve ter no mínimo 6 caracteres.";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
     const { error } = await signIn(email, password);
     if (!error) {
       navigate("/");
@@ -55,6 +76,9 @@ const LoginForm = ({ setView }) => {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
+            {errors.email && (
+              <p className="text-sm text-red-500 mt-1">{errors.email}</p>
+            )}
           </motion.div>
           <motion.div className="space-y-2" variants={itemVariants}>
             <Label htmlFor="password-login">Senha</Label>
@@ -66,6 +90,9 @@ const LoginForm = ({ setView }) => {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            {errors.password && (
+              <p className="text-sm text-red-500 mt-1">{errors.password}</p>
+            )}
           </motion.div>
           <motion.div className="text-right" variants={itemVariants}>
             <Button
@@ -81,8 +108,9 @@ const LoginForm = ({ setView }) => {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold"
+              className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold flex items-center justify-center gap-2"
             >
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               {loading ? "Entrando..." : "Entrar"}
             </Button>
           </motion.div>

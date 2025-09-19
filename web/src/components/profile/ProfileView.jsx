@@ -11,10 +11,9 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "../ui/use-toast";
-import { UserCheck } from "lucide-react";
+import { UserCheck, Crown } from "lucide-react";
 import { UserContext } from "../../contexts/UserContext";
-import { useSupabaseAuth } from "../../contexts/SupabaseAuthContext";
-import { supabase } from "../../lib/supabaseClient";
+import { useAuth } from "../../contexts/AuthContext";
 
 const itemVariants = {
   hidden: { opacity: 0, x: -20 },
@@ -22,45 +21,48 @@ const itemVariants = {
 };
 
 const ProfileView = () => {
-  const { session, signOut, loading: authLoading } = useSupabaseAuth();
+  const {
+    user: authUser,
+    signOut,
+    loading: authLoading,
+    updateUser,
+    isPremium,
+  } = useAuth();
   const { user, setUser } = useContext(UserContext);
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [username, setUsername] = useState("");
-  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
 
   useEffect(() => {
-    if (user.isRegistered) {
-      setUsername(user.name || "");
-      setPhone(user.phone || "");
+    if (authUser) {
+      setName(authUser.name || "");
+      setEmail(authUser.email || "");
     }
-  }, [user]);
+  }, [authUser]);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({ username, phone })
-      .eq("id", session.user.id)
-      .select()
-      .single();
+    const updateData = {
+      name: name.trim(),
+    };
 
-    if (!error && data) {
-      setUser((prev) => ({ ...prev, name: data.username, phone: data.phone }));
-      toast({
-        title: "Perfil Salvo!",
-        description: "Suas informações foram atualizadas.",
-      });
-    } else {
-      toast({
-        title: "Erro ao salvar",
-        description: error?.message,
-        variant: "destructive",
-      });
+    const { error } = await updateUser(updateData);
+
+    if (!error) {
+      setUser((prev) => ({
+        ...prev,
+        name: name.trim(),
+      }));
     }
+
     setLoading(false);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
   };
 
   return (
@@ -74,10 +76,16 @@ const ProfileView = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-3 text-2xl text-cyan-300">
             <UserCheck className="w-8 h-8" />
-            Bem-vindo, {user.name}
+            Bem-vindo, {authUser?.name}
+            {isPremium && <Crown className="w-6 h-6 text-yellow-400 ml-2" />}
           </CardTitle>
           <CardDescription className="text-slate-400 pt-2">
             Gerencie suas informações de perfil aqui.
+            {isPremium && (
+              <span className="block text-yellow-400 font-medium mt-1">
+                ✨ Usuário Premium
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -87,32 +95,43 @@ const ProfileView = () => {
               <Input
                 id="email-profile"
                 type="email"
-                value={session?.user?.email || ""}
+                value={email}
                 disabled
                 className="bg-slate-700/50"
               />
+              <p className="text-xs text-slate-400">
+                O email não pode ser alterado por segurança
+              </p>
             </motion.div>
+
             <motion.div className="space-y-2" variants={itemVariants}>
-              <Label htmlFor="username">Apelido (Nome de Usuário)</Label>
+              <Label htmlFor="name">Nome</Label>
               <Input
-                id="username"
+                id="name"
                 type="text"
-                placeholder="Seu nome de jogador"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Seu nome"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 required
               />
             </motion.div>
+
             <motion.div className="space-y-2" variants={itemVariants}>
-              <Label htmlFor="phone">Telefone</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="(00) 00000-0000"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
+              <Label>Status da Conta</Label>
+              <div className="flex items-center gap-2 p-2 bg-slate-700/30 rounded-md">
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    isPremium ? "bg-yellow-400" : "bg-slate-400"
+                  }`}
+                ></div>
+                <span
+                  className={isPremium ? "text-yellow-400" : "text-slate-400"}
+                >
+                  {isPremium ? "Premium" : "Freemium"}
+                </span>
+              </div>
             </motion.div>
+
             <motion.div variants={itemVariants} className="pt-4 space-y-2">
               <Button
                 type="submit"
@@ -121,8 +140,26 @@ const ProfileView = () => {
               >
                 {loading ? "Salvando..." : "Salvar Alterações"}
               </Button>
+
+              {!isPremium && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-yellow-400 text-yellow-400 hover:bg-yellow-400/10"
+                  onClick={() => {
+                    toast({
+                      title: "Upgrade para Premium",
+                      description:
+                        "Funcionalidade de upgrade será implementada em breve!",
+                    });
+                  }}
+                >
+                  Fazer Upgrade para Premium
+                </Button>
+              )}
+
               <Button
-                onClick={signOut}
+                onClick={handleSignOut}
                 disabled={authLoading}
                 variant="destructive"
                 className="w-full"

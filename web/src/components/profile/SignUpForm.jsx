@@ -11,10 +11,8 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { UserPlus, Loader2 } from "lucide-react";
-import { useSupabaseAuth } from "../../contexts/SupabaseAuthContext";
-import { useToast } from "../ui/use-toast";
+import { useAuth } from "../../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabaseClient";
 
 const itemVariants = {
   hidden: { opacity: 0, x: -20 },
@@ -22,23 +20,18 @@ const itemVariants = {
 };
 
 const SignUpForm = ({ setView }) => {
-  const { signUp, loading: authLoading } = useSupabaseAuth();
-  const { toast } = useToast();
+  const { signUp, loading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
-  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
   const [errors, setErrors] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
 
   const validateForm = useCallback(() => {
     const newErrors = {};
 
-    if (!username || username.trim().length < 4) {
-      newErrors.username = "O apelido deve ter no mínimo 4 caracteres.";
-    } else if (/\s/.test(username.trim())) {
-      newErrors.username = "O apelido não pode conter espaços.";
+    if (!name || name.trim().length < 2) {
+      newErrors.name = "O nome deve ter no mínimo 2 caracteres.";
     }
 
     if (!password || password.length < 6) {
@@ -49,73 +42,25 @@ const SignUpForm = ({ setView }) => {
       newErrors.email = "Por favor, insira um e-mail válido.";
     }
 
-    if (!phone || !/^\(?\d{2}\)?[\s-]?\d{4,5}-?\d{4}$/.test(phone)) {
-      newErrors.phone =
-        "Insira um número de telefone válido (ex: 11 98765-4321).";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [username, password, email, phone]);
+  }, [name, password, email]);
 
   const handleSignUp = async (e) => {
     e.preventDefault();
+
     if (!validateForm()) {
-      toast({
-        title: "Erro de Validação",
-        description: "Por favor, corrija os erros no formulário.",
-        variant: "destructive",
-      });
       return;
     }
 
-    setIsLoading(true);
+    const { error } = await signUp(email, password, {
+      name: name.trim(),
+    });
 
-    try {
-      const { data: usernameCheck, error: usernameError } =
-        await supabase.functions.invoke("check-username", {
-          body: JSON.stringify({ username: username.trim() }),
-        });
-
-      if (usernameError) throw usernameError;
-
-      if (usernameCheck.exists) {
-        setErrors((prev) => ({
-          ...prev,
-          username: "Este apelido já está em uso. Por favor, escolha outro.",
-        }));
-        toast({
-          title: "Apelido Indisponível",
-          description: "Este apelido já foi escolhido por outro jogador.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      const { error: signUpError } = await signUp(email, password, {
-        username: username.trim(),
-        phone,
-      });
-
-      if (!signUpError) {
-        setView("login");
-        navigate("/profile", { state: { needsConfirmation: true } });
-      }
-    } catch (error) {
-      console.error("Falha no processo de cadastro:", error);
-      toast({
-        title: "Erro Inesperado",
-        description:
-          "Não foi possível completar o cadastro. Tente novamente mais tarde.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+    if (!error) {
+      navigate("/");
     }
   };
-
-  const totalLoading = authLoading || isLoading;
 
   return (
     <Card className="bg-slate-800/50 border-slate-700 text-white">
@@ -130,17 +75,17 @@ const SignUpForm = ({ setView }) => {
       <CardContent>
         <form onSubmit={handleSignUp} className="space-y-4">
           <motion.div className="space-y-2" variants={itemVariants}>
-            <Label htmlFor="username-signup">Apelido (Nome de Usuário)</Label>
+            <Label htmlFor="name-signup">Nome</Label>
             <Input
-              id="username-signup"
+              id="name-signup"
               type="text"
-              placeholder="Seu nome de jogador"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Seu nome completo"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               required
             />
-            {errors.username && (
-              <p className="text-sm text-red-500 mt-1">{errors.username}</p>
+            {errors.name && (
+              <p className="text-sm text-red-500 mt-1">{errors.name}</p>
             )}
           </motion.div>
           <motion.div className="space-y-2" variants={itemVariants}>
@@ -171,28 +116,14 @@ const SignUpForm = ({ setView }) => {
               <p className="text-sm text-red-500 mt-1">{errors.password}</p>
             )}
           </motion.div>
-          <motion.div className="space-y-2" variants={itemVariants}>
-            <Label htmlFor="phone-signup">Telefone</Label>
-            <Input
-              id="phone-signup"
-              type="tel"
-              placeholder="(11) 98765-4321"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
-            {errors.phone && (
-              <p className="text-sm text-red-500 mt-1">{errors.phone}</p>
-            )}
-          </motion.div>
           <motion.div variants={itemVariants} className="pt-4">
             <Button
               type="submit"
-              disabled={totalLoading}
+              disabled={loading}
               className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold flex items-center justify-center gap-2"
             >
-              {totalLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {totalLoading ? "Verificando..." : "Confirmar Cadastro"}
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              {loading ? "Criando conta..." : "Confirmar Cadastro"}
             </Button>
           </motion.div>
         </form>

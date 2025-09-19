@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useSupabaseAuth } from "../contexts/SupabaseAuthContext";
+import { useAuth } from "../contexts/AuthContext"; // Mudança aqui
 import ProfileView from "./profile/ProfileView";
 import LoginForm from "./profile/LoginForm";
 import SignUpForm from "./profile/SignUpForm";
@@ -15,7 +15,7 @@ const containerVariants = {
 };
 
 const Profile = () => {
-  const { session, loading } = useSupabaseAuth();
+  const { user, isAuthenticated, initialLoading } = useAuth(); // Mudança aqui
   const [view, setView] = useState("login");
   const { toast } = useToast();
   const location = useLocation();
@@ -33,8 +33,21 @@ const Profile = () => {
     }
   }, [location, toast, navigate]);
 
+  // Mostrar mensagem se veio de uma rota protegida
+  useEffect(() => {
+    if (location.state?.message) {
+      toast({
+        title: "Acesso Restrito",
+        description: location.state.message,
+        variant: "destructive",
+      });
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, toast, navigate]);
+
   const renderContent = () => {
-    if (session) {
+    if (isAuthenticated && user) {
+      // Mudança aqui
       return <ProfileView />;
     }
 
@@ -49,7 +62,17 @@ const Profile = () => {
     }
   };
 
-  if (loading) return null;
+  if (initialLoading) {
+    // Mudança aqui
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto"></div>
+          <p className="text-slate-400 mt-2">Carregando perfil...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -62,7 +85,7 @@ const Profile = () => {
       </Helmet>
       <motion.div
         className="max-w-md mx-auto"
-        key={session ? "profile-view" : view}
+        key={isAuthenticated ? "profile-view" : view} // Mudança aqui
         variants={containerVariants}
         initial="hidden"
         animate="visible"

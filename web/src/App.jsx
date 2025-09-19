@@ -44,13 +44,9 @@ import {
 } from "lucide-react";
 import { BoardThemeContext } from "./contexts/BoardThemeContext";
 import { UserContext } from "./contexts/UserContext";
-import {
-  SupabaseAuthProvider,
-  useSupabaseAuth,
-} from "./contexts/SupabaseAuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext"; // Nova importação
 import { CartProvider, useCart } from "./hooks/useCart";
 import { Button } from "./components/ui/button";
-import { supabase } from "./lib/supabaseClient";
 import { useTranslation } from "react-i18next";
 
 const LoadingScreen = () => (
@@ -96,60 +92,45 @@ const PaidRoute = ({ children }) => {
 const AppContent = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartItems } = useCart();
-  const { session, loading } = useSupabaseAuth();
+  const { user: authUser, initialLoading, isAuthenticated } = useAuth(); // Usando nova auth
   const { user, setUser: setUserContext } = useContext(UserContext);
   const { t } = useTranslation();
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Atualizar contexto do usuário baseado na nova autenticação
   useEffect(() => {
-    if (session?.user) {
-      const fetchProfile = async () => {
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-
-        if (profile) {
-          setUserContext((prevUser) => ({
-            ...prevUser,
-            id: session.user.id,
-            name:
-              profile.username || `Jogador-${session.user.id.substring(0, 4)}`,
-            balance: profile.balance || 0,
-            isRegistered: true,
-          }));
-        } else if (error) {
-          console.error("Error fetching profile: ", error.message);
-        }
-      };
-      fetchProfile();
+    if (isAuthenticated && authUser) {
+      setUserContext((prevUser) => ({
+        ...prevUser,
+        id: authUser.id,
+        name: authUser.name || `Jogador-${authUser.id.substring(0, 4)}`,
+        isPremium: authUser.role === "PREMIUM",
+        balance: prevUser.balance, // Manter balance local por enquanto
+        isRegistered: true,
+        email: authUser.email,
+        role: authUser.role,
+      }));
     } else {
       setUserContext((prevUser) => ({
         ...prevUser,
         id: null,
         name: "Convidado",
+        isPremium: false,
         isRegistered: false,
+        email: null,
+        role: "FREEMIUM",
       }));
     }
-  }, [session, setUserContext]);
+  }, [authUser, isAuthenticated, setUserContext]);
 
+  // Sistema de presença online (pode ser adaptado depois)
   useEffect(() => {
     if (user.id && user.isRegistered) {
       const updatePresence = async () => {
-        if (document.visibilityState === "visible") {
-          await supabase.from("players_online").upsert(
-            {
-              id: user.id,
-              username: user.name,
-              last_seen: new Date().toISOString(),
-              status: user.status || "online",
-              current_game_id: user.currentGameId || null,
-            },
-            { onConflict: "id" }
-          );
-        }
+        // Implementar sistema de presença com o novo backend
+        // Por enquanto apenas um log
+        console.log("User online:", user.name);
       };
 
       updatePresence();
@@ -177,7 +158,7 @@ const AppContent = () => {
         : "text-gray-400 hover:bg-slate-700/50 hover:text-white"
     }`;
 
-  if (loading) {
+  if (initialLoading) {
     return <LoadingScreen />;
   }
 
@@ -304,6 +285,8 @@ function App() {
     isRegistered: false,
     status: "offline",
     currentGameId: null,
+    email: null,
+    role: "FREEMIUM",
   });
 
   const boardContextValue = { boardTheme, setBoardTheme };
@@ -311,7 +294,9 @@ function App() {
 
   return (
     <Suspense fallback={<LoadingScreen />}>
-      <SupabaseAuthProvider>
+      <AuthProvider>
+        {" "}
+        {/* Novo provider */}
         <UserContext.Provider value={userContextValue}>
           <BoardThemeContext.Provider value={boardContextValue}>
             <CartProvider>
@@ -328,7 +313,7 @@ function App() {
             </CartProvider>
           </BoardThemeContext.Provider>
         </UserContext.Provider>
-      </SupabaseAuthProvider>
+      </AuthProvider>
     </Suspense>
   );
 }
