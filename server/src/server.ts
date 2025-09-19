@@ -14,28 +14,29 @@ const fastify = Fastify({
 
 const start = async () => {
   try {
-    // Registrar CORS primeiro
     await fastify.register(cors, {
       origin: [
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:3001",
+        "http://69.62.95.68",
+        "https://69.62.95.68",
+        "http://xadrezreal.com",
+        "https://xadrezreal.com",
+        "http://www.xadrezreal.com",
+        "https://www.xadrezreal.com",
       ],
       credentials: true,
     });
 
-    // Registrar plugins
     await fastify.register(jwt, {
       secret: process.env.JWT_SECRET || "fallback-secret-key",
     });
 
-    // Adicionar bcrypt ao contexto do Fastify
     fastify.decorate("bcrypt", bcrypt);
 
-    // Adicionar Prisma ao contexto do Fastify
     fastify.decorate("prisma", prisma);
 
-    // Adicionar hook para autenticação
     fastify.decorate("authenticate", async function (request: any, reply: any) {
       try {
         await request.jwtVerify();
@@ -44,16 +45,13 @@ const start = async () => {
       }
     });
 
-    // Registrar rotas
     await fastify.register(authRoutes, { prefix: "/auth" });
     await fastify.register(userRoutes, { prefix: "/users" });
 
-    // Rota de health check
     fastify.get("/health", async (request, reply) => {
       return { status: "OK", timestamp: new Date().toISOString() };
     });
 
-    // Hook para fechar conexão com o banco quando o servidor for finalizado
     fastify.addHook("onClose", async (instance) => {
       await prisma.$disconnect();
     });
