@@ -12,14 +12,64 @@ enum Role {
   PREMIUM
 }
 
+enum TournamentStatus {
+  WAITING
+  IN_PROGRESS
+  FINISHED
+}
+
+enum PrizeDistribution {
+  WINNER_TAKES_ALL
+  SPLIT_TOP_2
+  SPLIT_TOP_4
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String
   password  String
   role      Role     @default(FREEMIUM)
+  balance   Float    @default(0.0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relacionamentos com torneios
+  createdTournaments Tournament[] @relation("TournamentCreator")
+  participatingTournaments TournamentParticipant[]
+
   @@map("users")
+}
+
+model Tournament {
+  id                    String            @id @default(cuid())
+  name                  String
+  entryFee             Float             @default(0.0)
+  playerCount          Int
+  prizeDistribution    PrizeDistribution @default(SPLIT_TOP_2)
+  status               TournamentStatus  @default(WAITING)
+  startTime            DateTime
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  
+  // Relacionamentos
+  creatorId            String
+  creator              User              @relation("TournamentCreator", fields: [creatorId], references: [id])
+  participants         TournamentParticipant[]
+
+  @@map("tournaments")
+}
+
+model TournamentParticipant {
+  id           String @id @default(cuid())
+  tournamentId String
+  userId       String
+  joinedAt     DateTime @default(now())
+  
+  // Relacionamentos
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, userId])
+  @@map("tournament_participants")
 }
