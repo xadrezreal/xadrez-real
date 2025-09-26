@@ -10,6 +10,7 @@ import {
 } from "./ui/card";
 import { Trophy, Users, DollarSign, ArrowRight, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { tournamentService } from "../lib/tournamentService";
 
 const TournamentCard = ({ tournament }) => {
   const navigate = useNavigate();
@@ -51,6 +52,24 @@ const TournamentCard = ({ tournament }) => {
     }
   };
 
+  // FUNÇÃO DE DEBUG ADICIONADA
+  const handleViewTournament = async () => {
+    console.log("=== DEBUG TORNEIO ===");
+    console.log("Tournament ID:", tournament.id);
+    console.log("Tournament Object:", tournament);
+    console.log("Navigating to:", `/tournament/${tournament.id}`);
+
+    // Teste de busca do torneio antes de navegar
+    try {
+      const testResult = await tournamentService.getTournament(tournament.id);
+      console.log("✅ Torneio encontrado:", testResult);
+      navigate(`/tournament/${tournament.id}`);
+    } catch (error) {
+      console.error("❌ Erro ao buscar torneio:", error);
+      alert(`Erro ao acessar torneio: ${error.message}`);
+    }
+  };
+
   return (
     <motion.div variants={itemVariants}>
       <Card className="bg-slate-800/50 border-slate-700 text-white h-full flex flex-col justify-between hover:border-cyan-500/50 transition-colors">
@@ -62,6 +81,12 @@ const TournamentCard = ({ tournament }) => {
             <CardDescription>
               Criado por: {tournament.creator?.name || "Anônimo"}
             </CardDescription>
+            {/* DEBUG INFO ADICIONADO */}
+            <div className="text-xs text-slate-500 bg-slate-900/30 p-2 rounded">
+              <strong>ID:</strong> {tournament.id}
+              <br />
+              <strong>Status:</strong> {tournament.status}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {prizePool > 0 && (
@@ -111,7 +136,7 @@ const TournamentCard = ({ tournament }) => {
         <div className="p-4 pt-0">
           <Button
             className={`w-full text-white font-bold shadow-lg ${getStatusColor()}`}
-            onClick={() => navigate(`/tournament/${tournament.id}`)}
+            onClick={handleViewTournament} // FUNÇÃO ATUALIZADA
             disabled={isFull && tournament.status === "WAITING"}
           >
             {getStatusDisplay()}
@@ -134,20 +159,25 @@ const TournamentView = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_API_URL || "http://localhost:3000"
-        }/tournaments?status=waiting&limit=20`
+      console.log("=== FETCH TOURNAMENTS ===");
+      console.log(
+        "API URL:",
+        import.meta.env.VITE_API_URL || "http://localhost:3000"
+      );
+      console.log(
+        "Auth Token:",
+        localStorage.getItem("auth_token") ? "Presente" : "Ausente"
       );
 
-      if (!response.ok) {
-        throw new Error("Erro ao carregar torneios");
-      }
+      const data = await tournamentService.getActiveTournaments({
+        status: "waiting",
+        limit: 20,
+      });
 
-      const data = await response.json();
+      console.log("✅ Torneios recebidos:", data);
       setTournaments(data.tournaments || []);
     } catch (error) {
-      console.error("Erro ao buscar torneios:", error);
+      console.error("❌ Erro ao buscar torneios:", error);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -196,12 +226,36 @@ const TournamentView = () => {
           <p className="text-red-400 text-lg mb-4">
             Erro ao carregar torneios: {error}
           </p>
-          <Button
-            onClick={fetchTournaments}
-            className="bg-cyan-500 hover:bg-cyan-600"
-          >
-            Tentar Novamente
-          </Button>
+          <div className="space-y-4">
+            <Button
+              onClick={fetchTournaments}
+              className="bg-cyan-500 hover:bg-cyan-600"
+            >
+              Tentar Novamente
+            </Button>
+
+            {/* Debug info */}
+            <div className="bg-slate-900/50 p-4 rounded-lg text-left max-w-2xl mx-auto">
+              <h3 className="text-yellow-400 font-bold mb-2">
+                Informações de Debug:
+              </h3>
+              <div className="text-sm text-slate-300 space-y-1">
+                <div>
+                  <strong>API URL:</strong>{" "}
+                  {import.meta.env.VITE_API_URL || "http://localhost:3000"}
+                </div>
+                <div>
+                  <strong>Token:</strong>{" "}
+                  {localStorage.getItem("auth_token")
+                    ? "Presente"
+                    : "❌ Ausente"}
+                </div>
+                <div>
+                  <strong>Erro completo:</strong> {error}
+                </div>
+              </div>
+            </div>
+          </div>
         </motion.div>
       </div>
     );
@@ -265,11 +319,11 @@ const TournamentView = () => {
 
           <motion.div className="text-center mt-8" variants={itemVariants}>
             <Button
-              onClick={() => navigate("/tournaments")}
+              onClick={fetchTournaments}
               variant="outline"
               className="border-cyan-500 text-cyan-400 hover:bg-cyan-500 hover:text-white"
             >
-              Ver Todos os Torneios
+              Atualizar Lista
             </Button>
           </motion.div>
         </>

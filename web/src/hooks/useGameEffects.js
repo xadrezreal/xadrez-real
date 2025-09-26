@@ -1,6 +1,5 @@
 import { useEffect, useCallback, useRef } from "react";
 import { Chess } from "chess.js";
-import { supabase } from "../lib/supabaseClient";
 import { getBotMove as getAdvancedBotMove } from "../lib/chessLogic";
 
 export const useGameEffects = ({
@@ -29,10 +28,8 @@ export const useGameEffects = ({
   makeMove,
   setMessages,
 }) => {
-  const gameChannelRef = useRef(null);
-  const movesChannelRef = useRef(null);
-  const messageChannelRef = useRef(null);
   const isGameActive = gameStatus === "playing";
+  const gameInitialized = useRef(false);
 
   const getBotMove = useCallback(() => {
     const move = getAdvancedBotMove(game.fen(), game.turn(), botLevel);
@@ -41,7 +38,6 @@ export const useGameEffects = ({
     }
   }, [game, botLevel, makeMove]);
 
-  // Bot game setup
   useEffect(() => {
     if (gameType === "bot") {
       const newGame = new Chess();
@@ -52,6 +48,7 @@ export const useGameEffects = ({
       setBlackTime(timeControl);
       setIsGameLoading(false);
       setGameStatus("playing");
+      gameInitialized.current = true;
     }
   }, [
     gameType,
@@ -64,7 +61,6 @@ export const useGameEffects = ({
     setGameStatus,
   ]);
 
-  // Bot move logic
   useEffect(() => {
     if (gameType === "bot" && !isPlayerTurn && gameStatus === "playing") {
       const botMoveTimeout = setTimeout(() => getBotMove(), 500);
@@ -72,183 +68,96 @@ export const useGameEffects = ({
     }
   }, [isPlayerTurn, gameStatus, gameType, getBotMove]);
 
-  // Online game fetching
   useEffect(() => {
-    if (gameType === "bot" || !gameId) return;
+    if (gameType === "bot" || !gameId || !user?.id || gameInitialized.current)
+      return;
 
-    const fetchGame = async () => {
-      if (!user.id) {
-        setTimeout(fetchGame, 100);
-        return;
-      }
+    console.log(
+      "INICIALIZANDO JOGO - gameInitialized:",
+      gameInitialized.current
+    );
 
-      setIsGameLoading(true);
-      const { data, error } = await supabase
-        .from("games")
-        .select("*")
-        .eq("game_id_text", gameId)
-        .single();
+    let isMounted = true;
 
-      if (error || !data) {
-        toast({
-          title: "Erro ao carregar o jogo",
-          description: "Jogo não encontrado.",
-          variant: "destructive",
-        });
-        navigate("/");
-        setIsGameLoading(false);
-        return;
-      }
+    const initializeGame = () => {
+      if (!isMounted || gameInitialized.current) return;
 
-      // For waiting games, only the white player should be able to access it initially
-      if (data.status === "waiting" && data.white_player_id !== user.id) {
-        // This is the black player joining. Update the game.
-        const { data: updatedGame, error: updateError } = await supabase
-          .from("games")
-          .update({
-            black_player_id: user.id,
-            black_player_name: user.name,
-            black_player_country: user.country,
-            status: "playing",
-          })
-          .eq("game_id_text", gameId)
-          .select()
-          .single();
+      if (gameId.includes("tournament-")) {
+        const existingPlayerData = localStorage.getItem(
+          `tournament_player_${gameId}`
+        );
+        let isWhitePlayer;
 
-        if (updateError) {
-          toast({
-            title: "Erro ao entrar no jogo",
-            description: updateError.message,
-            variant: "destructive",
-          });
-          navigate("/");
-          return;
+        if (existingPlayerData) {
+          const playerData = JSON.parse(existingPlayerData);
+          isWhitePlayer = playerData.color === "white";
+        } else {
+          const gameIdNumber = parseInt(gameId.split("-")[1]) || 0;
+          const userIdHash = user.id
+            .split("")
+            .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+          isWhitePlayer = (gameIdNumber + userIdHash) % 2 === 0;
+
+          localStorage.setItem(
+            `tournament_player_${gameId}`,
+            JSON.stringify({
+              userId: user.id,
+              color: isWhitePlayer ? "white" : "black",
+              sessionKey: Date.now(),
+            })
+          );
         }
-        processGameData(updatedGame);
-      } else {
-        const isPlayerInGame =
-          data.white_player_id === user.id || data.black_player_id === user.id;
-        if (!isPlayerInGame && data.status !== "waiting") {
-          toast({
-            title: "Acesso Negado",
-            description: "Você não faz parte desta partida.",
-            variant: "destructive",
-          });
-          navigate("/");
+
+        const opponentId = `opponent_${gameId}_${
+          isWhitePlayer ? "black" : "white"
+        }`;
+
+        const tournamentGameData = {
+          game_id_text: gameId,
+          status: "playing",
+          fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          white_time: 600,
+          black_time: 600,
+          white_player_id: isWhitePlayer ? user.id : opponentId,
+          white_player_name: isWhitePlayer ? user.name : "Jogador Branco",
+          white_player_country: isWhitePlayer ? user.country : null,
+          black_player_id: isWhitePlayer ? opponentId : user.id,
+          black_player_name: isWhitePlayer ? "Jogador Preto" : user.name,
+          black_player_country: isWhitePlayer ? null : user.country,
+          tournament_id: gameId.split("-")[1],
+          last_move: null,
+          winner_id: null,
+        };
+
+        console.log("PROCESSANDO DADOS DO JOGO - PRIMEIRA VEZ");
+        if (isMounted) {
+          processGameData(tournamentGameData);
           setIsGameLoading(false);
-          return;
+          gameInitialized.current = true;
         }
-        processGameData(data);
+        return;
       }
-      setIsGameLoading(false);
+
+      if (isMounted) {
+        setIsGameLoading(false);
+        gameInitialized.current = true;
+      }
     };
 
-    fetchGame();
-  }, [
-    gameId,
-    gameType,
-    user.id,
-    user.name,
-    user.country,
-    navigate,
-    toast,
-    processGameData,
-    setIsGameLoading,
-  ]);
-
-  // Realtime subscriptions
-  useEffect(() => {
-    if (gameType === "bot" || !gameId) return;
-
-    // Cleanup previous channels
-    if (gameChannelRef.current) supabase.removeChannel(gameChannelRef.current);
-    if (messageChannelRef.current)
-      supabase.removeChannel(messageChannelRef.current);
-    if (movesChannelRef.current)
-      supabase.removeChannel(movesChannelRef.current);
-
-    const gameChannel = supabase
-      .channel(`game-state:${gameId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "games",
-          filter: `game_id_text=eq.${gameId}`,
-        },
-        (payload) => {
-          processGameData(payload.new);
-        }
-      )
-      .subscribe();
-    gameChannelRef.current = gameChannel;
-
-    const movesChannel = supabase
-      .channel(`game-moves:${gameId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "partidas",
-          filter: `game_id_text=eq.${gameId}`,
-        },
-        (payload) => {
-          if (payload.new.player_id !== user.id) {
-            makeMove(payload.new.move, true);
-          }
-        }
-      )
-      .subscribe();
-    movesChannelRef.current = movesChannel;
-
-    const messageChannel = supabase
-      .channel(`game-chat:${gameId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "game_messages",
-          filter: `game_id=eq.${gameId}`,
-        },
-        (payload) => {
-          setMessages((currentMessages) => [...currentMessages, payload.new]);
-        }
-      )
-      .subscribe();
-    messageChannelRef.current = messageChannel;
-
-    const fetchMessages = async () => {
-      const { data } = await supabase
-        .from("game_messages")
-        .select("*")
-        .eq("game_id", gameId)
-        .order("created_at", { ascending: true });
-      if (data) setMessages(data);
-    };
-    fetchMessages();
+    const timeoutId = setTimeout(initializeGame, 50);
 
     return () => {
-      if (gameChannelRef.current)
-        supabase.removeChannel(gameChannelRef.current);
-      if (messageChannelRef.current)
-        supabase.removeChannel(messageChannelRef.current);
-      if (movesChannelRef.current)
-        supabase.removeChannel(movesChannelRef.current);
+      isMounted = false;
+      clearTimeout(timeoutId);
     };
-  }, [
-    gameId,
-    gameType,
-    user.id,
-    processGameData,
-    setMessages,
-    makeMove,
-    gameData,
-  ]);
+  }, [gameId, gameType, user?.id]);
 
-  // Game timer logic
+  useEffect(() => {
+    return () => {
+      gameInitialized.current = false;
+    };
+  }, [gameId]);
+
   useEffect(() => {
     if (!isGameActive || whiteTime === null || blackTime === null) return;
 

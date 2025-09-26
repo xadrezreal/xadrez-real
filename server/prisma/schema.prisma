@@ -34,7 +34,6 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relacionamentos com torneios
   createdTournaments Tournament[] @relation("TournamentCreator")
   participatingTournaments TournamentParticipant[]
 
@@ -52,7 +51,6 @@ model Tournament {
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
   
-  // Relacionamentos
   creatorId            String
   creator              User              @relation("TournamentCreator", fields: [creatorId], references: [id])
   participants         TournamentParticipant[]
@@ -66,10 +64,19 @@ model TournamentParticipant {
   userId       String
   joinedAt     DateTime @default(now())
   
-  // Relacionamentos
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tournamentId, userId])
   @@map("tournament_participants")
+}
+
+model GameState {
+  id        String   @id @default(cuid())
+  gameId    String   @unique
+  state     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("game_states")
 }

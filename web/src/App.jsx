@@ -13,6 +13,7 @@ import Home from "./components/Home";
 import Profile from "./components/Profile";
 import ChessGame from "./components/ChessGame";
 import TournamentView from "./components/TournamentView";
+import TournamentMatch from "./components/TournamentMatch";
 import Wallet from "./components/Wallet";
 import PlayWithBot from "./components/PlayWithBot";
 import Premium from "./components/Premium";
@@ -44,7 +45,7 @@ import {
 } from "lucide-react";
 import { BoardThemeContext } from "./contexts/BoardThemeContext";
 import { UserContext } from "./contexts/UserContext";
-import { AuthProvider, useAuth } from "./contexts/AuthContext"; // Nova importação
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CartProvider, useCart } from "./hooks/useCart";
 import { Button } from "./components/ui/button";
 import { useTranslation } from "react-i18next";
@@ -70,7 +71,6 @@ const PaidRoute = ({ children }) => {
         balance: prevUser.balance - wager,
       }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wager]);
 
   if (wager && user.balance < wager) {
@@ -92,13 +92,12 @@ const PaidRoute = ({ children }) => {
 const AppContent = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { cartItems } = useCart();
-  const { user: authUser, initialLoading, isAuthenticated } = useAuth(); // Usando nova auth
+  const { user: authUser, initialLoading, isAuthenticated } = useAuth();
   const { user, setUser: setUserContext } = useContext(UserContext);
   const { t } = useTranslation();
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Atualizar contexto do usuário baseado na nova autenticação
   useEffect(() => {
     if (isAuthenticated && authUser) {
       setUserContext((prevUser) => ({
@@ -106,7 +105,7 @@ const AppContent = () => {
         id: authUser.id,
         name: authUser.name || `Jogador-${authUser.id.substring(0, 4)}`,
         isPremium: authUser.role === "PREMIUM",
-        balance: prevUser.balance, // Manter balance local por enquanto
+        balance: prevUser.balance,
         isRegistered: true,
         email: authUser.email,
         role: authUser.role,
@@ -124,12 +123,9 @@ const AppContent = () => {
     }
   }, [authUser, isAuthenticated, setUserContext]);
 
-  // Sistema de presença online (pode ser adaptado depois)
   useEffect(() => {
     if (user.id && user.isRegistered) {
       const updatePresence = async () => {
-        // Implementar sistema de presença com o novo backend
-        // Por enquanto apenas um log
         console.log("User online:", user.name);
       };
 
@@ -257,6 +253,10 @@ const AppContent = () => {
               path="/tournament/:id/bracket"
               element={<TournamentBracket />}
             />
+            <Route
+              path="/tournament/:tournamentId/match/:matchId"
+              element={<TournamentMatch />}
+            />
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/deposit" element={<Deposit />} />
             <Route path="/premium" element={<Premium />} />
@@ -295,8 +295,6 @@ function App() {
   return (
     <Suspense fallback={<LoadingScreen />}>
       <AuthProvider>
-        {" "}
-        {/* Novo provider */}
         <UserContext.Provider value={userContextValue}>
           <BoardThemeContext.Provider value={boardContextValue}>
             <CartProvider>

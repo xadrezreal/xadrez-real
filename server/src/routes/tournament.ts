@@ -5,7 +5,7 @@ import "../types/fastify";
 const createTournamentSchema = z.object({
   name: z.string().min(3).max(100),
   entryFee: z.number().min(0).max(10000),
-  playerCount: z.number().int().min(4).max(8192),
+  playerCount: z.number().int().min(2).max(8192),
   prizeDistribution: z.enum(["WINNER_TAKES_ALL", "SPLIT_TOP_2", "SPLIT_TOP_4"]),
   startTime: z.string().datetime(),
 });
@@ -91,7 +91,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         if (error instanceof z.ZodError) {
           return reply.status(400).send({
             error: "Dados inválidos",
-            details: error.errors,
+            details: error,
           });
         }
 

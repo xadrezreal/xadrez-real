@@ -1,12 +1,17 @@
 import { PrismaClient } from "@prisma/client";
-import { FastifyRequest } from "fastify";
+import { FastifyRequest, FastifyReply } from "fastify";
 import bcrypt from "bcryptjs";
+import { WebSocketManager } from "../websocket/webSocketManager";
 
 declare module "fastify" {
   interface FastifyInstance {
     prisma: PrismaClient;
     bcrypt: typeof bcrypt;
-    authenticate: (request: FastifyRequest, reply: any) => Promise<void>;
+    wsManager: WebSocketManager;
+    authenticate: (
+      request: FastifyRequest,
+      reply: FastifyReply
+    ) => Promise<void>;
   }
 }
 

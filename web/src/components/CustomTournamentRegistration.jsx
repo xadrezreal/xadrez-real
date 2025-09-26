@@ -23,7 +23,7 @@ import {
   Percent,
 } from "lucide-react";
 import { UserContext } from "../contexts/UserContext";
-import { supabase } from "../lib/supabaseClient";
+import { tournamentService } from "../lib/tournamentService";
 
 const CustomTournamentRegistration = () => {
   const { id } = useParams();
@@ -32,115 +32,122 @@ const CustomTournamentRegistration = () => {
   const [tournament, setTournament] = useState(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { user, setUser } = useContext(UserContext);
 
-  const isRegistered = tournament?.registered_players?.some(
-    (p) => p.id === user.id
+  // Verifica se usuário está registrado no torneio
+  const isRegistered = tournament?.participants?.some(
+    (participant) => participant.user.id === user.id
   );
 
   useEffect(() => {
-    const fetchTournament = async () => {
-      const { data, error } = await supabase
-        .from("tournaments")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (error || !data) {
-        toast({ title: "Torneio não encontrado", variant: "destructive" });
-        navigate("/tournament");
-      } else {
-        setTournament(data);
-        if (
-          data.status === "registering" &&
-          data.registered_players.length >= data.player_count
-        ) {
-          await supabase.rpc("generate_tournament_bracket", {
-            p_tournament_id: id,
-          });
-        }
-        if (data.status === "active" && data.bracket) {
-          navigate(`/tournament/${id}/bracket`);
-        }
-      }
-      setLoading(false);
-    };
-
     fetchTournament();
+  }, [id]);
 
-    const channel = supabase
-      .channel(`public:tournaments:id=eq.${id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "tournaments",
-          filter: `id=eq.${id}`,
-        },
-        (payload) => {
-          setTournament(payload.new);
-          if (payload.new.status === "active") {
-            navigate(`/tournament/${id}/bracket`);
-          }
-        }
-      )
-      .subscribe();
+  const fetchTournament = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [id, navigate, toast]);
+      console.log("=== FETCHING TOURNAMENT REGISTRATION ===");
+      console.log("Tournament ID:", id);
+
+      const data = await tournamentService.getTournament(id);
+      console.log("Tournament data received:", data);
+
+      setTournament(data.tournament);
+
+      // Se torneio já começou, redireciona para bracket
+      if (data.tournament.status === "IN_PROGRESS") {
+        navigate(`/tournament/${id}/bracket`);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar torneio:", error);
+      setError(error.message);
+
+      toast({
+        title: "Torneio não encontrado",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleRegister = async () => {
     if (isRegistered || !tournament) return;
 
-    const fee = parseFloat(tournament.entry_fee);
+    const fee = parseFloat(tournament.entryFee || 0);
+
     if (fee > 0 && user.balance < fee) {
-      toast({ title: "Saldo Insuficiente", variant: "destructive" });
+      toast({
+        title: "Saldo Insuficiente",
+        description: `Você precisa de R$ ${fee.toFixed(2)} para participar`,
+        variant: "destructive",
+      });
+      navigate("/wallet");
       return;
     }
 
-    const newPlayer = { id: user.id, name: user.name };
-    const updatedRegisteredPlayers = [
-      ...tournament.registered_players,
-      newPlayer,
-    ];
+    try {
+      const result = await tournamentService.joinTournament(id);
 
-    const { data: updatedTournament, error } = await supabase
-      .from("tournaments")
-      .update({ registered_players: updatedRegisteredPlayers })
-      .eq("id", id)
-      .select()
-      .single();
+      toast({
+        title: "Inscrição realizada!",
+        description: result.message,
+        variant: "default",
+      });
 
-    if (error) {
+      // Atualiza saldo local se houve cobrança
+      if (fee > 0) {
+        setUser((prev) => ({
+          ...prev,
+          balance: prev.balance - fee,
+        }));
+      }
+
+      // Recarrega dados do torneio
+      fetchTournament();
+    } catch (error) {
+      console.error("Erro ao se inscrever:", error);
       toast({
         title: "Erro ao se inscrever",
         description: error.message,
         variant: "destructive",
       });
-      return;
     }
+  };
 
-    if (fee > 0) {
-      const { data: newBalance, error: balanceError } = await supabase.rpc(
-        "update_balance",
-        { amount_to_add: -fee, p_user_id: user.id }
-      );
-      if (!balanceError) {
-        setUser((prev) => ({ ...prev, balance: newBalance }));
+  const handleLeave = async () => {
+    if (!isRegistered || !tournament) return;
+
+    try {
+      const result = await tournamentService.leaveTournament(id);
+
+      toast({
+        title: "Você saiu do torneio",
+        description: result.message,
+        variant: "default",
+      });
+
+      // Reembolsa taxa se houver
+      const fee = parseFloat(tournament.entryFee || 0);
+      if (fee > 0) {
+        setUser((prev) => ({
+          ...prev,
+          balance: prev.balance + fee,
+        }));
       }
-    }
 
-    toast({ title: "Inscrição realizada!", variant: "success" });
-
-    if (
-      updatedTournament.registered_players.length >=
-      updatedTournament.player_count
-    ) {
-      await supabase.rpc("generate_tournament_bracket", {
-        p_tournament_id: id,
+      // Recarrega dados do torneio
+      fetchTournament();
+    } catch (error) {
+      console.error("Erro ao sair do torneio:", error);
+      toast({
+        title: "Erro ao sair do torneio",
+        description: error.message,
+        variant: "destructive",
       });
     }
   };
@@ -152,21 +159,117 @@ const CustomTournamentRegistration = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (loading || !tournament) {
-    return <div className="text-center text-lg p-8">Carregando torneio...</div>;
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto p-4">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto"></div>
+          <p className="text-slate-400 mt-4">Carregando torneio...</p>
+        </div>
+      </div>
+    );
   }
 
+  if (error) {
+    return (
+      <div className="max-w-2xl mx-auto p-4">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/tournament")}
+          className="mb-4"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Voltar para Torneios
+        </Button>
+
+        <Card className="bg-slate-800/50 border-red-500">
+          <CardHeader>
+            <CardTitle className="text-red-400">
+              Erro ao carregar torneio
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-white">{error}</p>
+
+              <div className="bg-slate-900/50 p-4 rounded-lg">
+                <h3 className="text-yellow-400 font-bold mb-2">Debug Info:</h3>
+                <div className="text-sm text-slate-300 space-y-1">
+                  <div>
+                    <strong>Tournament ID:</strong> {id}
+                  </div>
+                  <div>
+                    <strong>User ID:</strong> {user.id || "Não logado"}
+                  </div>
+                  <div>
+                    <strong>Auth Token:</strong>{" "}
+                    {localStorage.getItem("auth_token")
+                      ? "Presente"
+                      : "❌ Ausente"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={() => navigate("/tournament")}
+                  variant="outline"
+                >
+                  Voltar aos Torneios
+                </Button>
+                <Button
+                  onClick={fetchTournament}
+                  className="bg-cyan-500 hover:bg-cyan-600"
+                >
+                  Tentar Novamente
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!tournament) {
+    return (
+      <div className="max-w-2xl mx-auto p-4">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/tournament")}
+          className="mb-4"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Voltar para Torneios
+        </Button>
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardContent className="p-8 text-center">
+            <p className="text-slate-400">Torneio não encontrado</p>
+            <Button onClick={() => navigate("/tournament")} className="mt-4">
+              Voltar aos Torneios
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const participantCount =
+    tournament._count?.participants || tournament.participants?.length || 0;
   const totalPrizePool = (
-    parseFloat(tournament.entry_fee) *
-    tournament.player_count *
+    parseFloat(tournament.entryFee || 0) *
+    participantCount *
     0.8
   ).toFixed(2);
-  const isFull =
-    tournament.registered_players.length >= tournament.player_count;
-  const startTime = new Date(tournament.start_time);
+  const isFull = participantCount >= tournament.playerCount;
+  const startTime = new Date(tournament.startTime);
 
   const getPrizeText = (type) => {
     const prizes = {
+      WINNER_TAKES_ALL: "Campeão leva tudo (100%)",
+      SPLIT_TOP_2: "Top 2: 60% / 40%",
+      SPLIT_TOP_4: "Top 4: 40% / 30% / 20% / 10%",
+      // Compatibilidade com formato antigo
       winner_takes_all: "Campeão leva tudo (100%)",
       split_top_2: "Top 2: 60% / 40%",
       split_top_4: "Top 4: 40% / 30% / 20% / 10%",
@@ -188,6 +291,7 @@ const CustomTournamentRegistration = () => {
         <ArrowLeft className="w-4 h-4 mr-2" />
         Voltar para Torneios
       </Button>
+
       <Card className="bg-slate-800/50 border-slate-700 text-white">
         <CardHeader className="text-center">
           <Trophy className="mx-auto h-12 w-12 text-yellow-400" />
@@ -197,11 +301,26 @@ const CustomTournamentRegistration = () => {
           <CardDescription className="text-slate-400">
             Criado por:{" "}
             <span className="font-bold text-cyan-400">
-              {tournament.creator_name}
+              {tournament.creator?.name || "Criador"}
             </span>
           </CardDescription>
         </CardHeader>
+
         <CardContent className="space-y-6">
+          {/* Status do torneio */}
+          <div className="text-center p-3 bg-slate-900/50 rounded-lg">
+            <p className="text-sm text-slate-400">Status</p>
+            <p className="text-lg font-bold text-cyan-400">
+              {tournament.status === "WAITING"
+                ? "Aguardando Jogadores"
+                : tournament.status === "IN_PROGRESS"
+                ? "Em Andamento"
+                : tournament.status === "FINISHED"
+                ? "Finalizado"
+                : tournament.status}
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-4 text-center">
             <div className="p-4 bg-slate-900/50 rounded-lg">
               <p className="text-sm text-slate-400 flex items-center justify-center gap-1">
@@ -209,9 +328,9 @@ const CustomTournamentRegistration = () => {
                 Entrada
               </p>
               <p className="text-xl font-bold">
-                {parseFloat(tournament.entry_fee) === 0
+                {parseFloat(tournament.entryFee || 0) === 0
                   ? "Grátis"
-                  : `R$ ${parseFloat(tournament.entry_fee).toFixed(2)}`}
+                  : `R$ ${parseFloat(tournament.entryFee).toFixed(2)}`}
               </p>
             </div>
             <div className="p-4 bg-slate-900/50 rounded-lg">
@@ -220,8 +339,7 @@ const CustomTournamentRegistration = () => {
                 Jogadores
               </p>
               <p className="text-xl font-bold">
-                {tournament.registered_players.length} /{" "}
-                {tournament.player_count}
+                {participantCount} / {tournament.playerCount}
               </p>
             </div>
             <div className="p-4 bg-slate-900/50 rounded-lg">
@@ -229,7 +347,7 @@ const CustomTournamentRegistration = () => {
                 <Calendar className="w-4 h-4" /> Data
               </p>
               <p className="text-lg font-bold">
-                {startTime.toLocaleDateString()}
+                {startTime.toLocaleDateString("pt-BR")}
               </p>
             </div>
             <div className="p-4 bg-slate-900/50 rounded-lg">
@@ -237,13 +355,14 @@ const CustomTournamentRegistration = () => {
                 <Clock className="w-4 h-4" /> Horário
               </p>
               <p className="text-lg font-bold">
-                {startTime.toLocaleTimeString([], {
+                {startTime.toLocaleTimeString("pt-BR", {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
               </p>
             </div>
           </div>
+
           <div className="p-4 bg-slate-900/50 rounded-lg text-center space-y-2">
             <div>
               <p className="text-sm text-slate-400">Prêmio Total Estimado</p>
@@ -257,42 +376,83 @@ const CustomTournamentRegistration = () => {
                 Distribuição
               </p>
               <p className="text-md font-semibold">
-                {getPrizeText(tournament.prize_distribution_type)}
+                {getPrizeText(tournament.prizeDistribution)}
               </p>
             </div>
           </div>
 
+          {/* Lista de participantes */}
+          {tournament.participants && tournament.participants.length > 0 && (
+            <div className="p-4 bg-slate-900/50 rounded-lg">
+              <h3 className="text-white font-bold mb-2">
+                Participantes ({participantCount})
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                {tournament.participants.map((participant, index) => (
+                  <div
+                    key={participant.user.id}
+                    className={`p-2 rounded flex items-center gap-2 ${
+                      participant.user.id === user.id
+                        ? "bg-cyan-500/20"
+                        : "bg-slate-700/50"
+                    }`}
+                  >
+                    <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                      {index + 1}
+                    </div>
+                    <span className="text-sm">{participant.user.name}</span>
+                    {participant.user.id === user.id && (
+                      <span className="text-xs text-cyan-400 ml-auto">
+                        (Você)
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Botões de ação */}
           <div className="flex flex-col sm:flex-row gap-4">
-            {tournament.status === "registering" && !isFull && (
+            {tournament.status === "WAITING" && !isFull && !isRegistered && (
               <Button
-                className="w-full text-lg bg-gradient-to-r from-green-500 to-cyan-500 shadow-lg"
+                className="w-full text-lg bg-gradient-to-r from-green-500 to-cyan-500 shadow-lg hover:from-green-600 hover:to-cyan-600"
                 onClick={handleRegister}
-                disabled={isRegistered}
               >
-                {isRegistered ? (
-                  <>
-                    <Check className="mr-2" />
-                    Inscrito
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="mr-2" />
-                    Inscrever-se
-                  </>
-                )}
+                <LogIn className="mr-2" />
+                Inscrever-se
               </Button>
             )}
-            {tournament.status === "active" && (
+
+            {tournament.status === "WAITING" && isRegistered && (
               <Button
+                variant="destructive"
                 className="w-full text-lg"
+                onClick={handleLeave}
+              >
+                Sair do Torneio
+              </Button>
+            )}
+
+            {isRegistered && (
+              <div className="w-full p-3 bg-green-500/20 border border-green-500 rounded-lg text-center">
+                <Check className="mx-auto w-6 h-6 text-green-400 mb-1" />
+                <p className="text-green-400 font-bold">Você está inscrito!</p>
+              </div>
+            )}
+
+            {tournament.status === "IN_PROGRESS" && (
+              <Button
+                className="w-full text-lg bg-gradient-to-r from-orange-500 to-red-500"
                 onClick={() => navigate(`/tournament/${id}/bracket`)}
               >
                 Ver Chaveamento
               </Button>
             )}
+
             <Button
               variant="outline"
-              className="w-full text-lg"
+              className="w-full text-lg border-slate-600 hover:bg-slate-700"
               onClick={shareLink}
             >
               {copied ? (

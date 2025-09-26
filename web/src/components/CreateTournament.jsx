@@ -42,6 +42,26 @@ const CreateTournament = () => {
   const navigate = useNavigate();
   const { user, setUser } = useContext(UserContext);
 
+  const getDefaultDateTime = () => {
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    const defaultDate = tomorrow.toISOString().split("T")[0];
+    const defaultTime = `${(tomorrow.getHours() + 1)
+      .toString()
+      .padStart(2, "0")}:00`;
+
+    return { defaultDate, defaultTime };
+  };
+
+  React.useEffect(() => {
+    if (!startDate || !startTime) {
+      const { defaultDate, defaultTime } = getDefaultDateTime();
+      if (!startDate) setStartDate(defaultDate);
+      if (!startTime) setStartTime(defaultTime);
+    }
+  }, [startDate, startTime]);
+
   const handleCreateTournament = async (e) => {
     e.preventDefault();
     if (!tournamentName || !startDate || !startTime) {
@@ -53,11 +73,24 @@ const CreateTournament = () => {
       return;
     }
 
-    const startDateTime = new Date(`${startDate}T${startTime}`);
-    if (startDateTime <= new Date()) {
+    const [year, month, day] = startDate.split("-");
+    const [hours, minutes] = startTime.split(":");
+
+    const startDateTime = new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      parseInt(hours),
+      parseInt(minutes)
+    );
+
+    const now = new Date();
+    const minStartTime = new Date(now.getTime() + 30 * 60 * 1000);
+
+    if (startDateTime <= minStartTime) {
       toast({
         title: "Data inválida",
-        description: "A data e hora de início devem ser no futuro.",
+        description: "O torneio deve começar pelo menos 30 minutos no futuro.",
         variant: "destructive",
       });
       return;
@@ -124,7 +157,7 @@ const CreateTournament = () => {
 
       toast({
         title: "Torneio Criado com Sucesso!",
-        description: "Você foi automaticamente inscrito. Compartilhe o link!",
+        description: `Início: ${startDateTime.toLocaleString("pt-BR")}`,
         variant: "success",
       });
 
@@ -152,6 +185,30 @@ const CreateTournament = () => {
   };
 
   const prizePool = (parseFloat(entryFee) * playerCount * 0.8).toFixed(2);
+
+  const previewDateTime = () => {
+    if (!startDate || !startTime) return null;
+
+    const [year, month, day] = startDate.split("-");
+    const [hours, minutes] = startTime.split(":");
+
+    const previewDate = new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day),
+      parseInt(hours),
+      parseInt(minutes)
+    );
+
+    return previewDate.toLocaleString("pt-BR", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   return (
     <motion.div
@@ -200,6 +257,7 @@ const CreateTournament = () => {
                   onChange={(e) => setStartDate(e.target.value)}
                   className="bg-slate-900/50 border-slate-700"
                   disabled={isLoading}
+                  min={new Date().toISOString().split("T")[0]}
                 />
               </div>
               <div className="space-y-2">
@@ -216,6 +274,19 @@ const CreateTournament = () => {
                 />
               </div>
             </motion.div>
+
+            {startDate && startTime && (
+              <motion.div
+                variants={itemVariants}
+                className="text-sm text-slate-400 p-3 bg-slate-900/30 rounded-md"
+              >
+                <Info className="inline w-4 h-4 mr-1 text-cyan-400" />
+                Início previsto:{" "}
+                <span className="font-bold text-cyan-400">
+                  {previewDateTime()}
+                </span>
+              </motion.div>
+            )}
 
             <motion.div variants={itemVariants} className="space-y-2">
               <Label>

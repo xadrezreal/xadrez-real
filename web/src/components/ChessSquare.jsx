@@ -1,125 +1,127 @@
-import React from "react";
-import { useDrop, useDrag } from "react-dnd";
+import React, { useMemo, useCallback } from "react";
+import { useDrag, useDrop } from "react-dnd";
 import { motion } from "framer-motion";
 import ChessPiece from "./ChessPiece";
-import { isMobile } from "react-device-detect";
 
-const themes = {
-  classic: {
-    light: "bg-[#D2B48C]",
-    dark: "bg-[#8B4513]",
-  },
-  modern: {
-    light: "bg-beige-200", // beige
-    dark: "bg-green-700", // green
-  },
-  ocean: {
-    light: "bg-[#B0E0E6]",
-    dark: "bg-[#4682B4]",
-  },
-  stone: {
-    light: "bg-slate-300",
-    dark: "bg-slate-600",
-  },
-  wood3d: {
-    light: "bg-[#D2B48C]",
-    dark: "bg-[#8B4513]",
-  },
-};
+const ChessSquare = React.memo(
+  ({
+    piece,
+    square,
+    isLight,
+    isKingInCheck,
+    isSelected,
+    isPossibleMove,
+    isLastMove,
+    onMove,
+    onSquareClick,
+    theme,
+    isPlayerTurn,
+    isDraggingPiece,
+    isConnected = true,
+    gameType = "online",
+  }) => {
+    const canDrag = useMemo(() => {
+      return piece && isPlayerTurn && (gameType === "bot" || isConnected);
+    }, [piece, isPlayerTurn, gameType, isConnected]);
 
-const ChessSquare = ({
-  piece,
-  square,
-  isLight,
-  isKingInCheck,
-  isSelected,
-  isPossibleMove,
-  isLastMove,
-  onMove,
-  onSquareClick,
-  theme,
-  isPlayerTurn,
-  isDraggingPiece,
-}) => {
-  const [{ isOver }, drop] = useDrop(
-    () => ({
-      accept: "chessPiece",
-      drop: (item) => onMove(item.square, square),
+    const dragItem = useMemo(() => {
+      return piece ? { piece, square } : null;
+    }, [piece, square]);
+
+    const [{ isDragging }, drag] = useDrag({
+      type: "piece",
+      item: dragItem,
+      canDrag: () => canDrag,
       collect: (monitor) => ({
-        isOver: !!monitor.isOver(),
+        isDragging: monitor.isDragging(),
       }),
-    }),
-    [square, onMove]
-  );
+    });
 
-  const [{ isDragging }, drag] = useDrag(
-    () => ({
-      type: "chessPiece",
-      item: { piece, square },
-      canDrag: () => isPlayerTurn && piece,
+    const handleDrop = useCallback(
+      (item) => {
+        if (!isConnected && gameType !== "bot") {
+          return { moved: false };
+        }
+        const result = onMove(item.square, square);
+        return { moved: result };
+      },
+      [onMove, square, isConnected, gameType]
+    );
+
+    const [{ isOver }, drop] = useDrop({
+      accept: "piece",
+      drop: handleDrop,
       collect: (monitor) => ({
-        isDragging: !!monitor.isDragging(),
+        isOver: monitor.isOver(),
       }),
-    }),
-    [piece, square, isPlayerTurn]
-  );
+    });
 
-  const selectedTheme = themes[theme] || themes.modern;
-  const is3D = theme.includes("3d");
+    const handleClick = useCallback(() => {
+      if (!isConnected && gameType !== "bot") return;
+      onSquareClick(square);
+    }, [onSquareClick, square, isConnected, gameType]);
 
-  const getSquareColor = () => {
-    if (isOver) return "bg-yellow-400/60";
-    if (isKingInCheck) return "bg-red-500/70";
-    if (isLastMove) return "bg-yellow-500/50";
-    if (isLight) return selectedTheme.light;
-    return selectedTheme.dark;
-  };
+    const squareColor = useMemo(() => {
+      if (isKingInCheck) return "bg-red-500/60";
+      if (isSelected) return "bg-blue-500/60";
+      if (isLastMove) return "bg-yellow-500/40";
+      if (isOver) return "bg-green-500/40";
 
-  const handleClick = () => {
-    onSquareClick(square);
-  };
+      switch (theme) {
+        case "classic":
+          return isLight ? "bg-amber-100" : "bg-amber-800";
+        case "ocean":
+          return isLight ? "bg-sky-200" : "bg-blue-800";
+        case "forest":
+          return isLight ? "bg-green-200" : "bg-green-800";
+        case "sunset":
+          return isLight ? "bg-orange-200" : "bg-red-800";
+        case "midnight":
+          return isLight ? "bg-slate-600" : "bg-slate-900";
+        default:
+          return isLight ? "bg-amber-100" : "bg-amber-800";
+      }
+    }, [isKingInCheck, isSelected, isLastMove, isOver, theme, isLight]);
 
-  return (
-    <div
-      ref={isMobile ? null : drop}
-      onClick={handleClick}
-      className={`w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 relative flex justify-center items-center ${getSquareColor()} transition-colors duration-200 cursor-pointer`}
-      style={{
-        transform: is3D ? "translateZ(0px)" : "none",
-      }}
-    >
+    const opacity = isDragging ? 0.5 : 1;
+    const isDisabled = !isConnected && gameType !== "bot";
+
+    return (
       <div
-        ref={isMobile ? null : drag}
-        className="w-full h-full flex items-center justify-center"
+        ref={(node) => drag(drop(node))}
+        className={`
+        relative w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20
+        flex items-center justify-center cursor-pointer
+        transition-all duration-200
+        ${squareColor}
+        ${isSelected ? "ring-4 ring-blue-400" : ""}
+        ${isPossibleMove ? "ring-2 ring-green-400" : ""}
+        ${isDisabled ? "cursor-not-allowed" : ""}
+      `}
+        style={{ opacity }}
+        onClick={handleClick}
       >
-        {piece && !(isDraggingPiece && piece.square === square) && (
-          <ChessPiece piece={piece} />
+        {isPossibleMove && (
+          <motion.div
+            className="absolute inset-0 flex items-center justify-center"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          >
+            <div className="w-6 h-6 bg-green-400/60 rounded-full" />
+          </motion.div>
+        )}
+        {piece && !isDraggingPiece && <ChessPiece piece={piece} />}
+        {isDisabled && (
+          <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
+            <span className="text-red-400 text-xs">✗</span>
+          </div>
         )}
       </div>
-      {isSelected && (
-        <motion.div
-          className="absolute w-1/3 h-1/3 rounded-full bg-yellow-500/70 pointer-events-none"
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-        />
-      )}
-      {isPossibleMove && !isSelected && (
-        <motion.div
-          className="absolute w-full h-full flex items-center justify-center pointer-events-none"
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-        >
-          <div
-            className={`rounded-full ${
-              piece
-                ? "w-full h-full border-4 border-yellow-400/50"
-                : "w-1/3 h-1/3 bg-yellow-400/50"
-            }`}
-          ></div>
-        </motion.div>
-      )}
-    </div>
-  );
-};
+    );
+  }
+);
+
+ChessSquare.displayName = "ChessSquare";
 
 export default ChessSquare;
