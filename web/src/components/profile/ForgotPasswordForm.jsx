@@ -11,7 +11,6 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { KeyRound } from "lucide-react";
-import { useSupabaseAuth } from "../../contexts/SupabaseAuthContext";
 
 const itemVariants = {
   hidden: { opacity: 0, x: -20 },
@@ -19,7 +18,6 @@ const itemVariants = {
 };
 
 const ForgotPasswordForm = ({ setView }) => {
-  const { resetPasswordForEmail, loading } = useSupabaseAuth();
   const [email, setEmail] = useState("");
 
   const handlePasswordReset = async (e) => {

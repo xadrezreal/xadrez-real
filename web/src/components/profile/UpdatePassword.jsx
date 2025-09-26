@@ -12,7 +12,6 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { LockKeyhole } from "lucide-react";
-import { useSupabaseAuth } from "../../contexts/SupabaseAuthContext";
 
 const itemVariants = {
   hidden: { opacity: 0, x: -20 },
@@ -20,7 +19,6 @@ const itemVariants = {
 };
 
 const UpdatePassword = () => {
-  const { updateUserPassword, loading } = useSupabaseAuth();
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
 
