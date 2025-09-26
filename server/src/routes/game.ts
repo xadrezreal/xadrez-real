@@ -2,8 +2,8 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export async function gameRoutes(fastify) {
-  fastify.get("/api/game/:gameId/state", async (request, reply) => {
+export async function gameRoutes(fastify: any) {
+  fastify.get("/api/game/:gameId/state", async (request: any, reply: any) => {
     const { gameId } = request.params;
 
     try {
@@ -22,7 +22,7 @@ export async function gameRoutes(fastify) {
     }
   });
 
-  fastify.post("/api/game/:gameId/state", async (request, reply) => {
+  fastify.post("/api/game/:gameId/state", async (request: any, reply: any) => {
     const { gameId } = request.params;
     const gameStateData = request.body;
 
