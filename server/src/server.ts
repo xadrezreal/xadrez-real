@@ -73,19 +73,22 @@ const start = async () => {
 
     fastify.decorate("authenticate", async function (request, reply) {
       try {
-        fastify.log.info("Authenticating request...");
         const authHeader = request.headers.authorization;
         if (!authHeader) {
-          return reply.status(401).send({
-            error: "Unauthorized",
-            message: "Token de autorização necessário",
-          });
+          return reply
+            .status(401)
+            .send({
+              error: "Unauthorized",
+              message: "Token de autorização necessário",
+            });
         }
         if (!authHeader.startsWith("Bearer ")) {
-          return reply.status(401).send({
-            error: "Unauthorized",
-            message: "Formato de token inválido",
-          });
+          return reply
+            .status(401)
+            .send({
+              error: "Unauthorized",
+              message: "Formato de token inválido",
+            });
         }
         const decoded = (await request.jwtVerify()) as { id: string } | string;
         if (
@@ -96,15 +99,10 @@ const start = async () => {
           fastify.log.info(`User authenticated successfully: ${decoded.id}`);
         }
       } catch (err: any) {
-        if (err instanceof Error) {
-          fastify.log.error("JWT verification failed:", err);
-        } else {
-          fastify.log.error("JWT verification failed:", err);
-        }
-        return reply.status(401).send({
-          error: "Unauthorized",
-          message: "Token inválido",
-        });
+        fastify.log.error("JWT verification failed:", err);
+        return reply
+          .status(401)
+          .send({ error: "Unauthorized", message: "Token inválido" });
       }
     });
 
@@ -114,7 +112,7 @@ const start = async () => {
     await fastify.register(tournamentRoutes, { prefix: "/tournaments" });
     await fastify.register(gameRoutes);
 
-    fastify.get("/health", async (request, reply) => {
+    fastify.get("/health", async () => {
       return { status: "OK", timestamp: new Date().toISOString() };
     });
 
@@ -125,7 +123,7 @@ const start = async () => {
     );
     tournamentUpdater.start(10000);
 
-    fastify.addHook("onClose", async (instance) => {
+    fastify.addHook("onClose", async () => {
       tournamentUpdater.stop();
       await prisma.$disconnect();
     });
