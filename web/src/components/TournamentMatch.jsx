@@ -148,17 +148,6 @@ const TournamentMatch = () => {
           </div>
         </div>
 
-        {process.env.NODE_ENV === "development" && (
-          <div className="bg-slate-800 p-2 rounded mb-4 text-xs">
-            <div className="flex gap-4 items-center text-white">
-              <span>User ID: {user?.id}</span>
-              <span>Game ID: {gameId}</span>
-              <span>Player Color: {playerColor}</span>
-              <span>Is Turn: {isPlayerTurn.toString()}</span>
-            </div>
-          </div>
-        )}
-
         {gameStatus !== "playing" && (
           <motion.div
             className="bg-slate-800/80 border border-slate-600 rounded-lg p-4 mb-4 text-center"

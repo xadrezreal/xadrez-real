@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { UserContext } from "../contexts/UserContext";
 import { tournamentService } from "../lib/tournamentService";
+import { useWebSocket } from "../hooks/useWebSocket";
 
 const CustomTournamentRegistration = () => {
   const { id } = useParams();
@@ -35,14 +36,81 @@ const CustomTournamentRegistration = () => {
   const [error, setError] = useState(null);
   const { user, setUser } = useContext(UserContext);
 
-  // Verifica se usuário está registrado no torneio
   const isRegistered = tournament?.participants?.some(
     (participant) => participant.user.id === user.id
+  );
+
+  const { lastMessage, sendMessage, isConnected } = useWebSocket(
+    id ? `ws://localhost:3000/ws/tournament/${id}` : null,
+    {
+      onMessage: (message) => {
+        console.log("WebSocket message received:", message);
+        switch (message.type) {
+          case "TOURNAMENT_STATUS_CHANGED":
+          case "tournament_started":
+            if (message.data.status === "IN_PROGRESS") {
+              toast({
+                title: "Torneio iniciado!",
+                description: "Redirecionando para o chaveamento...",
+              });
+
+              setTimeout(() => {
+                navigate(`/tournament/${id}/bracket`);
+              }, 2000);
+            }
+
+            if (message.data.tournament) {
+              setTournament(message.data.tournament);
+            } else {
+              setTournament((prev) =>
+                prev ? { ...prev, status: message.data.status } : null
+              );
+            }
+            break;
+
+          case "participant_joined":
+            toast({
+              title: "Novo participante!",
+              description: "Alguém se inscreveu no torneio",
+            });
+            setTimeout(() => fetchTournament(), 1000);
+            break;
+
+          case "participant_left":
+            toast({
+              title: "Participante saiu",
+              description: "Alguém saiu do torneio",
+            });
+            setTimeout(() => fetchTournament(), 1000);
+            break;
+
+          default:
+            console.log("Unknown WebSocket message type:", message.type);
+        }
+      },
+    }
   );
 
   useEffect(() => {
     fetchTournament();
   }, [id]);
+
+  useEffect(() => {
+    if (!tournament || tournament.status !== "WAITING") return;
+
+    const interval = setInterval(() => {
+      console.log("Polling tournament data...");
+      fetchTournament();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [tournament?.status]);
+
+  useEffect(() => {
+    if (lastMessage) {
+      console.log("WebSocket message received:", lastMessage);
+    }
+  }, [lastMessage]);
 
   const fetchTournament = async () => {
     try {
@@ -57,7 +125,6 @@ const CustomTournamentRegistration = () => {
 
       setTournament(data.tournament);
 
-      // Se torneio já começou, redireciona para bracket
       if (data.tournament.status === "IN_PROGRESS") {
         navigate(`/tournament/${id}/bracket`);
       }
@@ -93,13 +160,17 @@ const CustomTournamentRegistration = () => {
     try {
       const result = await tournamentService.joinTournament(id);
 
+      sendMessage({
+        type: "join_tournament",
+        participant: { user: { id: user.id, name: user.name } },
+      });
+
       toast({
         title: "Inscrição realizada!",
         description: result.message,
         variant: "default",
       });
 
-      // Atualiza saldo local se houve cobrança
       if (fee > 0) {
         setUser((prev) => ({
           ...prev,
@@ -107,7 +178,6 @@ const CustomTournamentRegistration = () => {
         }));
       }
 
-      // Recarrega dados do torneio
       fetchTournament();
     } catch (error) {
       console.error("Erro ao se inscrever:", error);
@@ -125,13 +195,17 @@ const CustomTournamentRegistration = () => {
     try {
       const result = await tournamentService.leaveTournament(id);
 
+      sendMessage({
+        type: "leave_tournament",
+        participant: { user: { id: user.id, name: user.name } },
+      });
+
       toast({
         title: "Você saiu do torneio",
         description: result.message,
         variant: "default",
       });
 
-      // Reembolsa taxa se houver
       const fee = parseFloat(tournament.entryFee || 0);
       if (fee > 0) {
         setUser((prev) => ({
@@ -140,7 +214,6 @@ const CustomTournamentRegistration = () => {
         }));
       }
 
-      // Recarrega dados do torneio
       fetchTournament();
     } catch (error) {
       console.error("Erro ao sair do torneio:", error);
@@ -190,26 +263,6 @@ const CustomTournamentRegistration = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <p className="text-white">{error}</p>
-
-              <div className="bg-slate-900/50 p-4 rounded-lg">
-                <h3 className="text-yellow-400 font-bold mb-2">Debug Info:</h3>
-                <div className="text-sm text-slate-300 space-y-1">
-                  <div>
-                    <strong>Tournament ID:</strong> {id}
-                  </div>
-                  <div>
-                    <strong>User ID:</strong> {user.id || "Não logado"}
-                  </div>
-                  <div>
-                    <strong>Auth Token:</strong>{" "}
-                    {localStorage.getItem("auth_token")
-                      ? "Presente"
-                      : "❌ Ausente"}
-                  </div>
-                </div>
-              </div>
-
               <div className="flex gap-4">
                 <Button
                   onClick={() => navigate("/tournament")}
@@ -269,7 +322,6 @@ const CustomTournamentRegistration = () => {
       WINNER_TAKES_ALL: "Campeão leva tudo (100%)",
       SPLIT_TOP_2: "Top 2: 60% / 40%",
       SPLIT_TOP_4: "Top 4: 40% / 30% / 20% / 10%",
-      // Compatibilidade com formato antigo
       winner_takes_all: "Campeão leva tudo (100%)",
       split_top_2: "Top 2: 60% / 40%",
       split_top_4: "Top 4: 40% / 30% / 20% / 10%",
@@ -307,7 +359,6 @@ const CustomTournamentRegistration = () => {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Status do torneio */}
           <div className="text-center p-3 bg-slate-900/50 rounded-lg">
             <p className="text-sm text-slate-400">Status</p>
             <p className="text-lg font-bold text-cyan-400">
@@ -381,7 +432,6 @@ const CustomTournamentRegistration = () => {
             </div>
           </div>
 
-          {/* Lista de participantes */}
           {tournament.participants && tournament.participants.length > 0 && (
             <div className="p-4 bg-slate-900/50 rounded-lg">
               <h3 className="text-white font-bold mb-2">
@@ -412,7 +462,6 @@ const CustomTournamentRegistration = () => {
             </div>
           )}
 
-          {/* Botões de ação */}
           <div className="flex flex-col sm:flex-row gap-4">
             {tournament.status === "WAITING" && !isFull && !isRegistered && (
               <Button
