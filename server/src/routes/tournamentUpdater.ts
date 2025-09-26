@@ -23,7 +23,6 @@ export class TournamentUpdater {
     this.interval = setInterval(async () => {
       await this.checkTournamentStatus();
     }, intervalMs);
-
     this.logger.info("Tournament status updater started");
   }
 
@@ -38,7 +37,6 @@ export class TournamentUpdater {
   private async checkTournamentStatus(): Promise<void> {
     try {
       const now = new Date();
-
       const tournamentesToStart = await this.prisma.tournament.findMany({
         where: {
           status: "WAITING",
@@ -66,23 +64,25 @@ export class TournamentUpdater {
       for (const tournament of tournamentesToStart) {
         await this.startTournament(tournament);
       }
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error("Tournament status update error:", error);
     }
   }
 
   private async startTournament(tournament: any): Promise<void> {
     try {
-      // Update tournament status
       await this.prisma.tournament.update({
         where: { id: tournament.id },
         data: { status: "IN_PROGRESS" },
       });
 
-      // Broadcast tournament start via WebSocket
       this.wsManager.broadcastToTournament(tournament.id, {
-        type: "tournament_started",
+        type: "TOURNAMENT_STATUS_CHANGED",
         data: {
+          tournamentId: tournament.id,
+          status: "IN_PROGRESS",
+          message: "Torneio iniciado!",
+          timestamp: Date.now(),
           tournament: {
             ...tournament,
             status: "IN_PROGRESS",
@@ -91,7 +91,7 @@ export class TournamentUpdater {
       });
 
       this.logger.info(`Tournament ${tournament.id} started automatically`);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error starting tournament ${tournament.id}:`, error);
     }
   }

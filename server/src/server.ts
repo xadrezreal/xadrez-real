@@ -75,20 +75,16 @@ const start = async () => {
       try {
         const authHeader = request.headers.authorization;
         if (!authHeader) {
-          return reply
-            .status(401)
-            .send({
-              error: "Unauthorized",
-              message: "Token de autorização necessário",
-            });
+          return reply.status(401).send({
+            error: "Unauthorized",
+            message: "Token de autorização necessário",
+          });
         }
         if (!authHeader.startsWith("Bearer ")) {
-          return reply
-            .status(401)
-            .send({
-              error: "Unauthorized",
-              message: "Formato de token inválido",
-            });
+          return reply.status(401).send({
+            error: "Unauthorized",
+            message: "Formato de token inválido",
+          });
         }
         const decoded = (await request.jwtVerify()) as { id: string } | string;
         if (
