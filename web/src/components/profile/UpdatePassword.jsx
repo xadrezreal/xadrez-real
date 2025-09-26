@@ -63,10 +63,10 @@ const UpdatePassword = () => {
             <motion.div variants={itemVariants} className="pt-4">
               <Button
                 type="submit"
-                disabled={loading}
+                // disabled={loading}
                 className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold"
               >
-                {loading ? "Atualizando..." : "Atualizar Senha"}
+                {"Atualizar Senha"}
               </Button>
             </motion.div>
           </form>
