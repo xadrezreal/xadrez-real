@@ -12,11 +12,7 @@ import { TournamentUpdater } from "./routes/tournamentUpdater";
 import { gameRoutes } from "./routes/game.js";
 
 const prisma = new PrismaClient();
-const fastify = Fastify({
-  logger: {
-    level: "info",
-  },
-});
+const fastify = Fastify({ logger: { level: "info" } });
 
 fastify.addHook("preHandler", async (request, reply) => {
   fastify.log.info(
@@ -91,10 +87,20 @@ const start = async () => {
             message: "Formato de token inválido",
           });
         }
-        const decoded = await request.jwtVerify();
-        fastify.log.info(`User authenticated successfully: ${decoded.id}`);
-      } catch (err) {
-        fastify.log.error("JWT verification failed:", err.message);
+        const decoded = (await request.jwtVerify()) as { id: string } | string;
+        if (
+          typeof decoded === "object" &&
+          decoded !== null &&
+          "id" in decoded
+        ) {
+          fastify.log.info(`User authenticated successfully: ${decoded.id}`);
+        }
+      } catch (err: any) {
+        if (err instanceof Error) {
+          fastify.log.error("JWT verification failed:", err);
+        } else {
+          fastify.log.error("JWT verification failed:", err);
+        }
         return reply.status(401).send({
           error: "Unauthorized",
           message: "Token inválido",
@@ -102,31 +108,23 @@ const start = async () => {
       }
     });
 
-    // Register WebSocket routes
     await fastify.register(websocketRoutes);
-
-    // Register API routes
     await fastify.register(authRoutes, { prefix: "/auth" });
     await fastify.register(userRoutes, { prefix: "/users" });
     await fastify.register(tournamentRoutes, { prefix: "/tournaments" });
     await fastify.register(gameRoutes);
 
-    // Health check
     fastify.get("/health", async (request, reply) => {
       return { status: "OK", timestamp: new Date().toISOString() };
     });
 
-    // Initialize tournament status updater
     const tournamentUpdater = new TournamentUpdater(
       prisma,
-      fastify.wsManager, // Access the decorated wsManager
+      fastify.wsManager,
       fastify.log
     );
+    tournamentUpdater.start(10000);
 
-    // Start the tournament updater
-    tournamentUpdater.start(10000); // Check every 10 seconds
-
-    // Cleanup on server close
     fastify.addHook("onClose", async (instance) => {
       tournamentUpdater.stop();
       await prisma.$disconnect();
