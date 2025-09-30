@@ -52,14 +52,7 @@ const TournamentCard = ({ tournament }) => {
     }
   };
 
-  // FUNÇÃO DE DEBUG ADICIONADA
   const handleViewTournament = async () => {
-    console.log("=== DEBUG TORNEIO ===");
-    console.log("Tournament ID:", tournament.id);
-    console.log("Tournament Object:", tournament);
-    console.log("Navigating to:", `/tournament/${tournament.id}`);
-
-    // Teste de busca do torneio antes de navegar
     try {
       const testResult = await tournamentService.getTournament(tournament.id);
       console.log("✅ Torneio encontrado:", testResult);
@@ -81,12 +74,6 @@ const TournamentCard = ({ tournament }) => {
             <CardDescription>
               Criado por: {tournament.creator?.name || "Anônimo"}
             </CardDescription>
-            {/* DEBUG INFO ADICIONADO */}
-            <div className="text-xs text-slate-500 bg-slate-900/30 p-2 rounded">
-              <strong>ID:</strong> {tournament.id}
-              <br />
-              <strong>Status:</strong> {tournament.status}
-            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {prizePool > 0 && (
