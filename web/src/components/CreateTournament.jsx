@@ -85,12 +85,12 @@ const CreateTournament = () => {
     );
 
     const now = new Date();
-    const minStartTime = new Date(now.getTime() + 30 * 60 * 1000);
+    const minStartTime = new Date(now.getTime() + 5 * 60 * 1000);
 
     if (startDateTime <= minStartTime) {
       toast({
         title: "Data inválida",
-        description: "O torneio deve começar pelo menos 30 minutos no futuro.",
+        description: "O torneio deve começar pelo menos 15 minutos no futuro.",
         variant: "destructive",
       });
       return;
@@ -119,6 +119,7 @@ const CreateTournament = () => {
           description: "Você precisa estar logado para criar um torneio.",
           variant: "destructive",
         });
+        setIsLoading(false);
         return;
       }
 
@@ -146,6 +147,10 @@ const CreateTournament = () => {
 
       if (!response.ok) {
         throw new Error(data.error || "Erro ao criar torneio");
+      }
+
+      if (!data.tournament || !data.tournament.id) {
+        throw new Error("Resposta inválida do servidor");
       }
 
       if (fee > 0) {
