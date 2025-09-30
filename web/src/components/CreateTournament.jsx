@@ -85,7 +85,7 @@ const CreateTournament = () => {
     );
 
     const now = new Date();
-    const minStartTime = new Date(now.getTime() + 5 * 60 * 1000);
+    const minStartTime = new Date(now.getTime() + 15 * 60 * 1000);
 
     if (startDateTime <= minStartTime) {
       toast({
@@ -145,12 +145,26 @@ const CreateTournament = () => {
 
       const data = await response.json();
 
+      console.log("Response status:", response.status);
+      console.log("Response data:", JSON.stringify(data, null, 2));
+      console.log("data.tournament:", data.tournament);
+      console.log("typeof data:", typeof data);
+      console.log("Object.keys(data):", Object.keys(data));
+
       if (!response.ok) {
         throw new Error(data.error || "Erro ao criar torneio");
       }
 
-      if (!data.tournament || !data.tournament.id) {
-        throw new Error("Resposta inválida do servidor");
+      const tournament = data.tournament || data;
+
+      if (!tournament || !tournament.id) {
+        console.error(
+          "Estrutura completa recebida:",
+          JSON.stringify(data, null, 2)
+        );
+        throw new Error(
+          "Resposta inválida do servidor - tournament ID não encontrado"
+        );
       }
 
       if (fee > 0) {
@@ -166,7 +180,7 @@ const CreateTournament = () => {
         variant: "success",
       });
 
-      navigate(`/tournament/${data.tournament.id}`);
+      navigate(`/tournament/${tournament.id}`);
     } catch (error) {
       console.error("Erro ao criar torneio:", error);
       toast({
