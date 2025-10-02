@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import ChessBoard from "./ChessBoard";
@@ -10,6 +10,7 @@ import CapturedPieces from "./CapturedPieces";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { useChessGame } from "../hooks/useChessGame";
+import { UserContext } from "../contexts/UserContext";
 import PromotionModal from "./PromotionModal";
 import BoardAppearance from "./BoardAppearance";
 import { useToast } from "./ui/use-toast";
@@ -171,6 +172,7 @@ const ChessGame = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams();
+  const { user } = useContext(UserContext);
   const { toast } = useToast();
   const [activePanel, setActivePanel] = useState(null);
   const { gameType } = location.state || { gameType: "online" };
@@ -195,6 +197,9 @@ const ChessGame = () => {
     lastMove,
     isGameLoading,
     isWaitingForOpponent,
+    gameData,
+    connectionStatus,
+    isConnected,
     handleMove,
     handleSquareClick,
     handleResign,
@@ -203,7 +208,6 @@ const ChessGame = () => {
     handleNewGame,
     handleRematch,
     handlePromotion,
-    gameData,
   } = useChessGame({ gameId: params.gameId, gameType });
 
   const formatTime = (seconds) =>
@@ -271,7 +275,6 @@ const ChessGame = () => {
         </AnimatePresence>
 
         <div className="w-full h-full flex flex-col items-center justify-between py-4">
-          {/* Opponent Info */}
           <div className="w-full max-w-2xl">
             <PlayerInfo
               player={opponentInfo}
@@ -281,7 +284,6 @@ const ChessGame = () => {
             <CapturedPieces pieces={opponentCaptured} />
           </div>
 
-          {/* Chessboard */}
           <motion.div
             className="my-4"
             initial={{ opacity: 0, scale: 0.8 }}
@@ -297,10 +299,14 @@ const ChessGame = () => {
               selectedSquare={selectedSquare}
               game={game}
               lastMove={lastMove}
+              isConnected={isConnected}
+              connectionStatus={connectionStatus}
+              gameType={gameType}
+              gameData={gameData}
+              userId={user?.id}
             />
           </motion.div>
 
-          {/* Player Info */}
           <div className="w-full max-w-2xl">
             <CapturedPieces pieces={ownCaptured} />
             <PlayerInfo

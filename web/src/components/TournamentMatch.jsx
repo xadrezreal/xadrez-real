@@ -27,7 +27,6 @@ const TournamentMatch = () => {
   const { user } = useContext(UserContext);
 
   const matchData = location.state;
-  const opponent = matchData?.opponent;
   const gameId = `tournament-${tournamentId}-${matchId}`;
 
   const {
@@ -47,6 +46,7 @@ const TournamentMatch = () => {
     blackPlayerInfo,
     isConnected,
     connectionStatus,
+    gameData,
     handleMove,
     handleSquareClick,
     handleResign,
@@ -212,17 +212,18 @@ const TournamentMatch = () => {
           >
             <ChessBoard
               board={board}
-              game={game}
-              selectedSquare={selectedSquare}
-              lastMove={lastMove}
+              onMove={handleMove}
               orientation={playerColor}
               isPlayerTurn={isPlayerTurn}
               onSquareClick={handleSquareClick}
-              onMove={handleMove}
-              gameStatus={gameStatus}
+              selectedSquare={selectedSquare}
+              game={game}
+              lastMove={lastMove}
               isConnected={isConnected}
               connectionStatus={connectionStatus}
               gameType="tournament"
+              gameData={gameData}
+              userId={user?.id}
             />
           </motion.div>
 

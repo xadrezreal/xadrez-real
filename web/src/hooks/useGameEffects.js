@@ -79,62 +79,48 @@ export const useGameEffects = ({
 
     let isMounted = true;
 
-    const initializeGame = () => {
+    const initializeGame = async () => {
       if (!isMounted || gameInitialized.current) return;
 
       if (gameId.includes("tournament-")) {
-        const existingPlayerData = localStorage.getItem(
-          `tournament_player_${gameId}`
-        );
-        let isWhitePlayer;
+        const API_URL = "http://localhost:3000";
 
-        if (existingPlayerData) {
-          const playerData = JSON.parse(existingPlayerData);
-          isWhitePlayer = playerData.color === "white";
-        } else {
-          const gameIdNumber = parseInt(gameId.split("-")[1]) || 0;
-          const userIdHash = user.id
-            .split("")
-            .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-          isWhitePlayer = (gameIdNumber + userIdHash) % 2 === 0;
+        try {
+          const response = await fetch(`${API_URL}/api/game/${gameId}/state`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
 
-          localStorage.setItem(
-            `tournament_player_${gameId}`,
-            JSON.stringify({
-              userId: user.id,
-              color: isWhitePlayer ? "white" : "black",
-              sessionKey: Date.now(),
-            })
-          );
+          if (response.ok) {
+            const gameStateData = await response.json();
+
+            if (isMounted) {
+              processGameData(gameStateData);
+              setIsGameLoading(false);
+              gameInitialized.current = true;
+            }
+          } else {
+            console.error("Jogo de torneio não encontrado no servidor");
+            toast({
+              title: "Erro",
+              description:
+                "Partida não encontrada. O torneio pode não ter iniciado ainda.",
+              variant: "destructive",
+            });
+
+            if (isMounted) {
+              setIsGameLoading(false);
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao buscar jogo de torneio:", error);
+
+          if (isMounted) {
+            setIsGameLoading(false);
+          }
         }
 
-        const opponentId = `opponent_${gameId}_${
-          isWhitePlayer ? "black" : "white"
-        }`;
-
-        const tournamentGameData = {
-          game_id_text: gameId,
-          status: "playing",
-          fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-          white_time: 600,
-          black_time: 600,
-          white_player_id: isWhitePlayer ? user.id : opponentId,
-          white_player_name: isWhitePlayer ? user.name : "Jogador Branco",
-          white_player_country: isWhitePlayer ? user.country : null,
-          black_player_id: isWhitePlayer ? opponentId : user.id,
-          black_player_name: isWhitePlayer ? "Jogador Preto" : user.name,
-          black_player_country: isWhitePlayer ? null : user.country,
-          tournament_id: gameId.split("-")[1],
-          last_move: null,
-          winner_id: null,
-        };
-
-        console.log("PROCESSANDO DADOS DO JOGO - PRIMEIRA VEZ");
-        if (isMounted) {
-          processGameData(tournamentGameData);
-          setIsGameLoading(false);
-          gameInitialized.current = true;
-        }
         return;
       }
 

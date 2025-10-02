@@ -31,44 +31,76 @@ model User {
   password  String
   role      Role     @default(FREEMIUM)
   balance   Float    @default(0.0)
+  country   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  createdTournaments Tournament[] @relation("TournamentCreator")
+  createdTournaments       Tournament[]            @relation("TournamentCreator")
   participatingTournaments TournamentParticipant[]
+  whiteGames               Game[]                  @relation("WhitePlayer")
+  blackGames               Game[]                  @relation("BlackPlayer")
 
   @@map("users")
 }
 
 model Tournament {
-  id                    String            @id @default(cuid())
-  name                  String
-  entryFee             Float             @default(0.0)
-  playerCount          Int
-  prizeDistribution    PrizeDistribution @default(SPLIT_TOP_2)
-  status               TournamentStatus  @default(WAITING)
-  startTime            DateTime
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
-  
-  creatorId            String
-  creator              User              @relation("TournamentCreator", fields: [creatorId], references: [id])
-  participants         TournamentParticipant[]
+  id                String            @id @default(cuid())
+  name              String
+  entryFee          Float             @default(0.0)
+  playerCount       Int
+  prizeDistribution PrizeDistribution @default(SPLIT_TOP_2)
+  status            TournamentStatus  @default(WAITING)
+  startTime         DateTime
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  creatorId String
+  creator   User   @relation("TournamentCreator", fields: [creatorId], references: [id])
+
+  participants TournamentParticipant[]
+  games        Game[]
 
   @@map("tournaments")
 }
 
 model TournamentParticipant {
-  id           String @id @default(cuid())
+  id           String   @id @default(cuid())
   tournamentId String
   userId       String
   joinedAt     DateTime @default(now())
-  
-  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tournamentId, userId])
   @@map("tournament_participants")
+}
+
+model Game {
+  id                  String   @id @default(cuid())
+  game_id_text        String   @unique
+  tournament_id       String?
+  white_player_id     String
+  black_player_id     String
+  white_player_name   String
+  black_player_name   String
+  white_player_country String?
+  black_player_country String?
+  status              String
+  fen                 String
+  white_time          Int
+  black_time          Int
+  wager               Float    @default(0.0)
+  winner_id           String?
+  last_move           Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  tournament   Tournament? @relation(fields: [tournament_id], references: [id])
+  whitePlayer  User        @relation("WhitePlayer", fields: [white_player_id], references: [id])
+  blackPlayer  User        @relation("BlackPlayer", fields: [black_player_id], references: [id])
+
+  @@map("games")
 }
 
 model GameState {

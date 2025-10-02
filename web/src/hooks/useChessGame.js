@@ -55,11 +55,20 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
   const playerColor = useMemo(() => {
     if (!gameData || !user?.id) return initialPlayerColor || "white";
 
-    const isWhitePlayer = gameData.white_player_id === user.id;
-    const isBlackPlayer = gameData.black_player_id === user.id;
+    if (gameData.white_player_id === user.id) return "white";
+    if (gameData.black_player_id === user.id) return "black";
 
-    if (isWhitePlayer) return "white";
-    if (isBlackPlayer) return "black";
+    const isTournamentGame =
+      gameData.tournament_id || gameData.game_id_text?.includes("tournament-");
+
+    if (isTournamentGame) {
+      if (gameData.black_player_id?.includes("opponent_")) {
+        return "white";
+      }
+      if (gameData.white_player_id?.includes("opponent_")) {
+        return "black";
+      }
+    }
 
     return initialPlayerColor || "white";
   }, [gameData, user?.id, initialPlayerColor]);
@@ -70,15 +79,21 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
   const isPlayerTurn = useMemo(() => {
     if (isWaitingForOpponent || gameStatus !== "playing") return false;
-    if (gameType === "bot") return currentPlayer === playerColor;
-    if (!gameData) return false;
+
+    if (gameType === "bot") {
+      return currentPlayer === playerColor;
+    }
+
+    if (!gameData || !user?.id) return false;
 
     const isTournamentGame = gameId?.includes("tournament-");
     const userIsWhite = gameData.white_player_id === user.id;
     const userIsBlack = gameData.black_player_id === user.id;
 
     if (isTournamentGame) {
-      return true;
+      if (currentPlayer === "white" && userIsWhite) return true;
+      if (currentPlayer === "black" && userIsBlack) return true;
+      return false;
     }
 
     if (currentPlayer === "white" && userIsWhite) return true;
@@ -93,6 +108,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     gameData,
     gameId,
     user?.id,
+    playerColor,
   ]);
 
   const whitePlayerInfo = useMemo(() => {
@@ -401,15 +417,29 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
           const isTournamentGame = gameId?.includes("tournament-");
           let canSelectPiece = false;
 
-          if (isTournamentGame) {
-            canSelectPiece = piece.color === currentPlayer[0];
+          // CORREÇÃO: Determinar a cor correta do jogador
+          let myPieceColor;
+
+          if (isTournamentGame && gameData) {
+            // Em torneios, verificar quem você é pelos IDs
+            if (gameData.white_player_id === user.id) {
+              myPieceColor = "w";
+            } else if (gameData.black_player_id === user.id) {
+              myPieceColor = "b";
+            }
           } else if (playerColor) {
-            canSelectPiece = piece.color === playerColor[0];
+            // Em jogos normais, usar playerColor
+            myPieceColor = playerColor[0];
           }
+
+          // Só pode selecionar peças da SUA cor E que seja sua vez
+          canSelectPiece =
+            piece.color === myPieceColor && piece.color === currentPlayer[0];
 
           console.log("PODE SELECIONAR PEÇA:", {
             canSelectPiece,
             pieceColor: piece.color,
+            myPieceColor,
             currentPlayer,
             playerColor,
             isTournamentGame,
@@ -421,6 +451,12 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
             if (moves.length > 0) {
               setSelectedSquare(square);
             }
+          } else {
+            toast({
+              title: "Peça inválida",
+              description: "Você só pode mover suas próprias peças!",
+              variant: "destructive",
+            });
           }
         }
       }
@@ -433,6 +469,9 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       playerColor,
       currentPlayer,
       gameId,
+      gameData,
+      user.id,
+      toast,
     ]
   );
 
@@ -581,6 +620,13 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     () => toast({ title: "Funcionalidade indisponível" }),
     [toast]
   );
+
+  console.log("DADOS DO GAMEDATA:", {
+    white_player_id: gameData?.white_player_id,
+    black_player_id: gameData?.black_player_id,
+    user_id: user?.id,
+    calculated_playerColor: playerColor,
+  });
 
   const stableBoard = useMemo(() => board, [board]);
   const stableLastMove = useMemo(() => lastMove, [lastMove]);

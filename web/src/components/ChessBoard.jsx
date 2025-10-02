@@ -42,6 +42,8 @@ const ChessBoard = React.memo(
     isConnected = true,
     connectionStatus = "Closed",
     gameType = "online",
+    gameData,
+    userId,
   }) => {
     const { boardTheme } = useContext(BoardThemeContext);
     const { isDragging, item } = useDragLayer((monitor) => ({
@@ -67,11 +69,11 @@ const ChessBoard = React.memo(
     const getSquareFromIndex = useMemo(
       () => (row, col) => {
         const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
-        const rank = orientation === "white" ? 8 - row : row + 1;
-        const file = orientation === "white" ? files[col] : files[7 - col];
+        const rank = 8 - row;
+        const file = files[col];
         return `${file}${rank}`;
       },
-      [orientation]
+      []
     );
 
     const kingSquare = useMemo(() => {
@@ -106,10 +108,24 @@ const ChessBoard = React.memo(
     }, [selectedSquare, game]);
 
     const boardSquares = useMemo(() => {
-      return board
-        .map((row, rowIndex) =>
-          row.map((piece, colIndex) => {
-            const squareName = getSquareFromIndex(rowIndex, colIndex);
+      const rowsToRender =
+        orientation === "black" ? [...board].reverse() : board;
+
+      return rowsToRender
+        .map((row, rowIndex) => {
+          const colsToRender =
+            orientation === "black" ? [...row].reverse() : row;
+
+          return colsToRender.map((piece, colIndex) => {
+            const actualRowIndex =
+              orientation === "black" ? 7 - rowIndex : rowIndex;
+            const actualColIndex =
+              orientation === "black" ? 7 - colIndex : colIndex;
+            const squareName = getSquareFromIndex(
+              actualRowIndex,
+              actualColIndex
+            );
+
             const isKingInCheck = game?.inCheck() && squareName === kingSquare;
             const isSelected = squareName === selectedSquare;
             const isPossibleMove = possibleMoves.includes(squareName);
@@ -122,19 +138,20 @@ const ChessBoard = React.memo(
               key: squareName,
               piece: piece ? { ...piece, square: squareName } : null,
               squareName,
-              rowIndex,
-              colIndex,
+              rowIndex: actualRowIndex,
+              colIndex: actualColIndex,
               isKingInCheck,
               isSelected,
               isPossibleMove,
               isLastMove,
               isDraggingPiece,
             };
-          })
-        )
+          });
+        })
         .flat();
     }, [
       board,
+      orientation,
       getSquareFromIndex,
       game,
       kingSquare,
@@ -144,7 +161,6 @@ const ChessBoard = React.memo(
       isDragging,
       item,
     ]);
-
     return (
       <motion.div
         className="relative"
@@ -185,6 +201,7 @@ const ChessBoard = React.memo(
               <ChessSquare
                 key={squareData.key}
                 piece={squareData.piece}
+                playerColor={orientation}
                 square={squareData.squareName}
                 isLight={(squareData.rowIndex + squareData.colIndex) % 2 === 0}
                 isKingInCheck={squareData.isKingInCheck}
@@ -198,6 +215,8 @@ const ChessBoard = React.memo(
                 isDraggingPiece={squareData.isDraggingPiece}
                 isConnected={isConnected}
                 gameType={gameType}
+                gameData={gameData}
+                userId={userId}
               />
             ))}
           </motion.div>
@@ -234,7 +253,6 @@ const ChessBoard = React.memo(
             </>
           )}
         </div>
-
         <CustomDragLayer />
       </motion.div>
     );

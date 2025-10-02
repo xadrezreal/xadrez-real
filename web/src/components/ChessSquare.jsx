@@ -19,10 +19,42 @@ const ChessSquare = React.memo(
     isDraggingPiece,
     isConnected = true,
     gameType = "online",
+    playerColor = "white",
+    gameData,
+    userId,
   }) => {
+    const myColor = useMemo(() => {
+      if (!gameData || !userId) {
+        return playerColor[0];
+      }
+
+      const isTournamentGame =
+        gameData.tournament_id ||
+        gameData.game_id_text?.includes("tournament-");
+
+      if (isTournamentGame) {
+        if (gameData.white_player_id === userId) {
+          return "w";
+        } else if (gameData.black_player_id === userId) {
+          return "b";
+        }
+        return playerColor[0];
+      }
+
+      if (gameData.white_player_id === userId) return "w";
+      if (gameData.black_player_id === userId) return "b";
+
+      return playerColor[0];
+    }, [gameData, userId, playerColor]);
+
     const canDrag = useMemo(() => {
-      return piece && isPlayerTurn && (gameType === "bot" || isConnected);
-    }, [piece, isPlayerTurn, gameType, isConnected]);
+      if (!piece || !isPlayerTurn) return false;
+      if (gameType !== "bot" && !isConnected) return false;
+
+      const canDragThisPiece = piece.color === myColor;
+
+      return canDragThisPiece;
+    }, [piece, isPlayerTurn, gameType, isConnected, myColor]);
 
     const dragItem = useMemo(() => {
       return piece ? { piece, square } : null;
@@ -90,14 +122,14 @@ const ChessSquare = React.memo(
       <div
         ref={(node) => drag(drop(node))}
         className={`
-        relative w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20
-        flex items-center justify-center cursor-pointer
-        transition-all duration-200
-        ${squareColor}
-        ${isSelected ? "ring-4 ring-blue-400" : ""}
-        ${isPossibleMove ? "ring-2 ring-green-400" : ""}
-        ${isDisabled ? "cursor-not-allowed" : ""}
-      `}
+          relative w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20
+          flex items-center justify-center cursor-pointer
+          transition-all duration-200
+          ${squareColor}
+          ${isSelected ? "ring-4 ring-blue-400" : ""}
+          ${isPossibleMove ? "ring-2 ring-green-400" : ""}
+          ${isDisabled ? "cursor-not-allowed" : ""}
+        `}
         style={{ opacity }}
         onClick={handleClick}
       >
