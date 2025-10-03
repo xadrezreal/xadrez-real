@@ -105,9 +105,7 @@ export class TournamentOrchestrator {
     }
   }
 
-  async startMatch(matchId: string): Promise<void> {
-    console.log("[MATCH] Starting match", matchId);
-
+  async startMatch(matchId: string): Promise<any> {
     const match = await this.prisma.tournamentMatch.findUnique({
       where: { id: matchId },
       include: {
@@ -121,15 +119,9 @@ export class TournamentOrchestrator {
       throw new Error("Match or players not found");
     }
 
-    console.log("[MATCH] Found match:", {
-      player1: match.player1.name,
-      player2: match.player2.name,
-      status: match.status,
-    });
-
     if (match.status === "COMPLETED" || match.status === "BYE") {
-  throw new Error("Match already finished");
-}
+      throw new Error("Match already finished");
+    }
 
 if (match.status === "IN_PROGRESS") {
   const existingGame = await this.prisma.game.findUnique({
@@ -137,14 +129,11 @@ if (match.status === "IN_PROGRESS") {
   });
   return existingGame;
 }
-
     const isFirstWhite = Math.random() < 0.5;
     const whitePlayer = isFirstWhite ? match.player1 : match.player2;
     const blackPlayer = isFirstWhite ? match.player2 : match.player1;
 
     const gameIdText = `tournament-${match.tournamentId}-r${match.round}-m${match.matchNumber}`;
-
-    console.log("[MATCH] Creating game:", gameIdText);
 
     const game = await this.prisma.game.upsert({
       where: { game_id_text: gameIdText },
@@ -171,8 +160,6 @@ if (match.status === "IN_PROGRESS") {
       },
     });
 
-    console.log("[MATCH] Game created:", game.game_id_text);
-
     await this.prisma.tournamentMatch.update({
       where: { id: matchId },
       data: {
@@ -180,8 +167,6 @@ if (match.status === "IN_PROGRESS") {
         status: "IN_PROGRESS",
       },
     });
-
-    console.log("[MATCH] Match status updated to IN_PROGRESS");
 
     this.wsManager.broadcastToTournament(match.tournamentId, {
       type: "MATCH_STARTED",
@@ -196,9 +181,9 @@ if (match.status === "IN_PROGRESS") {
       },
     });
 
-    console.log("[MATCH] Broadcasted MATCH_STARTED");
-
     this.logger.info(`Match ${matchId} started: ${game.game_id_text}`);
+
+    return game;
   }
 
   async handleMatchEnd(gameIdText: string): Promise<void> {
