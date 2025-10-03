@@ -83,8 +83,14 @@ class TournamentOrchestrator {
             player2: match.player2.name,
             status: match.status,
         });
-        if (match.status !== "PENDING") {
-            throw new Error("Match is not pending");
+        if (match.status === "COMPLETED" || match.status === "BYE") {
+            throw new Error("Match already finished");
+        }
+        if (match.status === "IN_PROGRESS") {
+            const existingGame = await this.prisma.game.findUnique({
+                where: { game_id_text: match.gameId },
+            });
+            return existingGame;
         }
         const isFirstWhite = Math.random() < 0.5;
         const whitePlayer = isFirstWhite ? match.player1 : match.player2;

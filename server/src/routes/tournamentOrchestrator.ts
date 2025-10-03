@@ -17,7 +17,7 @@ export class TournamentOrchestrator {
     this.logger = logger;
   }
 
-  async createBracket(tournamentId: string): Promise<void> {
+  async createBracket(tournamentId: string): Promise<any> {
     console.log("[BRACKET] Starting createBracket for", tournamentId);
 
     const tournament = await this.prisma.tournament.findUnique({
@@ -123,13 +123,12 @@ export class TournamentOrchestrator {
       throw new Error("Match already finished");
     }
 
-    if (match.status === "IN_PROGRESS") {
-      const existingGame = await this.prisma.game.findUnique({
-        where: { game_id_text: match.gameId! },
-      });
-      return existingGame;
-    }
-
+if (match.status === "IN_PROGRESS") {
+  const existingGame = await this.prisma.game.findUnique({
+    where: { game_id_text: match.gameId! },
+  });
+  return existingGame;
+}
     const isFirstWhite = Math.random() < 0.5;
     const whitePlayer = isFirstWhite ? match.player1 : match.player2;
     const blackPlayer = isFirstWhite ? match.player2 : match.player1;
