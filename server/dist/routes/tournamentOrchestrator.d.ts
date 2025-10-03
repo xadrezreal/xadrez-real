@@ -6,7 +6,7 @@ export declare class TournamentOrchestrator {
     private wsManager;
     private logger;
     constructor(prisma: PrismaClient, wsManager: WebSocketManager, logger: FastifyBaseLogger);
-    createBracket(tournamentId: string): Promise<void>;
+    createBracket(tournamentId: string): Promise<any>;
     private createRoundMatches;
     startMatch(matchId: string): Promise<void>;
     handleMatchEnd(gameIdText: string): Promise<void>;
