@@ -48,8 +48,8 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
   const getWebSocketURL = () => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.hostname;
-    const port = "3000";
-    return `${protocol}//${host}:${port}`;
+    const port = protocol === "wss:" ? "" : ":3000";
+    return `${protocol}//${host}${port}`;
   };
 
   const playerColor = useMemo(() => {
@@ -417,22 +417,18 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
           const isTournamentGame = gameId?.includes("tournament-");
           let canSelectPiece = false;
 
-          // CORREÇÃO: Determinar a cor correta do jogador
           let myPieceColor;
 
           if (isTournamentGame && gameData) {
-            // Em torneios, verificar quem você é pelos IDs
             if (gameData.white_player_id === user.id) {
               myPieceColor = "w";
             } else if (gameData.black_player_id === user.id) {
               myPieceColor = "b";
             }
           } else if (playerColor) {
-            // Em jogos normais, usar playerColor
             myPieceColor = playerColor[0];
           }
 
-          // Só pode selecionar peças da SUA cor E que seja sua vez
           canSelectPiece =
             piece.color === myPieceColor && piece.color === currentPlayer[0];
 

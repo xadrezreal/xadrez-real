@@ -44,13 +44,11 @@ const CreateTournament = () => {
 
   const getDefaultDateTime = () => {
     const now = new Date();
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-
-    const defaultDate = tomorrow.toISOString().split("T")[0];
-    const defaultTime = `${(tomorrow.getHours() + 1)
+    const defaultDate = now.toISOString().split("T")[0];
+    const defaultTime = `${now.getHours().toString().padStart(2, "0")}:${now
+      .getMinutes()
       .toString()
-      .padStart(2, "0")}:00`;
-
+      .padStart(2, "0")}`;
     return { defaultDate, defaultTime };
   };
 
@@ -85,12 +83,12 @@ const CreateTournament = () => {
     );
 
     const now = new Date();
-    const minStartTime = new Date(now.getTime() + 15 * 60 * 1000);
+    const minStartTime = new Date(now.getTime() + 5 * 60 * 1000);
 
     if (startDateTime <= minStartTime) {
       toast({
         title: "Data inválida",
-        description: "O torneio deve começar pelo menos 15 minutos no futuro.",
+        description: "O torneio deve começar pelo menos 5 minutos no futuro.",
         variant: "destructive",
       });
       return;
@@ -293,7 +291,6 @@ const CreateTournament = () => {
                 />
               </div>
             </motion.div>
-
             {startDate && startTime && (
               <motion.div
                 variants={itemVariants}
@@ -402,5 +399,4 @@ const CreateTournament = () => {
     </motion.div>
   );
 };
-
 export default CreateTournament;
