@@ -161,16 +161,17 @@ const ChessBoard = React.memo(
       isDragging,
       item,
     ]);
+
     return (
       <motion.div
-        className="relative"
+        className="relative w-full max-w-md mx-auto"
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5, type: "spring" }}
       >
         {gameType !== "bot" && (
           <div
-            className={`absolute -top-8 right-0 text-xs px-2 py-1 rounded ${
+            className={`absolute -top-6 right-0 text-[10px] px-2 py-0.5 rounded ${
               isConnected
                 ? "bg-green-500/20 text-green-400"
                 : "bg-red-500/20 text-red-400"
@@ -187,7 +188,7 @@ const ChessBoard = React.memo(
           style={is3D ? { perspective: "1000px" } : {}}
         >
           <motion.div
-            className="grid grid-cols-8 rounded-lg overflow-hidden border-4 border-slate-600"
+            className="grid grid-cols-8 rounded-lg overflow-hidden border-2 border-slate-600 w-full aspect-square"
             style={
               is3D
                 ? {
@@ -223,28 +224,25 @@ const ChessBoard = React.memo(
 
           {!is3D && (
             <>
-              <div className="absolute -left-6 top-0 bottom-0 flex flex-col justify-around text-gray-400 font-bold text-sm pointer-events-none">
+              <div className="absolute -left-4 top-0 bottom-0 flex flex-col justify-around text-gray-400 font-bold text-[10px] pointer-events-none">
                 {(orientation === "white"
                   ? [8, 7, 6, 5, 4, 3, 2, 1]
                   : [1, 2, 3, 4, 5, 6, 7, 8]
                 ).map((num) => (
-                  <div
-                    key={num}
-                    className="h-12 sm:h-16 md:h-20 flex items-center"
-                  >
+                  <div key={num} className="flex items-center h-[12.5%]">
                     {num}
                   </div>
                 ))}
               </div>
 
-              <div className="absolute -bottom-6 left-0 right-0 flex justify-around text-gray-400 font-bold text-sm pointer-events-none">
+              <div className="absolute -bottom-4 left-0 right-0 flex justify-around text-gray-400 font-bold text-[10px] pointer-events-none">
                 {(orientation === "white"
                   ? ["a", "b", "c", "d", "e", "f", "g", "h"]
                   : ["h", "g", "f", "e", "d", "c", "b", "a"]
                 ).map((letter) => (
                   <div
                     key={letter}
-                    className="w-12 sm:w-16 md:w-20 flex justify-center items-center"
+                    className="flex justify-center items-center w-[12.5%]"
                   >
                     {letter}
                   </div>

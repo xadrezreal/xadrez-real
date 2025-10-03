@@ -35,65 +35,66 @@ const Toolbar = ({
   onReturnHome,
   gameStatus,
   isBotGame,
+  isTournamentGame,
 }) => (
   <motion.div
-    className="absolute left-2 top-1/2 -translate-y-1/2 bg-slate-800/60 backdrop-blur-md p-2 rounded-xl border border-slate-700 flex flex-col gap-3"
-    initial={{ x: -100 }}
-    animate={{ x: 0 }}
+    className="w-full max-w-xl mx-auto mb-1 bg-slate-800/60 backdrop-blur-md px-2 py-1 rounded-lg border border-slate-700 flex items-center justify-center gap-1"
+    initial={{ y: -50, opacity: 0 }}
+    animate={{ y: 0, opacity: 1 }}
     transition={{ duration: 0.5 }}
   >
     <Button
       onClick={onReturnHome}
       variant="ghost"
-      size="icon"
-      className="text-gray-300 hover:bg-cyan-500/20 hover:text-cyan-300"
+      size="sm"
+      className="text-gray-300 hover:bg-cyan-500/20 hover:text-cyan-300 h-7 w-7 p-0"
     >
-      <Home className="w-6 h-6" />
+      <Home className="w-3.5 h-3.5" />
     </Button>
     <Button
       onClick={() => onTogglePanel("history")}
       variant="ghost"
-      size="icon"
-      className="text-gray-300 hover:bg-cyan-500/20 hover:text-cyan-300"
+      size="sm"
+      className="text-gray-300 hover:bg-cyan-500/20 hover:text-cyan-300 h-7 w-7 p-0"
     >
-      <History className="w-6 h-6" />
+      <History className="w-3.5 h-3.5" />
     </Button>
     {!isBotGame && (
       <Button
         onClick={() => onTogglePanel("chat")}
         variant="ghost"
-        size="icon"
-        className="text-gray-300 hover:bg-cyan-500/20 hover:text-cyan-300"
+        size="sm"
+        className="text-gray-300 hover:bg-cyan-500/20 hover:text-cyan-300 h-7 w-7 p-0"
       >
-        <MessageSquare className="w-6 h-6" />
+        <MessageSquare className="w-3.5 h-3.5" />
       </Button>
     )}
     <Button
       onClick={() => onTogglePanel("appearance")}
       variant="ghost"
-      size="icon"
-      className="text-gray-300 hover:bg-cyan-500/20 hover:text-cyan-300"
+      size="sm"
+      className="text-gray-300 hover:bg-cyan-500/20 hover:text-cyan-300 h-7 w-7 p-0"
     >
-      <Palette className="w-6 h-6" />
+      <Palette className="w-3.5 h-3.5" />
     </Button>
     <Button
       onClick={onResign}
       disabled={gameStatus !== "playing"}
       variant="ghost"
-      size="icon"
-      className="text-red-400 hover:bg-red-500/20 hover:text-red-300"
+      size="sm"
+      className="text-red-400 hover:bg-red-500/20 hover:text-red-300 h-7 w-7 p-0"
     >
-      <Flag className="w-6 h-6" />
+      <Flag className="w-3.5 h-3.5" />
     </Button>
-    {!isBotGame && (
+    {!isBotGame && !isTournamentGame && (
       <Button
         onClick={onDrawOffer}
         disabled={gameStatus !== "playing"}
         variant="ghost"
-        size="icon"
-        className="text-yellow-400 hover:bg-yellow-500/20 hover:text-yellow-300"
+        size="sm"
+        className="text-yellow-400 hover:bg-yellow-500/20 hover:text-yellow-300 h-7 w-7 p-0"
       >
-        <Handshake className="w-6 h-6" />
+        <Handshake className="w-3.5 h-3.5" />
       </Button>
     )}
   </motion.div>
@@ -107,7 +108,7 @@ const SidePanel = ({ children, onClose, position = "left" }) => {
 
   return (
     <motion.div
-      className={`absolute top-0 h-full p-4 z-20 ${
+      className={`fixed top-0 h-full p-4 z-20 ${
         position === "left" ? "left-0" : "right-0"
       }`}
       initial="hidden"
@@ -210,6 +211,8 @@ const ChessGame = () => {
     handlePromotion,
   } = useChessGame({ gameId: params.gameId, gameType });
 
+  const isTournamentGame = params.gameId?.includes("tournament-");
+
   const formatTime = (seconds) =>
     `${Math.floor(seconds / 60)
       .toString()
@@ -243,16 +246,7 @@ const ChessGame = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
-        <Toolbar
-          onTogglePanel={togglePanel}
-          onResign={handleResign}
-          onDrawOffer={handleDrawOffer}
-          onReturnHome={() => navigate("/")}
-          gameStatus={gameStatus}
-          isBotGame={gameType === "bot"}
-        />
-
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 flex items-center justify-center overflow-auto">
         <AnimatePresence>
           {activePanel && (
             <SidePanel
@@ -274,22 +268,26 @@ const ChessGame = () => {
           )}
         </AnimatePresence>
 
-        <div className="w-full h-full flex flex-col items-center justify-between py-4">
-          <div className="w-full max-w-2xl">
+        <div className="w-full max-w-xl mx-auto py-2 px-1">
+          <Toolbar
+            onTogglePanel={togglePanel}
+            onResign={handleResign}
+            onDrawOffer={handleDrawOffer}
+            onReturnHome={() => navigate("/")}
+            gameStatus={gameStatus}
+            isBotGame={gameType === "bot"}
+            isTournamentGame={isTournamentGame}
+          />
+
+          <div className="space-y-1">
             <PlayerInfo
               player={opponentInfo}
               isCurrent={currentPlayer !== playerColor}
               time={formatTime(opponentTime)}
+              isMyPlayer={false}
             />
             <CapturedPieces pieces={opponentCaptured} />
-          </div>
 
-          <motion.div
-            className="my-4"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, type: "spring", stiffness: 100 }}
-          >
             <ChessBoard
               board={board}
               onMove={handleMove}
@@ -305,14 +303,13 @@ const ChessGame = () => {
               gameData={gameData}
               userId={user?.id}
             />
-          </motion.div>
 
-          <div className="w-full max-w-2xl">
             <CapturedPieces pieces={ownCaptured} />
             <PlayerInfo
               player={ownInfo}
               isCurrent={currentPlayer === playerColor}
               time={formatTime(ownTime)}
+              isMyPlayer={true}
             />
           </div>
         </div>

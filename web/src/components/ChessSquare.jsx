@@ -122,12 +122,12 @@ const ChessSquare = React.memo(
       <div
         ref={(node) => drag(drop(node))}
         className={`
-          relative w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20
+          relative w-full aspect-square
           flex items-center justify-center cursor-pointer
           transition-all duration-200
           ${squareColor}
-          ${isSelected ? "ring-4 ring-blue-400" : ""}
-          ${isPossibleMove ? "ring-2 ring-green-400" : ""}
+          ${isSelected ? "ring-2 ring-blue-400" : ""}
+          ${isPossibleMove ? "ring-1 ring-green-400" : ""}
           ${isDisabled ? "cursor-not-allowed" : ""}
         `}
         style={{ opacity }}
@@ -140,7 +140,7 @@ const ChessSquare = React.memo(
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
           >
-            <div className="w-6 h-6 bg-green-400/60 rounded-full" />
+            <div className="w-1/3 aspect-square bg-green-400/60 rounded-full" />
           </motion.div>
         )}
         {piece && !isDraggingPiece && <ChessPiece piece={piece} />}

@@ -27,10 +27,9 @@ const TournamentBracket = () => {
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [bracket, setBracket] = useState(null);
+  const [bracket, setBracket] = useState({});
 
-  // WebSocket connection
-  const { lastMessage, connectionStatus, sendMessage } = useWebSocket(
+  const { connectionStatus } = useWebSocket(
     `ws://localhost:3000/ws/tournament/${tournamentId}`,
     {
       onMessage: (message) => {
@@ -49,34 +48,47 @@ const TournamentBracket = () => {
   );
 
   const handleWebSocketMessage = (message) => {
-    console.log("MENSAGEM COMPLETA:", JSON.stringify(message, null, 2));
+    console.log("Tournament WS Message:", message);
 
     switch (message.type) {
-      case "move":
-        if (message.data.playerId !== user.id) {
-          console.log("PROCESSANDO MOVIMENTO DO OPONENTE");
-          const { from, to, promotion, fen } = message.data;
-          applyOpponentMove(from, to, promotion, fen);
-          // resto igual...
+      case "MATCH_STARTED":
+        const isMyMatch =
+          message.data.player1Id === user.id ||
+          message.data.player2Id === user.id;
+
+        if (isMyMatch) {
+          navigate(`/game/${message.data.gameId}`);
         } else {
-          console.log("IGNORANDO MEU PROPRIO MOVIMENTO");
+          fetchBracket();
         }
         break;
 
-      case "game_end":
-        console.log("🏁 Fim de jogo recebido:", message.data);
-        setGameStatus(message.data.reason);
-        setWinner(message.data.winner);
-        setTimerActive(false);
-
+      case "MATCH_COMPLETED":
         toast({
           title: "Partida finalizada",
-          description: `Fim de jogo: ${message.data.reason}`,
+          description: `Vencedor: ${message.data.winnerName}`,
         });
+        fetchBracket();
+        break;
+
+      case "ROUND_ADVANCED":
+        toast({
+          title: "Nova rodada!",
+          description: `Rodada ${message.data.nextRound} iniciada`,
+        });
+        fetchBracket();
+        break;
+
+      case "TOURNAMENT_FINISHED":
+        toast({
+          title: "Torneio finalizado!",
+          description: `Campeão: ${message.data.championName}`,
+        });
+        fetchTournamentData();
         break;
 
       default:
-        console.log("❓ Tipo de mensagem desconhecido:", message.type);
+        break;
     }
   };
 
@@ -106,17 +118,14 @@ const TournamentBracket = () => {
         }
       }
 
-      if (
-        data.tournament.status === "IN_PROGRESS" &&
-        data.tournament.participants
-      ) {
-        generateBracket(data.tournament.participants);
+      if (data.tournament.status === "IN_PROGRESS") {
+        await fetchBracket();
       }
     } catch (error) {
-      console.error("Erro ao buscar bracket:", error);
+      console.error("Erro ao buscar torneio:", error);
       setError(error.message);
       toast({
-        title: "Erro ao carregar chaveamento",
+        title: "Erro ao carregar torneio",
         description: error.message,
         variant: "destructive",
       });
@@ -125,74 +134,20 @@ const TournamentBracket = () => {
     }
   };
 
-  const generateBracket = (participants) => {
-    const players = participants.map((p) => ({
-      id: p.user.id,
-      name: p.user.name,
-    }));
-
-    if (players.length === 4) {
-      const generatedBracket = {
-        rounds: [
-          {
-            id: "semifinals",
-            name: "Semifinais",
-            matches: [
-              {
-                id: "semi1",
-                players: [players[0], players[1]],
-                winner: null,
-                canPlay: true,
-              },
-              {
-                id: "semi2",
-                players: [players[2], players[3]],
-                winner: null,
-                canPlay: true,
-              },
-            ],
-          },
-          {
-            id: "final",
-            name: "Final",
-            matches: [
-              {
-                id: "final1",
-                players: [null, null],
-                winner: null,
-                canPlay: false,
-              },
-            ],
-          },
-        ],
-      };
-      setBracket(generatedBracket);
-    } else if (players.length === 2) {
-      const generatedBracket = {
-        rounds: [
-          {
-            id: "final",
-            name: "Final",
-            matches: [
-              {
-                id: "final1",
-                players: [players[0], players[1]],
-                winner: null,
-                canPlay: true,
-              },
-            ],
-          },
-        ],
-      };
-      setBracket(generatedBracket);
+  const fetchBracket = async () => {
+    try {
+      const data = await tournamentService.getTournamentBracket(tournamentId);
+      setBracket(data.bracket);
+    } catch (error) {
+      console.error("Erro ao buscar bracket:", error);
     }
   };
 
-  const handlePlayMatch = async (match, roundId) => {
-    const isPlayerInMatch = match.players.some((p) => p && p.id === user.id);
-    const opponent = match.players.find((p) => p && p.id !== user.id);
+  const handlePlayMatch = async (match) => {
+    const isPlayerInMatch =
+      match.player1?.id === user.id || match.player2?.id === user.id;
 
-    if (!isPlayerInMatch || match.winner || !opponent) {
+    if (!isPlayerInMatch || match.status !== "PENDING") {
       toast({
         title: "Não é possível jogar",
         description: "Partida não disponível ou já finalizada",
@@ -201,65 +156,28 @@ const TournamentBracket = () => {
       return;
     }
 
-    if (!match.canPlay) {
+    try {
+      const response = await tournamentService.startMatch(
+        tournamentId,
+        match.id
+      );
+
+      console.log("Start match response:", response);
+
+      const gameId = response.match?.gameId;
+
+      if (!gameId) {
+        throw new Error("GameId não retornado pelo servidor");
+      }
+
+      navigate(`/game/${gameId}`);
+    } catch (error) {
       toast({
-        title: "Partida não liberada",
-        description: "Aguarde as partidas anteriores terminarem",
+        title: "Erro ao iniciar partida",
+        description: error.message,
         variant: "destructive",
       });
-      return;
     }
-
-    toast({
-      title: `Partida contra ${opponent.name}`,
-      description: "Redirecionando para o jogo...",
-    });
-
-    navigate(`/tournament/${tournamentId}/match/${match.id}`, {
-      state: {
-        player1: match.players[0],
-        player2: match.players[1],
-        opponent,
-        tournamentData: tournament,
-        matchId: match.id,
-        roundId,
-      },
-    });
-  };
-
-  const updateBracketResult = (resultData) => {
-    setBracket((prevBracket) => {
-      if (!prevBracket) return prevBracket;
-
-      const newBracket = JSON.parse(JSON.stringify(prevBracket));
-
-      newBracket.rounds.forEach((round) => {
-        round.matches.forEach((match) => {
-          if (match.id === resultData.matchId) {
-            match.winner = resultData.winner;
-
-            if (round.id === "semifinals" && match.winner) {
-              const finalRound = newBracket.rounds.find(
-                (r) => r.id === "final"
-              );
-              const finalMatch = finalRound.matches[0];
-
-              if (resultData.matchId === "semi1") {
-                finalMatch.players[0] = match.winner;
-              } else if (resultData.matchId === "semi2") {
-                finalMatch.players[1] = match.winner;
-              }
-
-              if (finalMatch.players[0] && finalMatch.players[1]) {
-                finalMatch.canPlay = true;
-              }
-            }
-          }
-        });
-      });
-
-      return newBracket;
-    });
   };
 
   if (loading) {
@@ -317,7 +235,6 @@ const TournamentBracket = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
     >
-      {/* Header com status de conexão */}
       <div className="flex justify-between items-center mb-4">
         <Button
           variant="ghost"
@@ -365,7 +282,6 @@ const TournamentBracket = () => {
 
       {tournament && (
         <>
-          {/* Header do Torneio */}
           <div className="text-center mb-8">
             <h1 className="text-3xl md:text-4xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
               {tournament.name}
@@ -376,10 +292,7 @@ const TournamentBracket = () => {
               <div className="flex items-center gap-1">
                 <Users className="w-4 h-4 text-blue-400" />
                 <span className="text-slate-300">
-                  {tournament._count?.participants ||
-                    tournament.participants?.length ||
-                    0}{" "}
-                  jogadores
+                  {tournament._count?.participants || 0} jogadores
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -396,97 +309,141 @@ const TournamentBracket = () => {
             </div>
           </div>
 
-          {/* Chaveamento */}
-          {bracket ? (
+          {Object.keys(bracket).length > 0 ? (
             <div className="flex justify-center overflow-x-auto pb-4">
               <div className="flex space-x-8 md:space-x-16">
-                {bracket.rounds.map((round) => (
-                  <div
-                    key={round.id}
-                    className="flex flex-col justify-around min-w-[280px]"
-                  >
-                    <h3 className="text-xl font-bold text-center mb-6 text-slate-300">
-                      {round.name}
-                    </h3>
-                    <div className="space-y-8">
-                      {round.matches.map((match) => (
-                        <Card
-                          key={match.id}
-                          className="bg-slate-800/70 border-slate-700 w-full"
-                        >
-                          <CardContent className="p-4">
-                            <div className="space-y-2 mb-4">
-                              {match.players.map((player, playerIndex) => (
+                {Object.keys(bracket)
+                  .sort((a, b) => parseInt(a) - parseInt(b))
+                  .map((round) => (
+                    <div
+                      key={round}
+                      className="flex flex-col justify-around min-w-[280px]"
+                    >
+                      <h3 className="text-xl font-bold text-center mb-6 text-slate-300">
+                        Rodada {round}
+                      </h3>
+                      <div className="space-y-8">
+                        {bracket[round].map((match) => (
+                          <Card
+                            key={match.id}
+                            className="bg-slate-800/70 border-slate-700 w-full"
+                          >
+                            <CardContent className="p-4">
+                              <div className="space-y-2 mb-4">
                                 <div
-                                  key={player?.id || `empty-${playerIndex}`}
                                   className={`flex justify-between items-center p-3 rounded-lg transition-colors ${
-                                    match.winner &&
-                                    match.winner.id === player?.id
+                                    match.winnerId === match.player1?.id
                                       ? "bg-green-500/20 border border-green-500/50"
-                                      : player?.id === user.id
+                                      : match.player1?.id === user.id
                                       ? "bg-cyan-500/20 border border-cyan-500/50"
                                       : "bg-slate-700/50"
                                   }`}
                                 >
                                   <span
                                     className={`${
-                                      match.winner &&
-                                      match.winner.id === player?.id
+                                      match.winnerId === match.player1?.id
                                         ? "text-green-300 font-bold"
-                                        : player?.id === user.id
+                                        : match.player1?.id === user.id
                                         ? "text-cyan-300 font-semibold"
                                         : "text-slate-300"
                                     }`}
                                   >
-                                    {player?.name || "Aguardando..."}
+                                    {match.player1?.name || "Aguardando..."}
                                   </span>
-                                  {match.winner &&
-                                    match.winner.id === player?.id && (
-                                      <Crown className="w-5 h-5 text-yellow-400" />
-                                    )}
+                                  {match.winnerId === match.player1?.id && (
+                                    <Crown className="w-5 h-5 text-yellow-400" />
+                                  )}
                                 </div>
-                              ))}
-                            </div>
 
-                            {!match.winner &&
-                              match.canPlay &&
-                              match.players.every((p) => p && p.id) &&
-                              match.players.some(
-                                (p) => p && p.id === user.id
-                              ) && (
-                                <Button
-                                  size="sm"
-                                  className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 animate-pulse"
-                                  onClick={() =>
-                                    handlePlayMatch(match, round.id)
-                                  }
+                                <div
+                                  className={`flex justify-between items-center p-3 rounded-lg transition-colors ${
+                                    match.winnerId === match.player2?.id
+                                      ? "bg-green-500/20 border border-green-500/50"
+                                      : match.player2?.id === user.id
+                                      ? "bg-cyan-500/20 border border-cyan-500/50"
+                                      : "bg-slate-700/50"
+                                  }`}
                                 >
-                                  <Swords className="w-4 h-4 mr-2" />
-                                  Jogar Agora
-                                </Button>
+                                  <span
+                                    className={`${
+                                      match.winnerId === match.player2?.id
+                                        ? "text-green-300 font-bold"
+                                        : match.player2?.id === user.id
+                                        ? "text-cyan-300 font-semibold"
+                                        : "text-slate-300"
+                                    }`}
+                                  >
+                                    {match.player2?.name || "Aguardando..."}
+                                  </span>
+                                  {match.winnerId === match.player2?.id && (
+                                    <Crown className="w-5 h-5 text-yellow-400" />
+                                  )}
+                                </div>
+                              </div>
+
+                              {match.status === "PENDING" &&
+                                match.player1 &&
+                                match.player2 &&
+                                (match.player1.id === user.id ||
+                                  match.player2.id === user.id) && (
+                                  <Button
+                                    size="sm"
+                                    className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 animate-pulse"
+                                    onClick={() => handlePlayMatch(match)}
+                                  >
+                                    <Swords className="w-4 h-4 mr-2" />
+                                    Jogar Agora
+                                  </Button>
+                                )}
+
+                              {match.status === "COMPLETED" && (
+                                <div className="text-center">
+                                  <p className="text-xs text-green-400 font-semibold">
+                                    Vencedor: {match.winner?.name}
+                                  </p>
+                                </div>
                               )}
 
-                            {match.winner && (
-                              <div className="text-center">
-                                <p className="text-xs text-green-400 font-semibold">
-                                  Vencedor: {match.winner.name}
-                                </p>
-                              </div>
-                            )}
+                              {match.status === "BYE" && (
+                                <div className="text-center">
+                                  <p className="text-xs text-blue-400">
+                                    {match.player1?.name} avança automaticamente
+                                  </p>
+                                </div>
+                              )}
 
-                            {!match.canPlay && !match.winner && (
-                              <div className="text-center">
-                                <p className="text-xs text-slate-500">
-                                  Aguardando partidas anteriores
-                                </p>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      ))}
+                              {match.status === "IN_PROGRESS" && (
+                                <div className="text-center">
+                                  {match.player1?.id === user.id ||
+                                  match.player2?.id === user.id ? (
+                                    <div className="space-y-2">
+                                      <p className="text-xs text-cyan-400 font-semibold animate-pulse">
+                                        É a sua vez!
+                                      </p>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="w-full border-cyan-500 text-cyan-400 hover:bg-cyan-500/20"
+                                        onClick={() =>
+                                          navigate(`/game/${match.gameId}`)
+                                        }
+                                      >
+                                        Entrar no Jogo
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-slate-400">
+                                      É a vez do oponente
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           ) : (

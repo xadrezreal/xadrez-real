@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { WebSocketManager } from "./webSocketManager";
+import fastifyPlugin from "fastify-plugin";
 
 interface WSQuery {
   userId: string;
@@ -9,16 +10,21 @@ interface WSParams {
   id: string;
 }
 
-const wsManager = new WebSocketManager();
+async function websocketRoutesPlugin(fastify: FastifyInstance) {
+  const wsManager = new WebSocketManager();
 
-export const websocketRoutes = async (fastify: FastifyInstance) => {
+  fastify.decorate("wsManager", wsManager);
+
+  console.log("[WS] wsManager decorated, starting heartbeat");
+
+  wsManager.startHeartbeat();
+
   fastify.get<{ Params: WSParams; Querystring: WSQuery }>(
     "/ws/tournament/:id",
     { websocket: true },
     (connection, req) => {
       const tournamentId = req.params.id;
       const userId = req.query.userId;
-
       const socket = connection.socket || connection;
       (socket as any)._playerId = userId;
       (socket as any)._roomId = `tournament:${tournamentId}`;
@@ -29,7 +35,6 @@ export const websocketRoutes = async (fastify: FastifyInstance) => {
 
       try {
         wsManager.addToTournamentRoom(tournamentId, socket, userId);
-
         socket.send(
           JSON.stringify({
             type: "connection_confirmed",
@@ -70,7 +75,6 @@ export const websocketRoutes = async (fastify: FastifyInstance) => {
     (connection, req) => {
       const gameId = req.params.id;
       const userId = req.query.userId;
-
       const socket = connection.socket || connection;
       (socket as any)._playerId = userId;
       (socket as any)._gameId = gameId;
@@ -79,7 +83,6 @@ export const websocketRoutes = async (fastify: FastifyInstance) => {
 
       try {
         wsManager.addToGameRoom(gameId, socket, userId);
-
         socket.send(
           JSON.stringify({
             type: "connection_confirmed",
@@ -124,6 +127,6 @@ export const websocketRoutes = async (fastify: FastifyInstance) => {
       },
     };
   });
+}
 
-  fastify.decorate("wsManager", wsManager);
-};
+export const websocketRoutes = fastifyPlugin(websocketRoutesPlugin);

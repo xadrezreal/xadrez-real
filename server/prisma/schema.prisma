@@ -16,6 +16,7 @@ enum TournamentStatus {
   WAITING
   IN_PROGRESS
   FINISHED
+  CANCELLED
 }
 
 enum PrizeDistribution {
@@ -24,21 +25,33 @@ enum PrizeDistribution {
   SPLIT_TOP_4
 }
 
+enum MatchStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  BYE
+}
+
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String
-  role      Role     @default(FREEMIUM)
-  balance   Float    @default(0.0)
-  country   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(cuid())
+  email            String   @unique
+  name             String
+  password         String
+  role             Role     @default(FREEMIUM)
+  balance          Float    @default(0.0)
+  country          String?
+  tournamentPoints Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   createdTournaments       Tournament[]            @relation("TournamentCreator")
+  wonTournaments           Tournament[]            @relation("TournamentWinner")
   participatingTournaments TournamentParticipant[]
   whiteGames               Game[]                  @relation("WhitePlayer")
   blackGames               Game[]                  @relation("BlackPlayer")
+  matchesAsPlayer1         TournamentMatch[]       @relation("MatchPlayer1")
+  matchesAsPlayer2         TournamentMatch[]       @relation("MatchPlayer2")
+  matchesWon               TournamentMatch[]       @relation("MatchWinner")
 
   @@map("users")
 }
@@ -51,13 +64,18 @@ model Tournament {
   prizeDistribution PrizeDistribution @default(SPLIT_TOP_2)
   status            TournamentStatus  @default(WAITING)
   startTime         DateTime
+  currentRound      Int               @default(0)
+  totalRounds       Int               @default(0)
+  winnerId          String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
   creatorId String
   creator   User   @relation("TournamentCreator", fields: [creatorId], references: [id])
 
+  winner       User?                   @relation("TournamentWinner", fields: [winnerId], references: [id])
   participants TournamentParticipant[]
+  matches      TournamentMatch[]
   games        Game[]
 
   @@map("tournaments")
@@ -76,29 +94,54 @@ model TournamentParticipant {
   @@map("tournament_participants")
 }
 
+model TournamentMatch {
+  id           String      @id @default(cuid())
+  tournamentId String
+  round        Int
+  matchNumber  Int
+  player1Id    String?
+  player2Id    String?
+  winnerId     String?
+  gameId       String?     @unique
+  status       MatchStatus @default(PENDING)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  player1    User?      @relation("MatchPlayer1", fields: [player1Id], references: [id])
+  player2    User?      @relation("MatchPlayer2", fields: [player2Id], references: [id])
+  winner     User?      @relation("MatchWinner", fields: [winnerId], references: [id])
+  game       Game?      @relation(fields: [gameId], references: [game_id_text])
+
+  @@unique([tournamentId, round, matchNumber])
+  @@index([tournamentId, status])
+  @@map("tournament_matches")
+}
+
 model Game {
-  id                  String   @id @default(cuid())
-  game_id_text        String   @unique
-  tournament_id       String?
-  white_player_id     String
-  black_player_id     String
-  white_player_name   String
-  black_player_name   String
+  id                   String   @id @default(cuid())
+  game_id_text         String   @unique
+  tournament_id        String?
+  white_player_id      String
+  black_player_id      String
+  white_player_name    String
+  black_player_name    String
   white_player_country String?
   black_player_country String?
-  status              String
-  fen                 String
-  white_time          Int
-  black_time          Int
-  wager               Float    @default(0.0)
-  winner_id           String?
-  last_move           Json?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  status               String
+  fen                  String
+  white_time           Int
+  black_time           Int
+  wager                Float    @default(0.0)
+  winner_id            String?
+  last_move            Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  tournament   Tournament? @relation(fields: [tournament_id], references: [id])
-  whitePlayer  User        @relation("WhitePlayer", fields: [white_player_id], references: [id])
-  blackPlayer  User        @relation("BlackPlayer", fields: [black_player_id], references: [id])
+  tournament    Tournament?      @relation(fields: [tournament_id], references: [id])
+  whitePlayer   User             @relation("WhitePlayer", fields: [white_player_id], references: [id])
+  blackPlayer   User             @relation("BlackPlayer", fields: [black_player_id], references: [id])
+  tournamentMatch TournamentMatch?
 
   @@map("games")
 }

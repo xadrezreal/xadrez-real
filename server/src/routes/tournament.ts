@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { TournamentOrchestrator } from "./tournamentOrchestrator";
 import "../types/fastify";
 
 const createTournamentSchema = z.object({
@@ -211,6 +212,63 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           ...tournament,
           prizePool,
         },
+      });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({
+        error: "Erro interno do servidor",
+      });
+    }
+  });
+
+  fastify.get("/:id/bracket", async (request: any, reply: any) => {
+    try {
+      const { id } = request.params;
+
+      const tournament = await fastify.prisma.tournament.findUnique({
+        where: { id },
+        include: {
+          matches: {
+            include: {
+              player1: {
+                select: { id: true, name: true },
+              },
+              player2: {
+                select: { id: true, name: true },
+              },
+              winner: {
+                select: { id: true, name: true },
+              },
+            },
+            orderBy: [{ round: "asc" }, { matchNumber: "asc" }],
+          },
+        },
+      });
+
+      if (!tournament) {
+        return reply.status(404).send({
+          error: "Torneio não encontrado",
+        });
+      }
+
+      const bracketByRound: Record<number, any[]> = {};
+
+      tournament.matches.forEach((match) => {
+        if (!bracketByRound[match.round]) {
+          bracketByRound[match.round] = [];
+        }
+        bracketByRound[match.round].push(match);
+      });
+
+      return reply.send({
+        tournament: {
+          id: tournament.id,
+          name: tournament.name,
+          status: tournament.status,
+          currentRound: tournament.currentRound,
+          totalRounds: tournament.totalRounds,
+        },
+        bracket: bracketByRound,
       });
     } catch (error) {
       fastify.log.error(error);
@@ -445,6 +503,86 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           message: "Torneio cancelado e participantes reembolsados",
         });
       } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: "Erro interno do servidor",
+        });
+      }
+    }
+  );
+
+  fastify.post(
+    "/:tournamentId/match/:matchId/start",
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request: any, reply: any) => {
+      try {
+        const { matchId } = request.params;
+        const userId = request.user.id;
+
+        console.log("[ROUTE] Start match request:", { matchId, userId });
+
+        const match = await fastify.prisma.tournamentMatch.findUnique({
+          where: { id: matchId },
+        });
+
+        console.log("[ROUTE] Match found:", {
+          id: match?.id,
+          status: match?.status,
+          gameId: match?.gameId,
+          player1Id: match?.player1Id,
+          player2Id: match?.player2Id,
+        });
+
+        if (!match) {
+          return reply.status(404).send({
+            error: "Partida não encontrada",
+          });
+        }
+
+        if (match.player1Id !== userId && match.player2Id !== userId) {
+          console.log("[ROUTE] User not in match");
+          return reply.status(403).send({
+            error: "Você não participa desta partida",
+          });
+        }
+
+        if (match.status !== "PENDING") {
+          console.log("[ROUTE] Match not pending, status:", match.status);
+          return reply.status(400).send({
+            error: `Partida não está disponível para iniciar. Status: ${match.status}`,
+          });
+        }
+
+        console.log("[ROUTE] Creating orchestrator...");
+
+        const orchestrator = new TournamentOrchestrator(
+          fastify.prisma,
+          fastify.wsManager,
+          fastify.log
+        );
+
+        console.log("[ROUTE] Calling startMatch...");
+
+        await orchestrator.startMatch(matchId);
+
+        console.log("[ROUTE] Match started successfully");
+
+        const updatedMatch = await fastify.prisma.tournamentMatch.findUnique({
+          where: { id: matchId },
+          include: {
+            player1: true,
+            player2: true,
+          },
+        });
+
+        return reply.send({
+          message: "Partida iniciada com sucesso",
+          match: updatedMatch,
+        });
+      } catch (error) {
+        console.error("[ROUTE] Error starting match:", error);
         fastify.log.error(error);
         return reply.status(500).send({
           error: "Erro interno do servidor",
