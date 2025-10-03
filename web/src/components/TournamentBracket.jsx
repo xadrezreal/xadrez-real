@@ -19,6 +19,13 @@ import {
 import { tournamentService } from "../lib/tournamentService";
 import { useWebSocket } from "../hooks/useWebSocket";
 
+const getWebSocketURL = () => {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const host = window.location.hostname;
+  const port = protocol === "wss:" ? "" : ":3000";
+  return `${protocol}//${host}${port}`;
+};
+
 const TournamentBracket = () => {
   const { id: tournamentId } = useParams();
   const navigate = useNavigate();
@@ -30,7 +37,7 @@ const TournamentBracket = () => {
   const [bracket, setBracket] = useState({});
 
   const { connectionStatus } = useWebSocket(
-    `ws://localhost:3000/ws/tournament/${tournamentId}`,
+    `${getWebSocketURL()}/ws/tournament/${tournamentId}`,
     {
       onMessage: (message) => {
         handleWebSocketMessage(message);
