@@ -1,4 +1,5 @@
-import React, { useContext } from "react";
+// TournamentMatch.tsx
+import React, { useContext, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { DndProvider } from "react-dnd";
@@ -19,12 +20,14 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useChessGame } from "../hooks/useChessGame";
+import { useToast } from "./ui/use-toast";
 
 const TournamentMatch = () => {
   const { tournamentId, matchId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useContext(UserContext);
+  const { toast } = useToast();
 
   const matchData = location.state;
   const gameId = `tournament-${tournamentId}-${matchId}`;
@@ -55,6 +58,32 @@ const TournamentMatch = () => {
     gameId,
     gameType: "tournament",
   });
+
+  useEffect(() => {
+    if (gameStatus && gameStatus !== "playing") {
+      const isWinner = winner?.id === user.id;
+
+      toast({
+        title: isWinner ? "🎉 VITÓRIA!" : winner ? "😞 Derrota" : "⚖️ Empate",
+        description: isWinner
+          ? "Parabéns! Aguardando próxima rodada..."
+          : winner
+          ? "Você foi eliminado do torneio."
+          : "A partida terminou em empate",
+        duration: 5000,
+      });
+
+      const timeout = setTimeout(() => {
+        if (isWinner) {
+          navigate(`/tournament/${tournamentId}/bracket`);
+        } else {
+          navigate("/");
+        }
+      }, 3000);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [gameStatus, winner, user.id, navigate, tournamentId, toast]);
 
   const formatTime = (seconds) =>
     `${Math.floor(seconds / 60)
@@ -176,7 +205,7 @@ const TournamentMatch = () => {
                   : "Empate!"}
               </h2>
             </div>
-            <p className="text-slate-300 mb-4">
+            <p className="text-slate-300 mb-2">
               {gameStatus === "checkmate"
                 ? "Por xeque-mate"
                 : gameStatus === "timeout"
@@ -185,11 +214,14 @@ const TournamentMatch = () => {
                 ? "Por desistência"
                 : "Partida empatada"}
             </p>
+            <p className="text-sm text-cyan-400 mb-4">
+              Redirecionando em 3 segundos...
+            </p>
             <Button
               onClick={handleFinishMatch}
               className="bg-cyan-500 hover:bg-cyan-600"
             >
-              Finalizar e Voltar ao Torneio
+              Voltar Agora ao Torneio
             </Button>
           </motion.div>
         )}

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useContext } from "react";
+// TournamentBracket.tsx
+import React, { useState, useEffect, useContext, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { UserContext } from "../contexts/UserContext";
@@ -43,25 +44,34 @@ const TournamentBracket = () => {
         handleWebSocketMessage(message);
       },
       onOpen: () => {
+        console.log("[BRACKET_WS] Connected to tournament");
         toast({
           title: "Conectado ao torneio",
           description: "Você receberá atualizações em tempo real",
         });
       },
       onClose: () => {
-        console.log("WebSocket desconectado do torneio");
+        console.log("[BRACKET_WS] Disconnected from tournament");
       },
     }
   );
 
   const handleWebSocketMessage = (message) => {
-    console.log("Tournament WS Message:", message);
+    console.log("[BRACKET_WS] Message received:", message);
 
     switch (message.type) {
       case "MATCH_STARTED":
         const isMyMatch =
           message.data.player1Id === user.id ||
           message.data.player2Id === user.id;
+
+        console.log("[BRACKET_WS] Match started:", {
+          isMyMatch,
+          gameId: message.data.gameId,
+          player1Id: message.data.player1Id,
+          player2Id: message.data.player2Id,
+          userId: user.id,
+        });
 
         if (isMyMatch) {
           navigate(`/game/${message.data.gameId}`);
@@ -71,24 +81,57 @@ const TournamentBracket = () => {
         break;
 
       case "MATCH_COMPLETED":
+        const wasMyMatch =
+          message.data.player1Id === user.id ||
+          message.data.player2Id === user.id;
+
+        console.log("[BRACKET_WS] Match completed:", {
+          wasMyMatch,
+          winnerId: message.data.winnerId,
+          winnerName: message.data.winnerName,
+          userId: user.id,
+        });
+
         toast({
           title: "Partida finalizada",
           description: `Vencedor: ${message.data.winnerName}`,
         });
+
         fetchBracket();
+
+        if (wasMyMatch && message.data.winnerId === user.id) {
+          setTimeout(() => {
+            toast({
+              title: "🎉 Você venceu!",
+              description: "Aguarde a próxima rodada começar",
+            });
+          }, 1000);
+        }
         break;
 
       case "ROUND_ADVANCED":
+        console.log("[BRACKET_WS] Round advanced:", {
+          completedRound: message.data.completedRound,
+          nextRound: message.data.nextRound,
+          winnersCount: message.data.winnersCount,
+        });
+
         toast({
-          title: "Nova rodada!",
+          title: "🏆 Nova rodada!",
           description: `Rodada ${message.data.nextRound} iniciada`,
         });
         fetchBracket();
+        fetchTournamentData();
         break;
 
       case "TOURNAMENT_FINISHED":
+        console.log("[BRACKET_WS] Tournament finished:", {
+          championId: message.data.championId,
+          championName: message.data.championName,
+        });
+
         toast({
-          title: "Torneio finalizado!",
+          title: "🎊 Torneio finalizado!",
           description: `Campeão: ${message.data.championName}`,
         });
         fetchTournamentData();
@@ -111,6 +154,12 @@ const TournamentBracket = () => {
       const data = await tournamentService.getTournament(tournamentId);
       setTournament(data.tournament);
 
+      console.log("[BRACKET] Tournament data loaded:", {
+        status: data.tournament.status,
+        currentRound: data.tournament.currentRound,
+        totalRounds: data.tournament.totalRounds,
+      });
+
       if (data.tournament.status === "WAITING") {
         const startTime = new Date(data.tournament.startTime);
         const timeUntilStart = startTime - new Date();
@@ -129,7 +178,7 @@ const TournamentBracket = () => {
         await fetchBracket();
       }
     } catch (error) {
-      console.error("Erro ao buscar torneio:", error);
+      console.error("[BRACKET] Error fetching tournament:", error);
       setError(error.message);
       toast({
         title: "Erro ao carregar torneio",
@@ -145,40 +194,150 @@ const TournamentBracket = () => {
     try {
       const data = await tournamentService.getTournamentBracket(tournamentId);
       setBracket(data.bracket);
+      console.log("[BRACKET] Bracket data loaded:", data.bracket);
     } catch (error) {
-      console.error("Erro ao buscar bracket:", error);
+      console.error("[BRACKET] Error fetching bracket:", error);
     }
   };
 
+  const userIsEliminated = useMemo(() => {
+    if (!bracket || !tournament || !user) return false;
+
+    let userWasInTournament = false;
+    let userLostAMatch = false;
+
+    for (let round = 1; round <= tournament.totalRounds; round++) {
+      const roundMatches = bracket[round];
+      if (!roundMatches) continue;
+
+      for (const match of roundMatches) {
+        const userIsPlayer1 = match.player1?.id === user.id;
+        const userIsPlayer2 = match.player2?.id === user.id;
+        const userIsInThisMatch = userIsPlayer1 || userIsPlayer2;
+
+        if (userIsInThisMatch) {
+          userWasInTournament = true;
+
+          if (match.status === "COMPLETED" || match.status === "BYE") {
+            if (match.winnerId && match.winnerId !== user.id) {
+              userLostAMatch = true;
+              console.log("[BRACKET] User lost in round", round, {
+                matchId: match.id,
+                winnerId: match.winnerId,
+                userId: user.id,
+              });
+              break;
+            }
+          }
+        }
+      }
+
+      if (userLostAMatch) break;
+    }
+
+    return userWasInTournament && userLostAMatch;
+  }, [bracket, tournament, user]);
+
+  const userJustWon = useMemo(() => {
+    if (!bracket || !tournament || !user || userIsEliminated) return false;
+
+    const currentRoundMatches = bracket[tournament.currentRound];
+    if (!currentRoundMatches) return false;
+
+    return currentRoundMatches.some(
+      (match) => match.status === "COMPLETED" && match.winnerId === user.id
+    );
+  }, [bracket, tournament, user, userIsEliminated]);
+
+  const hasNextMatch = useMemo(() => {
+    if (!bracket || !tournament || !user || userIsEliminated) return false;
+
+    const currentRoundMatches = bracket[tournament.currentRound];
+    if (!currentRoundMatches) return false;
+
+    return currentRoundMatches.some(
+      (match) =>
+        match.status === "PENDING" &&
+        (match.player1?.id === user.id || match.player2?.id === user.id)
+    );
+  }, [bracket, tournament, user, userIsEliminated]);
+
+  useEffect(() => {
+    if (bracket && tournament && user) {
+      console.log("[BRACKET_DEBUG] Current state:", {
+        userId: user.id,
+        currentRound: tournament.currentRound,
+        totalRounds: tournament.totalRounds,
+        userIsEliminated,
+        userJustWon,
+        hasNextMatch,
+        bracketKeys: Object.keys(bracket),
+      });
+    }
+  }, [bracket, tournament, user, userIsEliminated, userJustWon, hasNextMatch]);
+
   const handlePlayMatch = async (match) => {
+    if (userIsEliminated) {
+      toast({
+        title: "Você foi eliminado",
+        description: "Jogadores eliminados não podem jogar",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const isPlayerInMatch =
       match.player1?.id === user.id || match.player2?.id === user.id;
 
-    if (!isPlayerInMatch || match.status !== "PENDING") {
+    if (!isPlayerInMatch) {
       toast({
-        title: "Não é possível jogar",
-        description: "Partida não disponível ou já finalizada",
+        title: "Não é sua partida",
+        description: "Você não está nesta partida",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (match.status !== "PENDING") {
+      toast({
+        title: "Partida não disponível",
+        description: "Esta partida já foi iniciada ou finalizada",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!match.player1 || !match.player2) {
+      toast({
+        title: "Aguardando oponente",
+        description: "A partida ainda não tem todos os jogadores",
         variant: "destructive",
       });
       return;
     }
 
     try {
+      console.log("[BRACKET] Starting match:", {
+        matchId: match.id,
+        player1: match.player1.name,
+        player2: match.player2.name,
+      });
+
       const response = await tournamentService.startMatch(
         tournamentId,
         match.id
       );
 
-      console.log("Start match response:", response);
-
-      const gameId = response.match?.gameId;
+      const gameId = response.match?.gameId || response.game?.game_id_text;
 
       if (!gameId) {
         throw new Error("GameId não retornado pelo servidor");
       }
 
+      console.log("[BRACKET] Match started, navigating to game:", gameId);
       navigate(`/game/${gameId}`);
     } catch (error) {
+      console.error("[BRACKET] Error starting match:", error);
       toast({
         title: "Erro ao iniciar partida",
         description: error.message,
@@ -282,6 +441,38 @@ const TournamentBracket = () => {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {userIsEliminated && (
+        <Card className="mb-6 bg-red-500/10 border-red-500/50">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center gap-2 text-red-400">
+              <Trophy className="w-5 h-5" />
+              <span className="font-semibold">Você foi eliminado!</span>
+            </div>
+            <p className="text-sm text-slate-400 mt-2">
+              Obrigado por participar! Continue acompanhando o torneio.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {userJustWon && !hasNextMatch && !userIsEliminated && (
+        <Card className="mb-6 bg-green-500/10 border-green-500/50">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center gap-2 text-green-400">
+              <Trophy className="w-5 h-5 animate-bounce" />
+              <span className="font-semibold">
+                {tournament.currentRound === tournament.totalRounds
+                  ? "🎉 Você passou para a FINAL!"
+                  : "🎉 Você passou para a próxima fase!"}
+              </span>
+            </div>
+            <p className="text-sm text-slate-400 mt-2">
+              Aguarde enquanto os outros jogos da rodada terminam...
             </p>
           </CardContent>
         </Card>
@@ -391,12 +582,14 @@ const TournamentBracket = () => {
                               {match.status === "PENDING" &&
                                 match.player1 &&
                                 match.player2 &&
+                                !userIsEliminated &&
                                 (match.player1.id === user.id ||
                                   match.player2.id === user.id) && (
                                   <Button
                                     size="sm"
                                     className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 animate-pulse"
                                     onClick={() => handlePlayMatch(match)}
+                                    disabled={userIsEliminated}
                                   >
                                     <Swords className="w-4 h-4 mr-2" />
                                     Jogar Agora
@@ -419,32 +612,38 @@ const TournamentBracket = () => {
                                 </div>
                               )}
 
-                              {match.status === "IN_PROGRESS" && (
-                                <div className="text-center">
-                                  {match.player1?.id === user.id ||
-                                  match.player2?.id === user.id ? (
-                                    <div className="space-y-2">
-                                      <p className="text-xs text-cyan-400 font-semibold animate-pulse">
-                                        É a sua vez!
-                                      </p>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="w-full border-cyan-500 text-cyan-400 hover:bg-cyan-500/20"
-                                        onClick={() =>
-                                          navigate(`/game/${match.gameId}`)
-                                        }
-                                      >
-                                        Entrar no Jogo
-                                      </Button>
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-slate-400">
-                                      É a vez do oponente
+                              {match.status === "IN_PROGRESS" &&
+                                !userIsEliminated &&
+                                (match.player1?.id === user.id ||
+                                  match.player2?.id === user.id) && (
+                                  <div className="space-y-2">
+                                    <p className="text-xs text-cyan-400 font-semibold animate-pulse text-center">
+                                      É a sua vez!
                                     </p>
-                                  )}
-                                </div>
-                              )}
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="w-full border-cyan-500 text-cyan-400 hover:bg-cyan-500/20"
+                                      onClick={() =>
+                                        navigate(`/game/${match.gameId}`)
+                                      }
+                                      disabled={userIsEliminated}
+                                    >
+                                      Entrar no Jogo
+                                    </Button>
+                                  </div>
+                                )}
+
+                              {match.status === "IN_PROGRESS" &&
+                                (userIsEliminated ||
+                                  (match.player1?.id !== user.id &&
+                                    match.player2?.id !== user.id)) && (
+                                  <div className="text-center">
+                                    <p className="text-xs text-slate-400">
+                                      Partida em andamento
+                                    </p>
+                                  </div>
+                                )}
                             </CardContent>
                           </Card>
                         ))}

@@ -1,5 +1,5 @@
-import { useEffect, useCallback, useRef } from "react";
 import { Chess } from "chess.js";
+import { useCallback, useEffect, useRef } from "react";
 import { getBotMove as getAdvancedBotMove } from "../lib/chessLogic";
 
 export const useGameEffects = ({
@@ -24,9 +24,7 @@ export const useGameEffects = ({
   setGameStatus,
   updateBoard,
   processGameData,
-  handleResign,
   makeMove,
-  setMessages,
 }) => {
   const isGameActive = gameStatus === "playing";
   const gameInitialized = useRef(false);
@@ -49,6 +47,8 @@ export const useGameEffects = ({
       setIsGameLoading(false);
       setGameStatus("playing");
       gameInitialized.current = true;
+
+      console.log("[GAME_EFFECTS] Bot game initialized");
     }
   }, [
     gameType,
@@ -72,11 +72,6 @@ export const useGameEffects = ({
     if (gameType === "bot" || !gameId || !user?.id || gameInitialized.current)
       return;
 
-    console.log(
-      "INICIALIZANDO JOGO - gameInitialized:",
-      gameInitialized.current
-    );
-
     let isMounted = true;
 
     const initializeGame = async () => {
@@ -88,7 +83,7 @@ export const useGameEffects = ({
         try {
           const response = await fetch(`${API_URL}/api/game/${gameId}/state`, {
             headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
             },
           });
 
@@ -101,7 +96,6 @@ export const useGameEffects = ({
               gameInitialized.current = true;
             }
           } else {
-            console.error("Jogo de torneio não encontrado no servidor");
             toast({
               title: "Erro",
               description:
@@ -114,8 +108,6 @@ export const useGameEffects = ({
             }
           }
         } catch (error) {
-          console.error("Erro ao buscar jogo de torneio:", error);
-
           if (isMounted) {
             setIsGameLoading(false);
           }
@@ -136,7 +128,7 @@ export const useGameEffects = ({
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [gameId, gameType, user?.id]);
+  }, [gameId, gameType, user?.id, processGameData, toast, setIsGameLoading]);
 
   useEffect(() => {
     return () => {
@@ -147,12 +139,20 @@ export const useGameEffects = ({
   useEffect(() => {
     if (!isGameActive || whiteTime === null || blackTime === null) return;
 
+    if (!gameData || !gameData.white_player_id || !gameData.black_player_id) {
+      console.log("[TIMER] Waiting for game data before starting timer");
+      return;
+    }
+
     const timer = setInterval(() => {
       if (currentPlayer === "white") {
         setWhiteTime((t) => {
           if (t !== null && t <= 1) {
-            clearInterval(timer);
-            handleResign(true);
+            toast({
+              title: "Tempo esgotado!",
+              description: "Você perdeu por tempo.",
+              variant: "destructive",
+            });
             return 0;
           }
           return t !== null && t > 0 ? t - 1 : 0;
@@ -160,8 +160,11 @@ export const useGameEffects = ({
       } else {
         setBlackTime((t) => {
           if (t !== null && t <= 1) {
-            clearInterval(timer);
-            handleResign(true);
+            toast({
+              title: "Tempo esgotado!",
+              description: "Você perdeu por tempo.",
+              variant: "destructive",
+            });
             return 0;
           }
           return t !== null && t > 0 ? t - 1 : 0;
@@ -175,8 +178,9 @@ export const useGameEffects = ({
     currentPlayer,
     whiteTime,
     blackTime,
+    gameData,
     setWhiteTime,
     setBlackTime,
-    handleResign,
+    toast,
   ]);
 };

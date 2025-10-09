@@ -1,3 +1,4 @@
+// tournamentOrchestrator.ts
 import { PrismaClient } from "@prisma/client";
 import { FastifyBaseLogger } from "fastify";
 import { WebSocketManager } from "../websocket/webSocketManager";
@@ -123,12 +124,18 @@ export class TournamentOrchestrator {
       throw new Error("Match already finished");
     }
 
-if (match.status === "IN_PROGRESS") {
-  const existingGame = await this.prisma.game.findUnique({
-    where: { game_id_text: match.gameId! },
-  });
-  return existingGame;
-}
+    if (match.status === "IN_PROGRESS") {
+      const existingGame = await this.prisma.game.findUnique({
+        where: { game_id_text: match.gameId! },
+      });
+
+      const updatedMatch = await this.prisma.tournamentMatch.findUnique({
+        where: { id: matchId },
+      });
+
+      return { game: existingGame, match: updatedMatch };
+    }
+
     const isFirstWhite = Math.random() < 0.5;
     const whitePlayer = isFirstWhite ? match.player1 : match.player2;
     const blackPlayer = isFirstWhite ? match.player2 : match.player1;
@@ -160,7 +167,7 @@ if (match.status === "IN_PROGRESS") {
       },
     });
 
-    await this.prisma.tournamentMatch.update({
+    const updatedMatch = await this.prisma.tournamentMatch.update({
       where: { id: matchId },
       data: {
         gameId: game.game_id_text,
@@ -183,11 +190,12 @@ if (match.status === "IN_PROGRESS") {
 
     this.logger.info(`Match ${matchId} started: ${game.game_id_text}`);
 
-    return game;
+    return { game, match: updatedMatch };
   }
 
   async handleMatchEnd(gameIdText: string): Promise<void> {
-    console.log("[MATCH_END] Processing game end:", gameIdText);
+    console.log("[MATCH_END] ========== PROCESSING GAME END ==========");
+    console.log("[MATCH_END] Game ID:", gameIdText);
 
     const game = await this.prisma.game.findUnique({
       where: { game_id_text: gameIdText },
@@ -201,23 +209,43 @@ if (match.status === "IN_PROGRESS") {
       this.logger.warn(
         `Game ${gameIdText} is not a tournament game or has no winner`
       );
+      console.log("[MATCH_END] Not a tournament game or no winner - SKIPPING");
       return;
     }
 
-    console.log("[MATCH_END] Found game with winner:", game.winner_id);
+    console.log("[MATCH_END] Tournament ID:", game.tournament_id);
+    console.log("[MATCH_END] Winner ID:", game.winner_id);
+    console.log("[MATCH_END] Game Status:", game.status);
 
     const match = await this.prisma.tournamentMatch.findUnique({
       where: { gameId: gameIdText },
-      include: { tournament: true },
+      include: {
+        tournament: true,
+        player1: true,
+        player2: true,
+      },
     });
 
     if (!match) {
       this.logger.error(`Match not found for game ${gameIdText}`);
+      console.log("[MATCH_END] Match not found in database - ERROR");
+      return;
+    }
+
+    console.log("[MATCH_END] Match found:", {
+      matchId: match.id,
+      round: match.round,
+      status: match.status,
+      player1: match?.player1?.name,
+      player2: match?.player2?.name,
+    });
+
+    if (match.status === "COMPLETED") {
+      console.log("[MATCH_END] Match already completed - SKIPPING");
       return;
     }
 
     console.log("[MATCH_END] Updating match to COMPLETED");
-
     await this.prisma.tournamentMatch.update({
       where: { id: match.id },
       data: {
@@ -236,6 +264,8 @@ if (match.status === "IN_PROGRESS") {
           game.winner_id === game.white_player_id
             ? game.whitePlayer.name
             : game.blackPlayer.name,
+        player1Id: match.player1Id,
+        player2Id: match.player2Id,
       },
     });
 
@@ -257,7 +287,9 @@ if (match.status === "IN_PROGRESS") {
       `Match ${match.id} completed. Winner: ${game.winner_id} (+${pointsForWin} points)`
     );
 
+    console.log("[MATCH_END] Checking if round is complete...");
     await this.checkRoundCompletion(match.tournamentId, match.round);
+    console.log("[MATCH_END] ========== PROCESSING COMPLETE ==========");
   }
 
   private calculateMatchPoints(round: number, totalRounds: number): number {
@@ -275,7 +307,29 @@ if (match.status === "IN_PROGRESS") {
     tournamentId: string,
     round: number
   ): Promise<void> {
-    console.log("[ROUND_CHECK] Checking if round", round, "is complete");
+    console.log("[ROUND_CHECK] ========== CHECKING ROUND ==========");
+    console.log("[ROUND_CHECK] Tournament ID:", tournamentId);
+    console.log("[ROUND_CHECK] Round:", round);
+
+    const allMatchesInRound = await this.prisma.tournamentMatch.findMany({
+      where: {
+        tournamentId,
+        round,
+      },
+    });
+
+    console.log(
+      "[ROUND_CHECK] Total matches in round:",
+      allMatchesInRound.length
+    );
+    console.log(
+      "[ROUND_CHECK] Match statuses:",
+      allMatchesInRound.map((m) => ({
+        matchNumber: m.matchNumber,
+        status: m.status,
+        winnerId: m.winnerId,
+      }))
+    );
 
     const pendingMatches = await this.prisma.tournamentMatch.count({
       where: {
@@ -285,16 +339,17 @@ if (match.status === "IN_PROGRESS") {
       },
     });
 
-    console.log("[ROUND_CHECK] Pending matches:", pendingMatches);
+    console.log("[ROUND_CHECK] Pending/In-Progress matches:", pendingMatches);
 
     if (pendingMatches > 0) {
       this.logger.info(
         `Round ${round} still has ${pendingMatches} pending matches`
       );
+      console.log("[ROUND_CHECK] Round not complete yet - WAITING");
       return;
     }
 
-    console.log("[ROUND_CHECK] Round complete, advancing...");
+    console.log("[ROUND_CHECK] ✅ ALL MATCHES COMPLETE - ADVANCING");
     await this.advanceToNextRound(tournamentId, round);
   }
 
@@ -302,50 +357,79 @@ if (match.status === "IN_PROGRESS") {
     tournamentId: string,
     completedRound: number
   ): Promise<void> {
-    console.log("[ADVANCE] Advancing from round", completedRound);
+    console.log("[ADVANCE] ========== ADVANCING ROUND ==========");
+    console.log("[ADVANCE] Tournament ID:", tournamentId);
+    console.log("[ADVANCE] Completed Round:", completedRound);
 
     const tournament = await this.prisma.tournament.findUnique({
       where: { id: tournamentId },
     });
 
-    if (!tournament) return;
+    if (!tournament) {
+      console.log("[ADVANCE] Tournament not found - ERROR");
+      return;
+    }
 
     const nextRound = completedRound + 1;
 
-    console.log(
-      "[ADVANCE] Next round:",
-      nextRound,
-      "Total rounds:",
-      tournament.totalRounds
-    );
+    console.log("[ADVANCE] Tournament total rounds:", tournament.totalRounds);
+    console.log("[ADVANCE] Next round would be:", nextRound);
 
     if (nextRound > tournament.totalRounds) {
-      console.log("[ADVANCE] Tournament complete!");
+      console.log("[ADVANCE] Tournament complete - calling finalize");
       await this.finalizeTournament(tournamentId);
       return;
     }
 
-    const winners = await this.prisma.tournamentMatch.findMany({
+    const completedMatches = await this.prisma.tournamentMatch.findMany({
       where: {
         tournamentId,
         round: completedRound,
+        status: { in: ["COMPLETED", "BYE"] },
       },
       include: {
         winner: true,
       },
+      orderBy: {
+        matchNumber: "asc",
+      },
     });
 
-    const winnerUsers = winners.filter((m) => m.winner).map((m) => m.winner!);
+    console.log("[ADVANCE] Completed matches:", completedMatches.length);
+    console.log(
+      "[ADVANCE] Winners:",
+      completedMatches.map((m) => ({
+        matchNumber: m.matchNumber,
+        winnerId: m.winnerId,
+        winnerName: m.winner?.name,
+      }))
+    );
 
-    console.log("[ADVANCE] Winners advancing:", winnerUsers.length);
+    const winnerUsers = completedMatches
+      .filter((m) => m.winner)
+      .map((m) => m.winner!);
+
+    console.log(
+      "[ADVANCE] Winners advancing to next round:",
+      winnerUsers.map((w) => w.name)
+    );
 
     if (winnerUsers.length === 0) {
       this.logger.error(`No winners found for round ${completedRound}`);
+      console.log("[ADVANCE] ERROR: No winners found!");
       return;
     }
 
+    if (winnerUsers.length === 1) {
+      console.log("[ADVANCE] Only one winner - tournament complete!");
+      await this.finalizeTournament(tournamentId);
+      return;
+    }
+
+    console.log("[ADVANCE] Creating matches for round", nextRound);
     await this.createRoundMatches(tournamentId, nextRound, winnerUsers);
 
+    console.log("[ADVANCE] Updating tournament current round to", nextRound);
     await this.prisma.tournament.update({
       where: { id: tournamentId },
       data: { currentRound: nextRound },
@@ -357,12 +441,15 @@ if (match.status === "IN_PROGRESS") {
         completedRound,
         nextRound,
         winnersCount: winnerUsers.length,
+        winners: winnerUsers.map((w) => ({ id: w.id, name: w.name })),
       },
     });
 
     this.logger.info(
-      `Tournament ${tournamentId} advanced to round ${nextRound}`
+      `Tournament ${tournamentId} advanced to round ${nextRound} with ${winnerUsers.length} winners`
     );
+
+    console.log("[ADVANCE] ========== ROUND ADVANCED ==========");
   }
 
   private async finalizeTournament(tournamentId: string): Promise<void> {

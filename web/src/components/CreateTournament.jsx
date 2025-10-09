@@ -44,8 +44,13 @@ const CreateTournament = () => {
 
   const getDefaultDateTime = () => {
     const now = new Date();
-    const defaultDate = now.toISOString().split("T")[0];
-    const defaultTime = `${now.getHours().toString().padStart(2, "0")}:${now
+    const futureTime = new Date(now.getTime() + 5 * 60 * 1000);
+
+    const defaultDate = futureTime.toISOString().split("T")[0];
+    const defaultTime = `${futureTime
+      .getHours()
+      .toString()
+      .padStart(2, "0")}:${futureTime
       .getMinutes()
       .toString()
       .padStart(2, "0")}`;
@@ -71,24 +76,25 @@ const CreateTournament = () => {
       return;
     }
 
-    const [year, month, day] = startDate.split("-");
-    const [hours, minutes] = startTime.split(":");
-
-    const startDateTime = new Date(
-      parseInt(year),
-      parseInt(month) - 1,
-      parseInt(day),
-      parseInt(hours),
-      parseInt(minutes)
-    );
-
+    const startDateTime = new Date(`${startDate}T${startTime}`);
     const now = new Date();
     const minStartTime = new Date(now.getTime() + 5 * 60 * 1000);
 
-    if (startDateTime <= minStartTime) {
+    if (startDateTime < minStartTime) {
+      let errorMessage =
+        "O torneio deve começar pelo menos 5 minutos no futuro.";
+
+      if (startDateTime < now) {
+        errorMessage =
+          "O horário selecionado já passou. Escolha um horário futuro.";
+      } else {
+        const minutesFromNow = Math.ceil((startDateTime - now) / 60000);
+        errorMessage = `Faltam apenas ${minutesFromNow} minuto(s). O mínimo é 5 minutos.`;
+      }
+
       toast({
-        title: "Data inválida",
-        description: "O torneio deve começar pelo menos 5 minutos no futuro.",
+        title: "Horário inválido",
+        description: errorMessage,
         variant: "destructive",
       });
       return;
@@ -142,12 +148,6 @@ const CreateTournament = () => {
       );
 
       const data = await response.json();
-
-      console.log("Response status:", response.status);
-      console.log("Response data:", JSON.stringify(data, null, 2));
-      console.log("data.tournament:", data.tournament);
-      console.log("typeof data:", typeof data);
-      console.log("Object.keys(data):", Object.keys(data));
 
       if (!response.ok) {
         throw new Error(data.error || "Erro ao criar torneio");
@@ -206,16 +206,7 @@ const CreateTournament = () => {
   const previewDateTime = () => {
     if (!startDate || !startTime) return null;
 
-    const [year, month, day] = startDate.split("-");
-    const [hours, minutes] = startTime.split(":");
-
-    const previewDate = new Date(
-      parseInt(year),
-      parseInt(month) - 1,
-      parseInt(day),
-      parseInt(hours),
-      parseInt(minutes)
-    );
+    const previewDate = new Date(`${startDate}T${startTime}`);
 
     return previewDate.toLocaleString("pt-BR", {
       weekday: "long",
@@ -274,7 +265,6 @@ const CreateTournament = () => {
                   onChange={(e) => setStartDate(e.target.value)}
                   className="bg-slate-900/50 border-slate-700"
                   disabled={isLoading}
-                  min={new Date().toISOString().split("T")[0]}
                 />
               </div>
               <div className="space-y-2">
@@ -399,4 +389,5 @@ const CreateTournament = () => {
     </motion.div>
   );
 };
+
 export default CreateTournament;

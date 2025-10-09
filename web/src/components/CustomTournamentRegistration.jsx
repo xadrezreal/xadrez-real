@@ -95,16 +95,18 @@ const CustomTournamentRegistration = () => {
     fetchTournament();
   }, [id]);
 
+  const [prevStatus, setPrevStatus] = useState(null);
+
   useEffect(() => {
-    if (!tournament || tournament.status !== "WAITING") return;
+    if (!tournament) return;
 
-    const interval = setInterval(() => {
-      console.log("Polling tournament data...");
+    if (prevStatus === "WAITING" && tournament.status === "IN_PROGRESS") {
+      console.log("Tournament started! Fetching updated data...");
       fetchTournament();
-    }, 15000);
+    }
 
-    return () => clearInterval(interval);
-  }, [tournament?.status]);
+    setPrevStatus(tournament.status);
+  }, [tournament?.status, prevStatus]);
 
   useEffect(() => {
     if (lastMessage) {

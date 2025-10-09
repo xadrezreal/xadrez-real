@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import { motion } from "framer-motion";
 import { Button } from "./ui/button";
 import {
@@ -11,170 +11,238 @@ import {
 import { Trophy, Users, DollarSign, ArrowRight, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { tournamentService } from "../lib/tournamentService";
+import { UserContext } from "../contexts/UserContext";
 
-const TournamentCard = ({ tournament }) => {
-  const navigate = useNavigate();
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1 },
-  };
+const TournamentCard = React.memo(
+  ({ tournament, userId }) => {
+    const navigate = useNavigate();
 
-  const participantCount = tournament._count?.participants || 0;
-  const isFull = participantCount >= tournament.playerCount;
-  const prizePool = (tournament.entryFee * participantCount * 0.8).toFixed(2);
-  const startTime = new Date(tournament.startTime);
+    const participantCount = tournament._count?.participants || 0;
+    const isFull = participantCount >= tournament.playerCount;
+    const isParticipant =
+      tournament.participants?.some((p) => p.userId === userId) || false;
+    const prizePool = (tournament.entryFee * participantCount * 0.8).toFixed(2);
+    const startTime = new Date(tournament.startTime);
 
-  const getStatusDisplay = () => {
-    switch (tournament.status) {
-      case "WAITING":
-        return isFull ? "Lotado" : "Ver Torneio";
-      case "IN_PROGRESS":
-        return "Em Andamento";
-      case "FINISHED":
-        return "Finalizado";
-      default:
-        return "Ver Torneio";
-    }
-  };
+    const getStatusDisplay = () => {
+      if (isParticipant) {
+        return "Acessar Torneio";
+      }
 
-  const getStatusColor = () => {
-    switch (tournament.status) {
-      case "WAITING":
-        return isFull
-          ? "bg-red-500 hover:bg-red-600"
-          : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700";
-      case "IN_PROGRESS":
-        return "bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700";
-      case "FINISHED":
-        return "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700";
-      default:
-        return "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700";
-    }
-  };
+      switch (tournament.status) {
+        case "WAITING":
+          return isFull ? "Lotado" : "Ver Torneio";
+        case "IN_PROGRESS":
+          return "Em Andamento";
+        case "FINISHED":
+          return "Finalizado";
+        default:
+          return "Ver Torneio";
+      }
+    };
 
-  const handleViewTournament = async () => {
-    try {
-      const testResult = await tournamentService.getTournament(tournament.id);
-      console.log("✅ Torneio encontrado:", testResult);
-      navigate(`/tournament/${tournament.id}`);
-    } catch (error) {
-      console.error("❌ Erro ao buscar torneio:", error);
-      alert(`Erro ao acessar torneio: ${error.message}`);
-    }
-  };
+    const getStatusColor = () => {
+      if (isParticipant) {
+        return "bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700";
+      }
 
-  return (
-    <motion.div variants={itemVariants}>
-      <Card className="bg-slate-800/50 border-slate-700 text-white h-full flex flex-col justify-between hover:border-cyan-500/50 transition-colors">
-        <div>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-cyan-300 truncate">
-              {tournament.name}
-            </CardTitle>
-            <CardDescription>
-              Criado por: {tournament.creator?.name || "Anônimo"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {prizePool > 0 && (
-              <div className="p-3 bg-slate-900/50 rounded-lg">
-                <p className="text-sm text-slate-400">Prêmio Total Estimado</p>
-                <p className="text-2xl font-bold text-yellow-400">
-                  R$ {prizePool}
-                </p>
+      switch (tournament.status) {
+        case "WAITING":
+          return isFull
+            ? "bg-red-500 hover:bg-red-600"
+            : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700";
+        case "IN_PROGRESS":
+          return "bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700";
+        case "FINISHED":
+          return "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700";
+        default:
+          return "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700";
+      }
+    };
+
+    const handleViewTournament = async () => {
+      try {
+        const testResult = await tournamentService.getTournament(tournament.id);
+        console.log("✅ Torneio encontrado:", testResult);
+        navigate(`/tournament/${tournament.id}`);
+      } catch (error) {
+        console.error("❌ Erro ao buscar torneio:", error);
+        alert(`Erro ao acessar torneio: ${error.message}`);
+      }
+    };
+
+    return (
+      <div>
+        <Card className="bg-slate-800/50 border-slate-700 text-white h-full flex flex-col justify-between hover:border-cyan-500/50 transition-colors">
+          <div>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-cyan-300 truncate">
+                {tournament.name}
+                {isParticipant && (
+                  <span className="text-xs bg-purple-500 px-2 py-1 rounded">
+                    Inscrito
+                  </span>
+                )}
+              </CardTitle>
+              <CardDescription>
+                Criado por: {tournament.creator?.name || "Anônimo"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {prizePool > 0 && (
+                <div className="p-3 bg-slate-900/50 rounded-lg">
+                  <p className="text-sm text-slate-400">
+                    Prêmio Total Estimado
+                  </p>
+                  <p className="text-2xl font-bold text-yellow-400">
+                    R$ {prizePool}
+                  </p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex items-center gap-2 text-slate-300">
+                  <DollarSign className="w-4 h-4 text-green-400" />
+                  <span>
+                    {tournament.entryFee === 0
+                      ? "Grátis"
+                      : `R$ ${tournament.entryFee.toFixed(2)}`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-300">
+                  <Users className="w-4 h-4 text-blue-400" />
+                  <span>
+                    Vagas: {participantCount} / {tournament.playerCount}
+                  </span>
+                </div>
               </div>
-            )}
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="flex items-center gap-2 text-slate-300">
-                <DollarSign className="w-4 h-4 text-green-400" />
-                <span>
-                  {tournament.entryFee === 0
-                    ? "Grátis"
-                    : `R$ ${tournament.entryFee.toFixed(2)}`}
-                </span>
+              <div className="text-sm text-slate-400">
+                Começa em {startTime.toLocaleDateString("pt-BR")} às{" "}
+                {startTime.toLocaleTimeString("pt-BR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </div>
-              <div className="flex items-center gap-2 text-slate-300">
-                <Users className="w-4 h-4 text-blue-400" />
-                <span>
-                  Vagas: {participantCount} / {tournament.playerCount}
-                </span>
-              </div>
-            </div>
-            <div className="text-sm text-slate-400">
-              Começa em {startTime.toLocaleDateString("pt-BR")} às{" "}
-              {startTime.toLocaleTimeString("pt-BR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </div>
 
-            <div className="w-full bg-slate-700 rounded-full h-2">
-              <div
-                className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-                style={{
-                  width: `${
-                    (participantCount / tournament.playerCount) * 100
-                  }%`,
-                }}
-              ></div>
-            </div>
-          </CardContent>
-        </div>
-        <div className="p-4 pt-0">
-          <Button
-            className={`w-full text-white font-bold shadow-lg ${getStatusColor()}`}
-            onClick={handleViewTournament} // FUNÇÃO ATUALIZADA
-            disabled={isFull && tournament.status === "WAITING"}
-          >
-            {getStatusDisplay()}
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Button>
-        </div>
-      </Card>
-    </motion.div>
-  );
-};
+              <div className="w-full bg-slate-700 rounded-full h-2">
+                <div
+                  className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${
+                      (participantCount / tournament.playerCount) * 100
+                    }%`,
+                  }}
+                ></div>
+              </div>
+            </CardContent>
+          </div>
+          <div className="p-4 pt-0">
+            <Button
+              className={`w-full text-white font-bold shadow-lg ${getStatusColor()}`}
+              onClick={handleViewTournament}
+              disabled={
+                !isParticipant && isFull && tournament.status === "WAITING"
+              }
+            >
+              {getStatusDisplay()}
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.tournament.id === nextProps.tournament.id &&
+      prevProps.tournament._count?.participants ===
+        nextProps.tournament._count?.participants &&
+      prevProps.tournament.status === nextProps.tournament.status &&
+      prevProps.userId === nextProps.userId
+    );
+  }
+);
 
 const TournamentView = () => {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { user } = useContext(UserContext);
   const navigate = useNavigate();
+  const intervalRef = useRef(null);
 
-  const fetchTournaments = async () => {
+  const fetchTournaments = async (silent = false) => {
     try {
-      setLoading(true);
-      setError(null);
-
-      console.log("=== FETCH TOURNAMENTS ===");
-      console.log(
-        "API URL:",
-        import.meta.env.VITE_API_URL || "http://localhost:3000"
-      );
-      console.log(
-        "Auth Token:",
-        localStorage.getItem("auth_token") ? "Presente" : "Ausente"
-      );
+      if (!silent) {
+        setLoading(true);
+      } else {
+        setError(null);
+      }
 
       const data = await tournamentService.getActiveTournaments({
         status: "waiting",
         limit: 20,
       });
 
-      console.log("✅ Torneios recebidos:", data);
-      setTournaments(data.tournaments || []);
+      setTournaments((prevTournaments) => {
+        const newTournaments = data.tournaments || [];
+
+        if (prevTournaments.length !== newTournaments.length) {
+          console.log("📊 Tamanho diferente - atualizando");
+          return newTournaments;
+        }
+
+        const hasChanges = newTournaments.some((newT, index) => {
+          const prevT = prevTournaments[index];
+          if (!prevT) return true;
+
+          const participantsChanged =
+            prevT._count?.participants !== newT._count?.participants;
+          const statusChanged = prevT.status !== newT.status;
+          const idChanged = prevT.id !== newT.id;
+
+          if (participantsChanged || statusChanged || idChanged) {
+            console.log(`🔄 Mudança detectada no torneio ${newT.name}:`, {
+              participantsChanged,
+              statusChanged,
+              idChanged,
+            });
+          }
+
+          return participantsChanged || statusChanged || idChanged;
+        });
+
+        if (!hasChanges) {
+          console.log(
+            "🔒 Sem mudanças - MANTENDO estado anterior (sem re-render)"
+          );
+          return prevTournaments;
+        }
+
+        console.log("✅ Atualizando com novos dados");
+        return newTournaments;
+      });
     } catch (error) {
       console.error("❌ Erro ao buscar torneios:", error);
-      setError(error.message);
+      if (!silent) {
+        setError(error.message);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     fetchTournaments();
-    const interval = setInterval(fetchTournaments, 30000);
-    return () => clearInterval(interval);
+    intervalRef.current = setInterval(() => {
+      fetchTournaments(true);
+    }, 30000);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
   }, []);
 
   const containerVariants = {
@@ -215,13 +283,12 @@ const TournamentView = () => {
           </p>
           <div className="space-y-4">
             <Button
-              onClick={fetchTournaments}
+              onClick={() => fetchTournaments()}
               className="bg-cyan-500 hover:bg-cyan-600"
             >
               Tentar Novamente
             </Button>
 
-            {/* Debug info */}
             <div className="bg-slate-900/50 p-4 rounded-lg text-left max-w-2xl mx-auto">
               <h3 className="text-yellow-400 font-bold mb-2">
                 Informações de Debug:
@@ -295,18 +362,19 @@ const TournamentView = () => {
         </motion.div>
       ) : (
         <>
-          <motion.div
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-            variants={containerVariants}
-          >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {tournaments.map((tournament) => (
-              <TournamentCard key={tournament.id} tournament={tournament} />
+              <TournamentCard
+                key={tournament.id}
+                tournament={tournament}
+                userId={user?.id}
+              />
             ))}
-          </motion.div>
+          </div>
 
           <motion.div className="text-center mt-8" variants={itemVariants}>
             <Button
-              onClick={fetchTournaments}
+              onClick={() => fetchTournaments()}
               variant="outline"
               className="border-cyan-500 text-cyan-400 hover:bg-cyan-500 hover:text-white"
             >

@@ -1,3 +1,4 @@
+// useChessGame.ts - ARQUIVO COMPLETO SEM COMENTÁRIOS
 import {
   useState,
   useEffect,
@@ -12,6 +13,7 @@ import { Chess } from "chess.js";
 import { useGameEffects } from "../hooks/useGameEffects";
 import { useToast } from "../components/ui/use-toast";
 import { useWebSocket } from "../hooks/useWebSocket";
+import { useBeforeUnload } from "../hooks/useBeforeUnload";
 
 export const useChessGame = ({ gameId, gameType: initialGameType }) => {
   const navigate = useNavigate();
@@ -208,12 +210,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       const isSelfMessage = message.data?.playerId === user.id;
 
       if (!isTournamentGame && isSelfMessage) {
-        console.log("MENSAGEM IGNORADA - MINHA JOGADA (JOGO NORMAL)");
         return;
-      }
-
-      if (isTournamentGame && isSelfMessage) {
-        console.log("MENSAGEM ACEITA - MINHA JOGADA (TESTE TORNEIO)");
       }
 
       switch (message.type) {
@@ -231,9 +228,6 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
             setLastMove(null);
             updateStatus(newGame);
 
-            const isTournamentGame = gameId?.includes("tournament-");
-            const isSelfMessage = message.data?.playerId === user.id;
-
             if (!isTournamentGame || !isSelfMessage) {
               toast({
                 title: "Movimento do oponente",
@@ -247,7 +241,15 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
         case "game_end":
           setGameStatus(message.data.reason);
-          setWinner(message.data.winner);
+
+          const gameEndWinner =
+            message.data.winner?.id === gameData?.white_player_id
+              ? whitePlayerInfo
+              : message.data.winner?.id === gameData?.black_player_id
+              ? blackPlayerInfo
+              : null;
+
+          setWinner(gameEndWinner);
           onGameEnd();
           toast({
             title: "Partida finalizada",
@@ -257,11 +259,24 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
         case "resign":
           setGameStatus("resignation");
-          setWinner(message.data.winner);
+
+          const resignWinner =
+            message.data.winner?.id === gameData?.white_player_id
+              ? whitePlayerInfo
+              : message.data.winner?.id === gameData?.black_player_id
+              ? blackPlayerInfo
+              : message.data.winner;
+
+          setWinner(resignWinner);
           onGameEnd();
+
+          const didIWin = resignWinner?.id === user.id;
           toast({
-            title: "Jogador desistiu",
-            description: `${message.data.winner.name} venceu`,
+            title: didIWin ? "🎉 Vitória!" : "😞 Seu oponente desistiu",
+            description: didIWin
+              ? "Você venceu! Aguarde a próxima rodada."
+              : `${resignWinner?.name || "Oponente"} venceu por desistência`,
+            duration: 5000,
           });
           break;
 
@@ -277,7 +292,17 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
           break;
       }
     },
-    [user.id, toast, updateCapturedPieces, updateStatus, onGameEnd]
+    [
+      user.id,
+      gameId,
+      gameData,
+      toast,
+      updateCapturedPieces,
+      updateStatus,
+      onGameEnd,
+      whitePlayerInfo,
+      blackPlayerInfo,
+    ]
   );
 
   const { connectionStatus, sendMessage, isConnected } = useWebSocket(
@@ -294,16 +319,10 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
   const makeMove = useCallback(
     async (move) => {
       if (isProcessingMoveRef.current) {
-        console.log("JÁ PROCESSANDO MOVIMENTO - IGNORANDO");
         return null;
       }
 
       if (!isPlayerTurn) {
-        console.log("NÃO É SUA VEZ:", {
-          isPlayerTurn,
-          currentPlayer,
-          playerColor,
-        });
         return null;
       }
 
@@ -354,8 +373,6 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     },
     [
       isPlayerTurn,
-      currentPlayer,
-      playerColor,
       updateBoard,
       gameId,
       updateCapturedPieces,
@@ -390,16 +407,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
   const handleSquareClick = useCallback(
     (square) => {
-      console.log("CLIQUE NO QUADRADO:", {
-        square,
-        isPlayerTurn,
-        currentPlayer,
-        playerColor,
-        selectedSquare,
-      });
-
       if (!isPlayerTurn) {
-        console.log("CLIQUE BLOQUEADO - NÃO É SUA VEZ");
         return;
       }
 
@@ -411,7 +419,6 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
         }
       } else {
         const piece = game.get(square);
-        console.log("PEÇA NO QUADRADO:", piece);
 
         if (piece) {
           const isTournamentGame = gameId?.includes("tournament-");
@@ -432,18 +439,8 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
           canSelectPiece =
             piece.color === myPieceColor && piece.color === currentPlayer[0];
 
-          console.log("PODE SELECIONAR PEÇA:", {
-            canSelectPiece,
-            pieceColor: piece.color,
-            myPieceColor,
-            currentPlayer,
-            playerColor,
-            isTournamentGame,
-          });
-
           if (canSelectPiece) {
             const moves = game.moves({ square: square, verbose: true });
-            console.log("MOVIMENTOS POSSÍVEIS:", moves.length);
             if (moves.length > 0) {
               setSelectedSquare(square);
             }
@@ -473,33 +470,83 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
   const handleResign = useCallback(
     async (isAutomatic = false) => {
+      if (!gameData?.white_player_id || !gameData?.black_player_id) {
+        toast({
+          title: "Erro",
+          description: "Aguarde o jogo carregar completamente",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const winnerInfo =
         playerColor === "white" ? blackPlayerInfo : whitePlayerInfo;
       const resignationType = isAutomatic ? "timeout" : "resignation";
 
-      if (gameId && gameType !== "bot" && isConnected) {
-        sendMessage({
-          type: "resign",
-          playerId: user.id,
-          winner: winnerInfo,
-        });
+      if (!winnerInfo?.id) {
+        console.error("[RESIGN] Winner info invalid:", winnerInfo);
+        return;
       }
 
-      setGameStatus(resignationType);
-      setWinner(winnerInfo);
-      setIsGameLoading(false);
-      onGameEnd();
+      console.log("[RESIGN] ========== RESIGNING ==========");
+      console.log("[RESIGN] Resigning player:", user.id);
+      console.log("[RESIGN] Winner:", winnerInfo.id, winnerInfo.name);
+
+      const API_URL = "http://localhost:3000";
+      const token = localStorage.getItem("auth_token");
+
+      const payload = {
+        winnerId: winnerInfo.id,
+        reason: resignationType,
+      };
+
+      console.log("[RESIGN] Payload being sent:", payload);
+
+      try {
+        const response = await fetch(`${API_URL}/api/game/${gameId}/end`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("[RESIGN] API failed:", response.status, errorText);
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log("[RESIGN] API success:", result);
+
+        setGameStatus(resignationType);
+        setWinner(winnerInfo);
+
+        if (isConnected) {
+          sendMessage({
+            type: "resign",
+            playerId: user.id,
+            winner: winnerInfo,
+          });
+        }
+      } catch (error) {
+        console.error("[RESIGN] Error:", error);
+      }
     },
     [
+      gameData,
       playerColor,
       blackPlayerInfo,
       whitePlayerInfo,
       gameId,
-      gameType,
       user.id,
       isConnected,
       sendMessage,
-      onGameEnd,
+      toast,
+      setGameStatus,
+      setWinner,
     ]
   );
 
@@ -508,33 +555,36 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       if (!data) return;
 
       if (isProcessingMoveRef.current) {
-        console.log("IGNORANDO processGameData - MOVIMENTO EM ANDAMENTO");
         return;
       }
 
-      if (gameData && gameData.game_id_text === data.game_id_text) {
-        console.log("IGNORANDO processGameData - JOGO JÁ INICIALIZADO");
+      if (
+        gameData?.game_id_text === data.game_id_text &&
+        gameData.status === data.status
+      ) {
         return;
       }
 
-      console.log("PROCESSANDO DADOS DO JOGO:", data.game_id_text);
+      console.log(
+        "[PROCESS] Processing game:",
+        data.game_id_text,
+        "Status:",
+        data.status
+      );
+
       const newGame = new Chess(data.fen);
       gameInstanceRef.current = newGame;
-      setFen(data.fen);
+
       setGameData(data);
       setGame(newGame);
-      updateBoard(newGame);
+      setFen(data.fen);
+      setBoard(newGame.board());
       setWhiteTime(data.white_time);
       setBlackTime(data.black_time);
       setGameStatus(data.status);
-      setIsGameLoading(false);
       setMoveHistory(newGame.history({ verbose: true }));
       setCapturedPieces(updateCapturedPieces(newGame));
       setLastMove(data.last_move);
-
-      if (data.status !== "playing" && data.status !== "waiting") {
-        onGameEnd();
-      }
 
       if (data.winner_id) {
         const winnerInfo =
@@ -550,11 +600,16 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
           status: "in_game",
           currentGameId: data.game_id_text,
         }));
+        setIsGameLoading(false);
+      } else if (data.status !== "waiting") {
+        onGameEnd();
+        setIsGameLoading(false);
+      } else {
+        setIsGameLoading(false);
       }
     },
     [
       gameData,
-      updateBoard,
       updateCapturedPieces,
       whitePlayerInfo,
       blackPlayerInfo,
@@ -617,16 +672,20 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     [toast]
   );
 
-  console.log("DADOS DO GAMEDATA:", {
-    white_player_id: gameData?.white_player_id,
-    black_player_id: gameData?.black_player_id,
-    user_id: user?.id,
-    calculated_playerColor: playerColor,
-  });
-
   const stableBoard = useMemo(() => board, [board]);
   const stableLastMove = useMemo(() => lastMove, [lastMove]);
   const stableCapturedPieces = useMemo(() => capturedPieces, [capturedPieces]);
+
+  useBeforeUnload(
+    gameId,
+    gameStatus,
+    gameType,
+    gameData,
+    playerColor,
+    whitePlayerInfo,
+    blackPlayerInfo,
+    user
+  );
 
   return {
     game,

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import ChessBoard from "./ChessBoard";
@@ -211,7 +211,37 @@ const ChessGame = () => {
     handlePromotion,
   } = useChessGame({ gameId: params.gameId, gameType });
 
-  const isTournamentGame = params.gameId?.includes("tournament-");
+  const isTournamentGame =
+    params.gameId?.includes("tournament-") || gameData?.tournament_id;
+
+  useEffect(() => {
+    if (
+      gameStatus &&
+      gameStatus !== "playing" &&
+      isTournamentGame &&
+      gameData?.tournament_id
+    ) {
+      const isWinner = winner?.id === user?.id;
+
+      toast({
+        title: isWinner ? "🎉 Vitória!" : winner ? "😞 Derrota" : "Empate",
+        description: isWinner
+          ? "Aguardando próxima rodada..."
+          : "Você foi eliminado do torneio.",
+        duration: 5000,
+      });
+
+      const timeout = setTimeout(() => {
+        if (isWinner) {
+          navigate(`/tournament/${gameData.tournament_id}/bracket`);
+        } else {
+          navigate("/");
+        }
+      }, 3000);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [gameStatus, winner, isTournamentGame, gameData, navigate, user, toast]);
 
   const formatTime = (seconds) =>
     `${Math.floor(seconds / 60)
@@ -227,6 +257,14 @@ const ChessGame = () => {
 
   const togglePanel = (panel) => {
     setActivePanel(activePanel === panel ? null : panel);
+  };
+
+  const handleReturnHome = () => {
+    if (isTournamentGame && gameData?.tournament_id) {
+      navigate(`/tournament/${gameData.tournament_id}/bracket`);
+    } else {
+      navigate("/");
+    }
   };
 
   const opponentInfo =
@@ -273,7 +311,7 @@ const ChessGame = () => {
             onTogglePanel={togglePanel}
             onResign={handleResign}
             onDrawOffer={handleDrawOffer}
-            onReturnHome={() => navigate("/")}
+            onReturnHome={handleReturnHome}
             gameStatus={gameStatus}
             isBotGame={gameType === "bot"}
             isTournamentGame={isTournamentGame}
@@ -321,7 +359,7 @@ const ChessGame = () => {
               winner={winner}
               onNewGame={handleNewGame}
               onRematch={gameType === "bot" ? null : handleRematch}
-              onReturnHome={() => navigate("/")}
+              onReturnHome={handleReturnHome}
               onReviewGame={handleReviewGame}
             />
           )}
