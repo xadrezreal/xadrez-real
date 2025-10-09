@@ -1,15 +1,23 @@
-// tournamentQueue.ts
 import Queue from "bull";
 import { PrismaClient } from "@prisma/client";
 import { TournamentOrchestrator } from "./tournamentOrchestrator";
 
 const prisma = new PrismaClient();
 
-export const tournamentQueue = new Queue("tournament-events", {
-  redis: {
-    host: process.env.REDIS_HOST || "localhost",
-    port: parseInt(process.env.REDIS_PORT || "6379"),
+const redisConfig = {
+  host: process.env.REDIS_HOST || "127.0.0.1",
+  port: parseInt(process.env.REDIS_PORT || "6379"),
+  retryStrategy: (times: number) => {
+    const delay = Math.min(times * 50, 2000);
+    console.log(`[QUEUE] Retry connection attempt ${times}, delay: ${delay}ms`);
+    return delay;
   },
+  maxRetriesPerRequest: null,
+  enableReadyCheck: false,
+};
+
+export const tournamentQueue = new Queue("tournament-events", {
+  redis: redisConfig,
 });
 
 console.log("[QUEUE] Tournament queue initialized");
@@ -40,7 +48,11 @@ tournamentQueue.on("failed", (job, err) => {
 });
 
 tournamentQueue.on("error", (error) => {
-  console.error("[QUEUE] Queue error:", error);
+  console.error("[QUEUE] Queue error:", error.message);
+});
+
+tournamentQueue.on("ready", () => {
+  console.log("[QUEUE] ✅ Connected to Redis successfully!");
 });
 
 console.log("[QUEUE] Event listeners registered");
