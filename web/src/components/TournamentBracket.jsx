@@ -74,10 +74,14 @@ const TournamentBracket = () => {
         });
 
         if (isMyMatch) {
-          navigate(`/game/${message.data.gameId}`);
-        } else {
-          fetchBracket();
+          toast({
+            title: "🎮 Sua partida começou!",
+            description: "Clique em 'Jogar Agora' para entrar",
+            duration: 8000,
+          });
         }
+
+        fetchBracket();
         break;
 
       case "MATCH_COMPLETED":
@@ -117,9 +121,11 @@ const TournamentBracket = () => {
         });
 
         toast({
-          title: "🏆 Nova rodada!",
-          description: `Rodada ${message.data.nextRound} iniciada`,
+          title: "🎉 Nova rodada começou!",
+          description: message.data.message,
+          duration: 10000,
         });
+
         fetchBracket();
         fetchTournamentData();
         break;
@@ -131,10 +137,13 @@ const TournamentBracket = () => {
         });
 
         toast({
-          title: "🎊 Torneio finalizado!",
+          title: "🏆 Torneio Finalizado!",
           description: `Campeão: ${message.data.championName}`,
+          duration: 10000,
         });
+
         fetchTournamentData();
+        fetchBracket();
         break;
 
       default:

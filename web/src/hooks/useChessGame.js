@@ -554,23 +554,13 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     (data) => {
       if (!data) return;
 
-      if (isProcessingMoveRef.current) {
-        return;
-      }
+      if (isProcessingMoveRef.current) return;
 
       if (
         gameData?.game_id_text === data.game_id_text &&
         gameData.status === data.status
-      ) {
+      )
         return;
-      }
-
-      console.log(
-        "[PROCESS] Processing game:",
-        data.game_id_text,
-        "Status:",
-        data.status
-      );
 
       const newGame = new Chess(data.fen);
       gameInstanceRef.current = newGame;
@@ -589,8 +579,17 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       if (data.winner_id) {
         const winnerInfo =
           data.winner_id === data.white_player_id
-            ? whitePlayerInfo
-            : blackPlayerInfo;
+            ? {
+                id: data.white_player_id,
+                name: data.white_player_name,
+                country: data.white_player_country,
+              }
+            : {
+                id: data.black_player_id,
+                name: data.black_player_name,
+                country: data.black_player_country,
+              };
+
         setWinner(winnerInfo);
       }
 
@@ -608,16 +607,8 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
         setIsGameLoading(false);
       }
     },
-    [
-      gameData,
-      updateCapturedPieces,
-      whitePlayerInfo,
-      blackPlayerInfo,
-      setUser,
-      onGameEnd,
-    ]
+    [gameData, updateCapturedPieces, setUser, onGameEnd]
   );
-
   useEffect(() => {
     gameInstanceRef.current = game;
   }, [game]);
