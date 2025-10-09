@@ -492,7 +492,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       console.log("[RESIGN] Resigning player:", user.id);
       console.log("[RESIGN] Winner:", winnerInfo.id, winnerInfo.name);
 
-      const API_URL = "http://localhost:3000";
+      const API_URL = "";
       const token = localStorage.getItem("auth_token");
 
       const payload = {
