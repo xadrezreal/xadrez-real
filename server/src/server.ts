@@ -10,6 +10,7 @@ import { tournamentRoutes } from "./routes/tournament.js";
 import { websocketRoutes } from "./websocket/webSocketRoutes";
 import { TournamentUpdater } from "./routes/tournamentUpdater";
 import { gameRoutes } from "./routes/game.js";
+import { startQueueWorker } from "./routes/startQueueWorker";
 
 const prisma = new PrismaClient();
 const fastify = Fastify({ logger: { level: "info" } });
@@ -131,6 +132,8 @@ const start = async () => {
       tournamentUpdater.stop();
       await prisma.$disconnect();
     });
+
+    startQueueWorker(fastify.wsManager, fastify.log);
 
     const port = parseInt(process.env.PORT || "3000");
     await fastify.listen({ port, host: "0.0.0.0" });

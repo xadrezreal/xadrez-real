@@ -1,23 +1,43 @@
-// gameRoutes.ts
 import { PrismaClient } from "@prisma/client";
 import { FastifyInstance } from "fastify";
-import { tournamentQueue } from "./tournamentQueue";
 
 const prisma = new PrismaClient();
+
+let tournamentQueue: any = null;
+
+function getTournamentQueue() {
+  if (!tournamentQueue) {
+    const Queue = require("bull");
+    tournamentQueue = new Queue("tournament-events", {
+      redis: {
+        host: process.env.REDIS_HOST || "127.0.0.1",
+        port: parseInt(process.env.REDIS_PORT || "6379"),
+      },
+    });
+
+    console.log("[QUEUE] ✅ Tournament queue initialized (lazy)");
+
+    tournamentQueue.on("ready", () => {
+      console.log("[QUEUE] ✅ Connected to Redis!");
+    });
+
+    tournamentQueue.on("error", (error: any) => {
+      console.error("[QUEUE] Error:", error.message);
+    });
+  }
+  return tournamentQueue;
+}
 
 export async function gameRoutes(fastify: FastifyInstance) {
   fastify.get("/api/game/:gameId/state", async (request: any, reply: any) => {
     const { gameId } = request.params;
-
     try {
       const game = await prisma.game.findUnique({
         where: { game_id_text: gameId },
       });
-
       if (!game) {
         return reply.code(404).send({ error: "Jogo não encontrado" });
       }
-
       return reply.send(game);
     } catch (error: any) {
       fastify.log.error("Erro ao buscar jogo:", error);
@@ -28,7 +48,6 @@ export async function gameRoutes(fastify: FastifyInstance) {
   fastify.post("/api/game/:gameId/state", async (request: any, reply: any) => {
     const { gameId } = request.params;
     const gameStateData = request.body;
-
     try {
       await prisma.gameState.upsert({
         where: { gameId },
@@ -41,7 +60,6 @@ export async function gameRoutes(fastify: FastifyInstance) {
           state: gameStateData as any,
         },
       });
-
       return reply.send({ success: true });
     } catch (error: any) {
       fastify.log.error("Erro ao salvar estado do jogo:", error);
@@ -52,7 +70,6 @@ export async function gameRoutes(fastify: FastifyInstance) {
   fastify.put("/api/game/:gameId/move", async (request: any, reply: any) => {
     const { gameId } = request.params;
     const { fen, lastMove } = request.body;
-
     try {
       const game = await prisma.game.update({
         where: { game_id_text: gameId },
@@ -62,7 +79,6 @@ export async function gameRoutes(fastify: FastifyInstance) {
           updatedAt: new Date(),
         },
       });
-
       return reply.send(game);
     } catch (error: any) {
       fastify.log.error("Erro ao atualizar jogo:", error);
@@ -81,7 +97,6 @@ export async function gameRoutes(fastify: FastifyInstance) {
 
     try {
       console.log("[GAME_END_API] Finding game in database...");
-
       const existingGame = await prisma.game.findUnique({
         where: { game_id_text: gameId },
       });
@@ -92,7 +107,6 @@ export async function gameRoutes(fastify: FastifyInstance) {
       }
 
       console.log("[GAME_END_API] Game found, updating...");
-
       const game = await prisma.game.update({
         where: { game_id_text: gameId },
         data: {
@@ -106,8 +120,9 @@ export async function gameRoutes(fastify: FastifyInstance) {
 
       if (game.tournament_id) {
         console.log("[GAME_END_API] Adding to tournament queue");
+        const queue = getTournamentQueue();
 
-        await tournamentQueue.add("game-ended", {
+        await queue.add("game-ended", {
           gameIdText: gameId,
           wsManager: (fastify as any).wsManager,
           logger: fastify.log,
