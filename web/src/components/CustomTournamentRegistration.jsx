@@ -64,8 +64,7 @@ const CustomTournamentRegistration = () => {
         )}s`
       );
 
-      if (timeUntilStart <= -35000) {
-        console.log("[REGISTRATION_RELOAD] 🔄 RELOADING PAGE NOW!");
+      if (timeUntilStart <= -25000) {
         localStorage.setItem(reloadKey, "true");
         window.location.reload();
       }
