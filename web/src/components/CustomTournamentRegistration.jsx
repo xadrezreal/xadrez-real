@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -39,6 +39,47 @@ const CustomTournamentRegistration = () => {
   const isRegistered = tournament?.participants?.some(
     (participant) => participant.user.id === user.id
   );
+
+  useEffect(() => {
+    if (!tournament || tournament.status !== "WAITING") {
+      return;
+    }
+
+    const reloadKey = `tournament_reload_${id}`;
+    const hasReloaded = localStorage.getItem(reloadKey);
+
+    if (hasReloaded) {
+      console.log("[REGISTRATION_RELOAD] Already reloaded, skipping");
+      return;
+    }
+
+    const checkInterval = setInterval(() => {
+      const startTime = new Date(tournament.startTime);
+      const now = new Date();
+      const timeUntilStart = startTime - now;
+
+      console.log(
+        `[REGISTRATION_RELOAD] Time until start: ${Math.ceil(
+          timeUntilStart / 1000
+        )}s`
+      );
+
+      if (timeUntilStart <= -35000) {
+        console.log("[REGISTRATION_RELOAD] 🔄 RELOADING PAGE NOW!");
+        localStorage.setItem(reloadKey, "true");
+        window.location.reload();
+      }
+    }, 1000);
+
+    return () => clearInterval(checkInterval);
+  }, [tournament, id]);
+
+  useEffect(() => {
+    if (tournament?.status === "IN_PROGRESS") {
+      const reloadKey = `tournament_reload_${id}`;
+      localStorage.removeItem(reloadKey);
+    }
+  }, [tournament?.status, id]);
 
   const { lastMessage, sendMessage, isConnected } = useWebSocket(
     id ? `ws://localhost:3000/ws/tournament/${id}` : null,

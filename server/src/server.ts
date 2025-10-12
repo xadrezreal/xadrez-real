@@ -4,9 +4,11 @@ import jwt from "@fastify/jwt";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import bcrypt from "bcryptjs";
+import rawBody from "fastify-raw-body";
 import { authRoutes } from "./routes/auth.js";
 import { userRoutes } from "./routes/user.js";
 import { tournamentRoutes } from "./routes/tournament.js";
+import { subscriptionRoutes } from "./routes/subscription.js";
 import { websocketRoutes } from "./websocket/webSocketRoutes";
 import { TournamentUpdater } from "./routes/tournamentUpdater";
 import { gameRoutes } from "./routes/game.js";
@@ -14,6 +16,12 @@ import { startQueueWorker } from "./routes/startQueueWorker";
 
 const prisma = new PrismaClient();
 const fastify = Fastify({ logger: { level: "info" } });
+
+fastify.register(rawBody, {
+  field: "rawBody",
+  global: false,
+  routes: ["/subscription/webhook"],
+});
 
 fastify.addHook("preHandler", async (request, reply) => {
   fastify.log.info(
@@ -110,6 +118,7 @@ const start = async () => {
     await fastify.register(authRoutes, { prefix: "/auth" });
     await fastify.register(userRoutes, { prefix: "/users" });
     await fastify.register(tournamentRoutes, { prefix: "/tournaments" });
+    await fastify.register(subscriptionRoutes, { prefix: "/subscription" });
     await fastify.register(gameRoutes);
 
     fastify.get("/health", async () => {

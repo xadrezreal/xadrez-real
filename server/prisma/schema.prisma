@@ -33,16 +33,18 @@ enum MatchStatus {
 }
 
 model User {
-  id               String   @id @default(cuid())
-  email            String   @unique
-  name             String
-  password         String
-  role             Role     @default(FREEMIUM)
-  balance          Float    @default(0.0)
-  country          String?
-  tournamentPoints Int      @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  email                String   @unique
+  name                 String
+  password             String
+  role                 Role     @default(FREEMIUM)
+  balance              Float    @default(0.0)
+  country              String?
+  tournamentPoints     Int      @default(0)
+  stripeCustomerId     String?  @unique
+  stripeSubscriptionId String?  @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   createdTournaments       Tournament[]            @relation("TournamentCreator")
   wonTournaments           Tournament[]            @relation("TournamentWinner")
@@ -138,9 +140,9 @@ model Game {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  tournament    Tournament?      @relation(fields: [tournament_id], references: [id])
-  whitePlayer   User             @relation("WhitePlayer", fields: [white_player_id], references: [id])
-  blackPlayer   User             @relation("BlackPlayer", fields: [black_player_id], references: [id])
+  tournament      Tournament?       @relation(fields: [tournament_id], references: [id])
+  whitePlayer     User              @relation("WhitePlayer", fields: [white_player_id], references: [id])
+  blackPlayer     User              @relation("BlackPlayer", fields: [black_player_id], references: [id])
   tournamentMatch TournamentMatch?
 
   @@map("games")

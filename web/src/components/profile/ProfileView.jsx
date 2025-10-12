@@ -61,6 +61,50 @@ const ProfileView = () => {
     setLoading(false);
   };
 
+  const handleUpgrade = async () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/subscription/checkout`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        }
+      );
+      const { url } = await response.json();
+      window.location.href = url;
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível processar o upgrade",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/subscription/portal`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        }
+      );
+      const { url } = await response.json();
+      window.location.href = url;
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível acessar o portal",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
   };
@@ -146,15 +190,21 @@ const ProfileView = () => {
                   type="button"
                   variant="outline"
                   className="w-full border-yellow-400 text-yellow-400 hover:bg-yellow-400/10"
-                  onClick={() => {
-                    toast({
-                      title: "Upgrade para Premium",
-                      description:
-                        "Funcionalidade de upgrade será implementada em breve!",
-                    });
-                  }}
+                  onClick={handleUpgrade}
                 >
+                  <Crown className="w-4 h-4 mr-2" />
                   Fazer Upgrade para Premium
+                </Button>
+              )}
+
+              {isPremium && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleManageSubscription}
+                >
+                  Gerenciar Assinatura
                 </Button>
               )}
 

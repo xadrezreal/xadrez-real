@@ -1,5 +1,4 @@
-// TournamentBracket.tsx
-import React, { useState, useEffect, useContext, useMemo } from "react";
+import React, { useState, useContext, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { UserContext } from "../contexts/UserContext";
@@ -36,6 +35,8 @@ const TournamentBracket = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [bracket, setBracket] = useState({});
+  const hasReloadedRef = useRef(false);
+  const previousStatusRef = useRef(null);
 
   const { connectionStatus } = useWebSocket(
     `${getWebSocketURL()}/ws/tournament/${tournamentId}`,
@@ -58,13 +59,11 @@ const TournamentBracket = () => {
 
   const handleWebSocketMessage = (message) => {
     console.log("[BRACKET_WS] Message received:", message);
-
     switch (message.type) {
       case "MATCH_STARTED":
         const isMyMatch =
           message.data.player1Id === user.id ||
           message.data.player2Id === user.id;
-
         console.log("[BRACKET_WS] Match started:", {
           isMyMatch,
           gameId: message.data.gameId,
@@ -72,7 +71,6 @@ const TournamentBracket = () => {
           player2Id: message.data.player2Id,
           userId: user.id,
         });
-
         if (isMyMatch) {
           toast({
             title: "🎮 Sua partida começou!",
@@ -80,29 +78,23 @@ const TournamentBracket = () => {
             duration: 8000,
           });
         }
-
         fetchBracket();
         break;
-
       case "MATCH_COMPLETED":
         const wasMyMatch =
           message.data.player1Id === user.id ||
           message.data.player2Id === user.id;
-
         console.log("[BRACKET_WS] Match completed:", {
           wasMyMatch,
           winnerId: message.data.winnerId,
           winnerName: message.data.winnerName,
           userId: user.id,
         });
-
         toast({
           title: "Partida finalizada",
           description: `Vencedor: ${message.data.winnerName}`,
         });
-
         fetchBracket();
-
         if (wasMyMatch && message.data.winnerId === user.id) {
           setTimeout(() => {
             toast({
@@ -112,40 +104,43 @@ const TournamentBracket = () => {
           }, 1000);
         }
         break;
-
       case "ROUND_ADVANCED":
         console.log("[BRACKET_WS] Round advanced:", {
           completedRound: message.data.completedRound,
           nextRound: message.data.nextRound,
           winnersCount: message.data.winnersCount,
         });
-
         toast({
           title: "🎉 Nova rodada começou!",
           description: message.data.message,
           duration: 10000,
         });
-
         fetchBracket();
         fetchTournamentData();
         break;
-
       case "TOURNAMENT_FINISHED":
         console.log("[BRACKET_WS] Tournament finished:", {
           championId: message.data.championId,
           championName: message.data.championName,
         });
-
         toast({
           title: "🏆 Torneio Finalizado!",
           description: `Campeão: ${message.data.championName}`,
           duration: 10000,
         });
-
         fetchTournamentData();
         fetchBracket();
         break;
-
+      case "TOURNAMENT_STARTED":
+        console.log("[BRACKET_WS] Tournament started!");
+        toast({
+          title: "🎮 Torneio Iniciado!",
+          description: "O chaveamento está sendo gerado...",
+          duration: 5000,
+        });
+        fetchTournamentData();
+        fetchBracket();
+        break;
       default:
         break;
     }
@@ -155,14 +150,62 @@ const TournamentBracket = () => {
     fetchTournamentData();
   }, [tournamentId]);
 
+  useEffect(() => {
+    if (!tournament) return;
+
+    if (
+      previousStatusRef.current === "WAITING" &&
+      tournament.status === "IN_PROGRESS"
+    ) {
+      console.log(
+        "[BRACKET] Tournament status changed from WAITING to IN_PROGRESS"
+      );
+      fetchBracket();
+    }
+
+    previousStatusRef.current = tournament.status;
+  }, [tournament?.status]);
+
+  useEffect(() => {
+    if (!tournament || tournament.status !== "WAITING") {
+      hasReloadedRef.current = false;
+      return;
+    }
+
+    const checkInterval = setInterval(() => {
+      const startTime = new Date(tournament.startTime);
+      const now = new Date();
+      const timeUntilStart = startTime - now;
+
+      console.log(
+        `[BRACKET_CHECK] Time until start: ${Math.ceil(
+          timeUntilStart / 1000
+        )}s, Status: ${tournament.status}`
+      );
+
+      if (timeUntilStart <= 0 && !hasReloadedRef.current) {
+        hasReloadedRef.current = true;
+        console.log("[BRACKET] Tournament start time reached, reloading...");
+
+        toast({
+          title: "🎮 Torneio Iniciado!",
+          description: "O torneio começou agora!",
+          duration: 5000,
+        });
+
+        window.location.reload();
+      }
+    }, 1000);
+
+    return () => clearInterval(checkInterval);
+  }, [tournament?.startTime, tournament?.status]);
+
   const fetchTournamentData = async () => {
     try {
       setLoading(true);
       setError(null);
-
       const data = await tournamentService.getTournament(tournamentId);
       setTournament(data.tournament);
-
       console.log("[BRACKET] Tournament data loaded:", {
         status: data.tournament.status,
         currentRound: data.tournament.currentRound,
@@ -172,7 +215,6 @@ const TournamentBracket = () => {
       if (data.tournament.status === "WAITING") {
         const startTime = new Date(data.tournament.startTime);
         const timeUntilStart = startTime - new Date();
-
         if (timeUntilStart > 0) {
           toast({
             title: "Aguardando início",
@@ -184,6 +226,7 @@ const TournamentBracket = () => {
       }
 
       if (data.tournament.status === "IN_PROGRESS") {
+        console.log("[BRACKET] Tournament is IN_PROGRESS, fetching bracket...");
         await fetchBracket();
       }
     } catch (error) {
@@ -201,32 +244,39 @@ const TournamentBracket = () => {
 
   const fetchBracket = async () => {
     try {
+      console.log("[BRACKET] Fetching bracket for tournament:", tournamentId);
       const data = await tournamentService.getTournamentBracket(tournamentId);
+      console.log("[BRACKET] Bracket data received:", data.bracket);
       setBracket(data.bracket);
-      console.log("[BRACKET] Bracket data loaded:", data.bracket);
+
+      if (Object.keys(data.bracket).length === 0) {
+        console.log("[BRACKET] ⚠️ Bracket is empty, retrying in 2s...");
+        setTimeout(() => {
+          fetchBracket();
+        }, 2000);
+      }
     } catch (error) {
       console.error("[BRACKET] Error fetching bracket:", error);
+      setTimeout(() => {
+        console.log("[BRACKET] Retrying fetchBracket...");
+        fetchBracket();
+      }, 2000);
     }
   };
 
   const userIsEliminated = useMemo(() => {
     if (!bracket || !tournament || !user) return false;
-
     let userWasInTournament = false;
     let userLostAMatch = false;
-
     for (let round = 1; round <= tournament.totalRounds; round++) {
       const roundMatches = bracket[round];
       if (!roundMatches) continue;
-
       for (const match of roundMatches) {
         const userIsPlayer1 = match.player1?.id === user.id;
         const userIsPlayer2 = match.player2?.id === user.id;
         const userIsInThisMatch = userIsPlayer1 || userIsPlayer2;
-
         if (userIsInThisMatch) {
           userWasInTournament = true;
-
           if (match.status === "COMPLETED" || match.status === "BYE") {
             if (match.winnerId && match.winnerId !== user.id) {
               userLostAMatch = true;
@@ -240,19 +290,15 @@ const TournamentBracket = () => {
           }
         }
       }
-
       if (userLostAMatch) break;
     }
-
     return userWasInTournament && userLostAMatch;
   }, [bracket, tournament, user]);
 
   const userJustWon = useMemo(() => {
     if (!bracket || !tournament || !user || userIsEliminated) return false;
-
     const currentRoundMatches = bracket[tournament.currentRound];
     if (!currentRoundMatches) return false;
-
     return currentRoundMatches.some(
       (match) => match.status === "COMPLETED" && match.winnerId === user.id
     );
@@ -260,10 +306,8 @@ const TournamentBracket = () => {
 
   const hasNextMatch = useMemo(() => {
     if (!bracket || !tournament || !user || userIsEliminated) return false;
-
     const currentRoundMatches = bracket[tournament.currentRound];
     if (!currentRoundMatches) return false;
-
     return currentRoundMatches.some(
       (match) =>
         match.status === "PENDING" &&
@@ -277,10 +321,12 @@ const TournamentBracket = () => {
         userId: user.id,
         currentRound: tournament.currentRound,
         totalRounds: tournament.totalRounds,
+        tournamentStatus: tournament.status,
         userIsEliminated,
         userJustWon,
         hasNextMatch,
         bracketKeys: Object.keys(bracket),
+        bracketEmpty: Object.keys(bracket).length === 0,
       });
     }
   }, [bracket, tournament, user, userIsEliminated, userJustWon, hasNextMatch]);
@@ -294,10 +340,8 @@ const TournamentBracket = () => {
       });
       return;
     }
-
     const isPlayerInMatch =
       match.player1?.id === user.id || match.player2?.id === user.id;
-
     if (!isPlayerInMatch) {
       toast({
         title: "Não é sua partida",
@@ -306,16 +350,14 @@ const TournamentBracket = () => {
       });
       return;
     }
-
-    if (match.status !== "PENDING") {
+    if (match.status === "COMPLETED" || match.status === "BYE") {
       toast({
-        title: "Partida não disponível",
-        description: "Esta partida já foi iniciada ou finalizada",
+        title: "Partida já finalizada",
+        description: "Esta partida já terminou",
         variant: "destructive",
       });
       return;
     }
-
     if (!match.player1 || !match.player2) {
       toast({
         title: "Aguardando oponente",
@@ -324,31 +366,27 @@ const TournamentBracket = () => {
       });
       return;
     }
-
     try {
-      console.log("[BRACKET] Starting match:", {
+      console.log("[BRACKET] Starting/joining match:", {
         matchId: match.id,
+        currentStatus: match.status,
         player1: match.player1.name,
         player2: match.player2.name,
       });
-
       const response = await tournamentService.startMatch(
         tournamentId,
         match.id
       );
-
       const gameId = response.match?.gameId || response.game?.game_id_text;
-
       if (!gameId) {
         throw new Error("GameId não retornado pelo servidor");
       }
-
-      console.log("[BRACKET] Match started, navigating to game:", gameId);
+      console.log("[BRACKET] Navigating to game:", gameId);
       navigate(`/game/${gameId}`);
     } catch (error) {
       console.error("[BRACKET] Error starting match:", error);
       toast({
-        title: "Erro ao iniciar partida",
+        title: "Erro ao entrar na partida",
         description: error.message,
         variant: "destructive",
       });
@@ -385,7 +423,6 @@ const TournamentBracket = () => {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Voltar aos Torneios
         </Button>
-
         <Card className="max-w-md mx-auto bg-slate-800/50 border-red-500">
           <CardHeader>
             <CardTitle className="text-red-400">Erro no Chaveamento</CardTitle>
@@ -418,7 +455,6 @@ const TournamentBracket = () => {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Voltar ao Torneio
         </Button>
-
         <div
           className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
             connectionStatus === "Open"
@@ -494,7 +530,6 @@ const TournamentBracket = () => {
               {tournament.name}
             </h1>
             <p className="text-slate-400 mb-4">Chaveamento do Torneio</p>
-
             <div className="flex justify-center gap-4 text-sm">
               <div className="flex items-center gap-1">
                 <Users className="w-4 h-4 text-blue-400" />
@@ -588,7 +623,8 @@ const TournamentBracket = () => {
                                 </div>
                               </div>
 
-                              {match.status === "PENDING" &&
+                              {(match.status === "PENDING" ||
+                                match.status === "IN_PROGRESS") &&
                                 match.player1 &&
                                 match.player2 &&
                                 !userIsEliminated &&

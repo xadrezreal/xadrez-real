@@ -163,56 +163,60 @@ const AppContent = () => {
       <div className="flex flex-col h-screen">
         <header className="mb-6 px-2 sm:px-4 pt-2 sm:pt-4">
           <nav className="max-w-6xl mx-auto bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-2 flex justify-between sm:justify-center items-center gap-1 sm:gap-2 flex-wrap">
-            <NavLink to="/" className={navLinkClasses}>
-              <HomeIcon className="w-5 h-5" />
-              <span className="text-xs">{t("nav.home")}</span>
-            </NavLink>
-            <NavLink to="/profile" className={navLinkClasses}>
-              <UserIcon className="w-5 h-5" />
-              <span className="text-xs">{t("nav.profile")}</span>
-            </NavLink>
-            <NavLink to="/matchmaking" className={navLinkClasses}>
-              <Swords className="w-5 h-5" />
-              <span className="text-xs">{t("nav.play_now")}</span>
-            </NavLink>
-            <NavLink to="/store" className={navLinkClasses}>
+            <div className="w-full flex justify-between">
+              <div className="w-full flex gap-4">
+                <NavLink to="/" className={navLinkClasses}>
+                  <HomeIcon className="w-5 h-5" />
+                  <span className="text-xs">{t("nav.home")}</span>
+                </NavLink>
+                <NavLink to="/profile" className={navLinkClasses}>
+                  <UserIcon className="w-5 h-5" />
+                  <span className="text-xs">{t("nav.profile")}</span>
+                </NavLink>
+                <NavLink to="/matchmaking" className={navLinkClasses}>
+                  <Swords className="w-5 h-5" />
+                  <span className="text-xs">{t("nav.play_now")}</span>
+                </NavLink>
+                {/* <NavLink to="/store" className={navLinkClasses}>
               <StoreIcon className="w-5 h-5" />
               <span className="text-xs">{t("nav.store")}</span>
-            </NavLink>
-            <NavLink to="/create-tournament" className={navLinkClasses}>
-              <PlusCircle className="w-5 h-5" />
-              <span className="text-xs">{t("nav.create_tournament")}</span>
-            </NavLink>
-            <NavLink to="/wager-match" className={navLinkClasses}>
+            </NavLink> */}
+                <NavLink to="/create-tournament" className={navLinkClasses}>
+                  <PlusCircle className="w-5 h-5" />
+                  <span className="text-xs">{t("nav.create_tournament")}</span>
+                </NavLink>
+                {/* <NavLink to="/wager-match" className={navLinkClasses}>
               <DollarSign className="w-5 h-5" />
               <span className="text-xs">{t("nav.wager")}</span>
-            </NavLink>
-            <NavLink to="/tournament" className={navLinkClasses}>
-              <Trophy className="w-5 h-5" />
-              <span className="text-xs">{t("nav.tournaments")}</span>
-            </NavLink>
-            <NavLink to="/hall-of-fame" className={navLinkClasses}>
+            </NavLink> */}
+                <NavLink to="/tournament" className={navLinkClasses}>
+                  <Trophy className="w-5 h-5" />
+                  <span className="text-xs">{t("nav.tournaments")}</span>
+                </NavLink>
+                {/* <NavLink to="/hall-of-fame" className={navLinkClasses}>
               <Crown className="w-5 h-5" />
               <span className="text-xs">{t("nav.champions")}</span>
-            </NavLink>
-            <NavLink to="/wallet" className={navLinkClasses}>
+            </NavLink> */}
+                {/* <NavLink to="/wallet" className={navLinkClasses}>
               <WalletIcon className="w-5 h-5" />
               <span className="text-xs">{t("nav.wallet")}</span>
-            </NavLink>
-            <div className="flex items-center ml-auto pl-4">
-              <LanguageSwitcher />
-              <Button
-                onClick={() => setIsCartOpen(true)}
-                variant="ghost"
-                className="relative text-white hover:bg-white/10"
-              >
-                <ShoppingCartIcon className="w-6 h-6" />
-                {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {totalItems}
-                  </span>
-                )}
-              </Button>
+            </NavLink> */}
+              </div>
+              <div className="flex items-center ml-auto pl-4">
+                <LanguageSwitcher />
+                <Button
+                  onClick={() => setIsCartOpen(true)}
+                  variant="ghost"
+                  className="relative text-white hover:bg-white/10"
+                >
+                  <ShoppingCartIcon className="w-6 h-6" />
+                  {totalItems > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {totalItems}
+                    </span>
+                  )}
+                </Button>
+              </div>
             </div>
           </nav>
         </header>
