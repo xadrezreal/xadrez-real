@@ -548,12 +548,12 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           });
         }
 
-        if (match.status !== "PENDING") {
-          console.log("[ROUTE] Match not pending, status:", match.status);
-          return reply.status(400).send({
-            error: `Partida não está disponível para iniciar. Status: ${match.status}`,
-          });
-        }
+        // if (match.status !== "PENDING") {
+        //   console.log("[ROUTE] Match not pending, status:", match.status);
+        //   return reply.status(400).send({
+        //     error: `Partida não está disponível para iniciar. Status: ${match.status}`,
+        //   });
+        // }
 
         console.log("[ROUTE] Creating orchestrator...");
 
