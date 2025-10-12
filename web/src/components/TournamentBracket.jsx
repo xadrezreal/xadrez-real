@@ -665,17 +665,6 @@ const TournamentBracket = () => {
                                     <p className="text-xs text-cyan-400 font-semibold animate-pulse text-center">
                                       É a sua vez!
                                     </p>
-                                    {/* <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="w-full border-cyan-500 text-cyan-400 hover:bg-cyan-500/20"
-                                      onClick={() =>
-                                        navigate(`/game/${match.gameId}`)
-                                      }
-                                      disabled={userIsEliminated}
-                                    >
-                                      Entrar no Jogo
-                                    </Button> */}
                                   </div>
                                 )}
 

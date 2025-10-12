@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { FastifyBaseLogger } from "fastify";
 import { WebSocketManager } from "../websocket/webSocketManager";
 
@@ -119,16 +119,20 @@ export class TournamentOrchestrator {
 
     const gameIdText = `tournament-${match.tournamentId}-r${match.round}-m${match.matchNumber}`;
 
-    const game = await this.prisma.game.upsert({
+    const existingGame = await this.prisma.game.findUnique({
       where: { game_id_text: gameIdText },
-      update: {
-        status: "playing",
-        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        white_time: 600,
-        black_time: 600,
-        winner_id: null,
-      },
-      create: {
+    });
+
+    let game;
+
+    if (existingGame) {
+      await this.prisma.game.delete({
+        where: { game_id_text: gameIdText },
+      });
+    }
+
+    game = await this.prisma.game.create({
+      data: {
         game_id_text: gameIdText,
         tournament_id: match.tournamentId,
         white_player_id: whitePlayer.id,
@@ -142,8 +146,24 @@ export class TournamentOrchestrator {
         white_time: 600,
         black_time: 600,
         wager: 0,
+        winner_id: null,
+        last_move: Prisma.JsonNull,
       },
     });
+
+    this.logger.info(
+      `✅ New game created for match ${matchId}: ${JSON.stringify({
+        gameId: game.game_id_text,
+        whitePlayer: whitePlayer.name,
+        blackPlayer: blackPlayer.name,
+        whitePlayerId: whitePlayer.id,
+        blackPlayerId: blackPlayer.id,
+        fen: game.fen,
+        whiteTime: game.white_time,
+        blackTime: game.black_time,
+        status: game.status,
+      })}`
+    );
 
     const updatedMatch = await this.prisma.tournamentMatch.update({
       where: { id: matchId },

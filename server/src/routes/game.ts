@@ -35,9 +35,19 @@ export async function gameRoutes(fastify: FastifyInstance) {
       const game = await prisma.game.findUnique({
         where: { game_id_text: gameId },
       });
+
       if (!game) {
         return reply.code(404).send({ error: "Jogo não encontrado" });
       }
+
+      console.log("[GET_STATE] Game loaded:", {
+        gameId,
+        fen: game.fen,
+        whiteTime: game.white_time,
+        blackTime: game.black_time,
+        status: game.status,
+      });
+
       return reply.send(game);
     } catch (error: any) {
       fastify.log.error("Erro ao buscar jogo:", error);
@@ -48,7 +58,27 @@ export async function gameRoutes(fastify: FastifyInstance) {
   fastify.post("/api/game/:gameId/state", async (request: any, reply: any) => {
     const { gameId } = request.params;
     const gameStateData = request.body;
+
+    console.log("[SAVE_STATE] Saving game state:", {
+      gameId,
+      fen: gameStateData.fen,
+      whiteTime: gameStateData.white_time,
+      blackTime: gameStateData.black_time,
+      status: gameStateData.status,
+    });
+
     try {
+      await prisma.game.update({
+        where: { game_id_text: gameId },
+        data: {
+          fen: gameStateData.fen,
+          white_time: gameStateData.white_time,
+          black_time: gameStateData.black_time,
+          status: gameStateData.status || "playing",
+          updatedAt: new Date(),
+        },
+      });
+
       await prisma.gameState.upsert({
         where: { gameId },
         update: {
@@ -60,8 +90,11 @@ export async function gameRoutes(fastify: FastifyInstance) {
           state: gameStateData as any,
         },
       });
+
+      console.log("[SAVE_STATE] ✅ Game state saved in both tables");
       return reply.send({ success: true });
     } catch (error: any) {
+      console.error("[SAVE_STATE] ❌ Error:", error);
       fastify.log.error("Erro ao salvar estado do jogo:", error);
       return reply.code(500).send({ error: "Erro interno do servidor" });
     }
@@ -70,6 +103,13 @@ export async function gameRoutes(fastify: FastifyInstance) {
   fastify.put("/api/game/:gameId/move", async (request: any, reply: any) => {
     const { gameId } = request.params;
     const { fen, lastMove } = request.body;
+
+    console.log("[UPDATE_MOVE] Updating move:", {
+      gameId,
+      fen,
+      lastMove,
+    });
+
     try {
       const game = await prisma.game.update({
         where: { game_id_text: gameId },
@@ -79,8 +119,11 @@ export async function gameRoutes(fastify: FastifyInstance) {
           updatedAt: new Date(),
         },
       });
+
+      console.log("[UPDATE_MOVE] ✅ Move updated successfully");
       return reply.send(game);
     } catch (error: any) {
+      console.error("[UPDATE_MOVE] ❌ Error:", error);
       fastify.log.error("Erro ao atualizar jogo:", error);
       return reply.code(500).send({ error: "Erro interno do servidor" });
     }

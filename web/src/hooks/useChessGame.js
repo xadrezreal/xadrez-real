@@ -1,4 +1,4 @@
-// useChessGame.ts - ARQUIVO COMPLETO SEM COMENTÁRIOS
+// useChessGame.ts - COM PERSISTÊNCIA COMPLETA
 import {
   useState,
   useEffect,
@@ -14,6 +14,8 @@ import { useGameEffects } from "../hooks/useGameEffects";
 import { useToast } from "../components/ui/use-toast";
 import { useWebSocket } from "../hooks/useWebSocket";
 import { useBeforeUnload } from "../hooks/useBeforeUnload";
+
+const API_URL = "";
 
 export const useChessGame = ({ gameId, gameType: initialGameType }) => {
   const navigate = useNavigate();
@@ -41,6 +43,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
   const gameInstanceRef = useRef(game);
   const isProcessingMoveRef = useRef(false);
+  const lastSavedTimeRef = useRef({ white: null, black: null });
 
   const gameType = gameData?.tournament_id
     ? "tournament"
@@ -204,6 +207,65 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     [game, blackPlayerInfo, whitePlayerInfo, handleWagerPayout, onGameEnd]
   );
 
+  // 🔥 NOVA FUNÇÃO: Salvar estado do jogo no banco
+  const saveGameState = useCallback(
+    async (newFen, moveFrom, moveTo, newWhiteTime, newBlackTime) => {
+      if (gameType === "bot" || !gameId) return;
+
+      try {
+        const token = localStorage.getItem("auth_token");
+
+        console.log("[SAVE_GAME] Saving game state:", {
+          gameId,
+          fen: newFen,
+          whiteTime: newWhiteTime,
+          blackTime: newBlackTime,
+        });
+
+        // Atualizar o jogo no banco
+        await fetch(`${API_URL}/api/game/${gameId}/move`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            fen: newFen,
+            lastMove:
+              moveFrom && moveTo ? { from: moveFrom, to: moveTo } : null,
+          }),
+        });
+
+        // Salvar também os tempos atualizados
+        if (newWhiteTime !== null && newBlackTime !== null) {
+          await fetch(`${API_URL}/api/game/${gameId}/state`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              fen: newFen,
+              white_time: newWhiteTime,
+              black_time: newBlackTime,
+              status: "playing",
+            }),
+          });
+
+          lastSavedTimeRef.current = {
+            white: newWhiteTime,
+            black: newBlackTime,
+          };
+        }
+
+        console.log("[SAVE_GAME] ✅ Game state saved successfully");
+      } catch (error) {
+        console.error("[SAVE_GAME] ❌ Error saving game state:", error);
+      }
+    },
+    [gameId, gameType]
+  );
+
   const handleWebSocketMessage = useCallback(
     (message) => {
       const isTournamentGame = gameId?.includes("tournament-");
@@ -352,6 +414,15 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
           const { status, newWinner } = updateStatus(newGame);
 
+          // 🔥 SALVAR O ESTADO NO BANCO
+          await saveGameState(
+            newFen,
+            moveResult.from,
+            moveResult.to,
+            whiteTime,
+            blackTime
+          );
+
           if (gameId && gameType !== "bot" && isConnected) {
             sendMessage({
               type: "move",
@@ -381,6 +452,9 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       isConnected,
       sendMessage,
       updateStatus,
+      saveGameState,
+      whiteTime,
+      blackTime,
     ]
   );
 
@@ -492,7 +566,6 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       console.log("[RESIGN] Resigning player:", user.id);
       console.log("[RESIGN] Winner:", winnerInfo.id, winnerInfo.name);
 
-      const API_URL = "";
       const token = localStorage.getItem("auth_token");
 
       const payload = {
@@ -558,9 +631,19 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
       if (
         gameData?.game_id_text === data.game_id_text &&
-        gameData.status === data.status
+        gameData.status === data.status &&
+        gameData.fen === data.fen
       )
         return;
+
+      console.log("[PROCESS_GAME_DATA] ========== LOADING GAME ==========");
+      console.log("[PROCESS_GAME_DATA] Game ID:", data.game_id_text);
+      console.log("[PROCESS_GAME_DATA] FEN:", data.fen);
+      console.log("[PROCESS_GAME_DATA] White Time:", data.white_time);
+      console.log("[PROCESS_GAME_DATA] Black Time:", data.black_time);
+      console.log("[PROCESS_GAME_DATA] Status:", data.status);
+      console.log("[PROCESS_GAME_DATA] Winner ID:", data.winner_id);
+      console.log("[PROCESS_GAME_DATA] ===============================");
 
       const newGame = new Chess(data.fen);
       gameInstanceRef.current = newGame;
@@ -575,6 +658,11 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       setMoveHistory(newGame.history({ verbose: true }));
       setCapturedPieces(updateCapturedPieces(newGame));
       setLastMove(data.last_move);
+
+      lastSavedTimeRef.current = {
+        white: data.white_time,
+        black: data.black_time,
+      };
 
       if (data.winner_id) {
         const winnerInfo =
@@ -601,6 +689,10 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
         }));
         setIsGameLoading(false);
       } else if (data.status !== "waiting") {
+        console.log(
+          "[PROCESS_GAME_DATA] ⚠️ Game is already finished:",
+          data.status
+        );
         onGameEnd();
         setIsGameLoading(false);
       } else {
@@ -609,6 +701,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     },
     [gameData, updateCapturedPieces, setUser, onGameEnd]
   );
+
   useEffect(() => {
     gameInstanceRef.current = game;
   }, [game]);

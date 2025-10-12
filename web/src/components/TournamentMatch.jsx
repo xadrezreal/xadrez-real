@@ -1,4 +1,3 @@
-// TournamentMatch.tsx
 import React, { useContext, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -63,13 +62,30 @@ const TournamentMatch = () => {
     if (gameStatus && gameStatus !== "playing") {
       const isWinner = winner?.id === user.id;
 
+      const getWinnerMessage = () => {
+        if (!isWinner) {
+          return {
+            title: "😞 Derrota",
+            description: "Você foi eliminado do torneio.",
+          };
+        }
+
+        return {
+          title: "🎉 VITÓRIA!",
+          description: "Parabéns pela vitória!",
+        };
+      };
+
+      const message = winner
+        ? getWinnerMessage()
+        : {
+            title: "⚖️ Empate",
+            description: "A partida terminou em empate",
+          };
+
       toast({
-        title: isWinner ? "🎉 VITÓRIA!" : winner ? "😞 Derrota" : "⚖️ Empate",
-        description: isWinner
-          ? "Parabéns! Aguardando próxima rodada..."
-          : winner
-          ? "Você foi eliminado do torneio."
-          : "A partida terminou em empate",
+        title: message.title,
+        description: message.description,
         duration: 5000,
       });
 
@@ -91,7 +107,12 @@ const TournamentMatch = () => {
       .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
 
   const handleFinishMatch = () => {
-    navigate(`/tournament/${tournamentId}/bracket`);
+    const isWinner = winner?.id === user.id;
+    if (isWinner) {
+      navigate(`/tournament/${tournamentId}/bracket`);
+    } else {
+      navigate("/");
+    }
   };
 
   if (isGameLoading) {
@@ -215,13 +236,15 @@ const TournamentMatch = () => {
                 : "Partida empatada"}
             </p>
             <p className="text-sm text-cyan-400 mb-4">
-              Redirecionando em 3 segundos...
+              {winner?.id === user.id
+                ? "Retornando ao torneio em 3 segundos..."
+                : "Redirecionando em 3 segundos..."}
             </p>
             <Button
               onClick={handleFinishMatch}
               className="bg-cyan-500 hover:bg-cyan-600"
             >
-              Voltar Agora ao Torneio
+              {winner?.id === user.id ? "Voltar ao Torneio" : "Sair do Torneio"}
             </Button>
           </motion.div>
         )}
