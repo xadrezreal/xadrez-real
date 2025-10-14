@@ -63,7 +63,11 @@ const ProfileView = () => {
 
   const handleUpgrade = async () => {
     try {
+      console.log("=== DEBUG UPGRADE ===");
+      console.log("VITE_API_URL:", import.meta.env.VITE_API_URL);
+
       const token = localStorage.getItem("auth_token");
+      console.log("Token exists:", !!token);
 
       if (!token) {
         toast({
@@ -74,29 +78,47 @@ const ProfileView = () => {
         return;
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/subscription/checkout`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const apiUrl = `${import.meta.env.VITE_API_URL}/subscription/checkout`;
+      console.log("Full URL:", apiUrl);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Erro ${response.status}`);
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log("Response status:", response.status);
+      console.log("Response ok:", response.ok);
+
+      const responseText = await response.text();
+      console.log("Raw response:", responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Failed to parse JSON:", e);
+        throw new Error("Resposta inválida do servidor");
       }
 
-      const data = await response.json();
+      console.log("Parsed data:", data);
+      console.log("data.url:", data.url);
+      console.log("typeof data.url:", typeof data.url);
+
+      if (!response.ok) {
+        throw new Error(data.message || `Erro ${response.status}`);
+      }
 
       if (!data.url) {
+        console.error("URL is missing in response!");
         throw new Error("URL de checkout não recebida");
       }
 
+      console.log("Redirecting to:", data.url);
       window.location.href = data.url;
     } catch (error) {
+      console.error("=== ERROR ===", error);
       toast({
         title: "Erro",
         description: error.message || "Não foi possível processar o upgrade",
