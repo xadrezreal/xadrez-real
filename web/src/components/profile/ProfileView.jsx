@@ -63,21 +63,43 @@ const ProfileView = () => {
 
   const handleUpgrade = async () => {
     try {
+      const token = localStorage.getItem("auth_token");
+
+      if (!token) {
+        toast({
+          title: "Erro",
+          description: "Você precisa estar logado",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/subscription/checkout`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
-      const { url } = await response.json();
-      window.location.href = url;
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Erro ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.url) {
+        throw new Error("URL de checkout não recebida");
+      }
+
+      window.location.href = data.url;
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Não foi possível processar o upgrade",
+        description: error.message || "Não foi possível processar o upgrade",
         variant: "destructive",
       });
     }
