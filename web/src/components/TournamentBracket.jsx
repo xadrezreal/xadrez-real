@@ -367,12 +367,6 @@ const TournamentBracket = () => {
       return;
     }
     try {
-      console.log("[BRACKET] Starting/joining match:", {
-        matchId: match.id,
-        currentStatus: match.status,
-        player1: match.player1.name,
-        player2: match.player2.name,
-      });
       const response = await tournamentService.startMatch(
         tournamentId,
         match.id
@@ -381,10 +375,11 @@ const TournamentBracket = () => {
       if (!gameId) {
         throw new Error("GameId não retornado pelo servidor");
       }
-      console.log("[BRACKET] Navigating to game:", gameId);
-      navigate(`/game/${gameId}`);
+      navigate(`/game/${gameId}`, {
+        replace: true,
+        state: { forceReload: true },
+      });
     } catch (error) {
-      console.error("[BRACKET] Error starting match:", error);
       toast({
         title: "Erro ao entrar na partida",
         description: error.message,

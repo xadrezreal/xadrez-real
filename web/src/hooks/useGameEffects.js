@@ -33,6 +33,7 @@ export const useGameEffects = ({
   const gameInitialized = useRef(false);
   const lastSavedTimeRef = useRef({ white: null, black: null });
   const saveTimeIntervalRef = useRef(null);
+  const currentGameIdRef = useRef(null);
 
   const getBotMove = useCallback(() => {
     const move = getAdvancedBotMove(game.fen(), game.turn(), botLevel);
@@ -41,12 +42,10 @@ export const useGameEffects = ({
     }
   }, [game, botLevel, makeMove]);
 
-  // 🔥 NOVA FUNÇÃO: Salvar tempo periodicamente
   const saveGameTime = useCallback(
     async (currentWhiteTime, currentBlackTime) => {
       if (gameType === "bot" || !gameId) return;
 
-      // Só salva se o tempo mudou significativamente (mais de 3 segundos)
       const whiteChanged =
         !lastSavedTimeRef.current.white ||
         Math.abs(lastSavedTimeRef.current.white - currentWhiteTime) >= 3;
@@ -58,11 +57,6 @@ export const useGameEffects = ({
 
       try {
         const token = localStorage.getItem("auth_token");
-
-        console.log("[AUTO_SAVE_TIME] Saving times:", {
-          whiteTime: currentWhiteTime,
-          blackTime: currentBlackTime,
-        });
 
         await fetch(`${API_URL}/api/game/${gameId}/state`, {
           method: "POST",
@@ -82,14 +76,24 @@ export const useGameEffects = ({
           white: currentWhiteTime,
           black: currentBlackTime,
         };
-
-        console.log("[AUTO_SAVE_TIME] ✅ Times saved successfully");
-      } catch (error) {
-        console.error("[AUTO_SAVE_TIME] ❌ Error saving times:", error);
-      }
+      } catch (error) {}
     },
     [gameId, gameType, game]
   );
+
+  useEffect(() => {
+    if (currentGameIdRef.current !== gameId) {
+      gameInitialized.current = false;
+      lastSavedTimeRef.current = { white: null, black: null };
+
+      if (saveTimeIntervalRef.current) {
+        clearInterval(saveTimeIntervalRef.current);
+        saveTimeIntervalRef.current = null;
+      }
+
+      currentGameIdRef.current = gameId;
+    }
+  }, [gameId]);
 
   useEffect(() => {
     if (gameType === "bot") {
@@ -102,8 +106,6 @@ export const useGameEffects = ({
       setIsGameLoading(false);
       setGameStatus("playing");
       gameInitialized.current = true;
-
-      console.log("[GAME_EFFECTS] Bot game initialized");
     }
   }, [
     gameType,
@@ -145,12 +147,11 @@ export const useGameEffects = ({
           if (response.ok) {
             const gameStateData = await response.json();
 
-            if (isMounted) {
-              console.log("[GAME_EFFECTS] Loading game data with times:", {
-                whiteTime: gameStateData.white_time,
-                blackTime: gameStateData.black_time,
-              });
+            if (gameStateData.game_id_text !== gameId) {
+              throw new Error("GameId incorreto carregado");
+            }
 
+            if (isMounted) {
               lastSavedTimeRef.current = {
                 white: gameStateData.white_time,
                 black: gameStateData.black_time,
@@ -173,7 +174,6 @@ export const useGameEffects = ({
             }
           }
         } catch (error) {
-          console.error("[GAME_EFFECTS] Error loading game:", error);
           if (isMounted) {
             setIsGameLoading(false);
           }
@@ -202,21 +202,18 @@ export const useGameEffects = ({
     };
   }, [gameId]);
 
-  // 🔥 NOVO: Auto-save de tempo a cada 5 segundos
   useEffect(() => {
     if (!isGameActive || gameType === "bot" || !gameId) return;
 
-    // Limpar intervalo anterior se existir
     if (saveTimeIntervalRef.current) {
       clearInterval(saveTimeIntervalRef.current);
     }
 
-    // Criar novo intervalo para salvar tempo a cada 5 segundos
     saveTimeIntervalRef.current = setInterval(() => {
       if (whiteTime !== null && blackTime !== null) {
         saveGameTime(whiteTime, blackTime);
       }
-    }, 5000); // Salva a cada 5 segundos
+    }, 5000);
 
     return () => {
       if (saveTimeIntervalRef.current) {
@@ -230,19 +227,14 @@ export const useGameEffects = ({
     if (!isGameActive || whiteTime === null || blackTime === null) return;
 
     if (!gameData || !gameData.white_player_id || !gameData.black_player_id) {
-      console.log("[TIMER] Waiting for game data before starting timer");
       return;
     }
 
-    // 🔥 CRÍTICO: Não iniciar timer se os tempos ainda não foram carregados
     if (whiteTime === 0 && blackTime === 0) {
-      console.log("[TIMER] Waiting for times to be loaded from database");
       return;
     }
 
-    // 🔥 CRÍTICO: Aguardar um pouco após carregar o jogo antes de iniciar o timer
     if (!gameInitialized.current) {
-      console.log("[TIMER] Waiting for game initialization");
       return;
     }
 
@@ -256,8 +248,6 @@ export const useGameEffects = ({
             const winnerId = gameData.black_player_id;
             const loserName = gameData.white_player_name;
             const winnerName = gameData.black_player_name;
-
-            console.log("[TIMER] ⏰ White time expired! Black wins:", winnerId);
 
             clearInterval(timer);
 
@@ -288,8 +278,6 @@ export const useGameEffects = ({
             const winnerId = gameData.white_player_id;
             const loserName = gameData.black_player_name;
             const winnerName = gameData.white_player_name;
-
-            console.log("[TIMER] ⏰ Black time expired! White wins:", winnerId);
 
             clearInterval(timer);
 
