@@ -500,7 +500,7 @@ const TournamentBracket = () => {
             </div>
           </div>
 
-          {Object.keys(bracket).length > 0 ? (
+          {Object.keys(bracket).length > 0 && (
             <div className="flex justify-center overflow-x-auto pb-4">
               <div className="flex space-x-8 md:space-x-16">
                 {Object.keys(bracket)
@@ -635,13 +635,6 @@ const TournamentBracket = () => {
                   ))}
               </div>
             </div>
-          ) : (
-            <Card className="max-w-md mx-auto bg-slate-800/50 border-slate-700">
-              <CardContent className="p-8 text-center">
-                <Trophy className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                <p className="text-slate-400">Aguardando início do torneio</p>
-              </CardContent>
-            </Card>
           )}
         </>
       )}
