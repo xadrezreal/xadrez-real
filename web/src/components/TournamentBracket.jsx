@@ -45,32 +45,21 @@ const TournamentBracket = () => {
         handleWebSocketMessage(message);
       },
       onOpen: () => {
-        console.log("[BRACKET_WS] Connected to tournament");
         toast({
           title: "Conectado ao torneio",
           description: "Você receberá atualizações em tempo real",
         });
       },
-      onClose: () => {
-        console.log("[BRACKET_WS] Disconnected from tournament");
-      },
+      onClose: () => {},
     }
   );
 
   const handleWebSocketMessage = (message) => {
-    console.log("[BRACKET_WS] Message received:", message);
     switch (message.type) {
       case "MATCH_STARTED":
         const isMyMatch =
           message.data.player1Id === user.id ||
           message.data.player2Id === user.id;
-        console.log("[BRACKET_WS] Match started:", {
-          isMyMatch,
-          gameId: message.data.gameId,
-          player1Id: message.data.player1Id,
-          player2Id: message.data.player2Id,
-          userId: user.id,
-        });
         if (isMyMatch) {
           toast({
             title: "🎮 Sua partida começou!",
@@ -84,12 +73,6 @@ const TournamentBracket = () => {
         const wasMyMatch =
           message.data.player1Id === user.id ||
           message.data.player2Id === user.id;
-        console.log("[BRACKET_WS] Match completed:", {
-          wasMyMatch,
-          winnerId: message.data.winnerId,
-          winnerName: message.data.winnerName,
-          userId: user.id,
-        });
         toast({
           title: "Partida finalizada",
           description: `Vencedor: ${message.data.winnerName}`,
@@ -105,11 +88,6 @@ const TournamentBracket = () => {
         }
         break;
       case "ROUND_ADVANCED":
-        console.log("[BRACKET_WS] Round advanced:", {
-          completedRound: message.data.completedRound,
-          nextRound: message.data.nextRound,
-          winnersCount: message.data.winnersCount,
-        });
         toast({
           title: "🎉 Nova rodada começou!",
           description: message.data.message,
@@ -119,10 +97,6 @@ const TournamentBracket = () => {
         fetchTournamentData();
         break;
       case "TOURNAMENT_FINISHED":
-        console.log("[BRACKET_WS] Tournament finished:", {
-          championId: message.data.championId,
-          championName: message.data.championName,
-        });
         toast({
           title: "🏆 Torneio Finalizado!",
           description: `Campeão: ${message.data.championName}`,
@@ -132,7 +106,6 @@ const TournamentBracket = () => {
         fetchBracket();
         break;
       case "TOURNAMENT_STARTED":
-        console.log("[BRACKET_WS] Tournament started!");
         toast({
           title: "🎮 Torneio Iniciado!",
           description: "O chaveamento está sendo gerado...",
@@ -157,9 +130,6 @@ const TournamentBracket = () => {
       previousStatusRef.current === "WAITING" &&
       tournament.status === "IN_PROGRESS"
     ) {
-      console.log(
-        "[BRACKET] Tournament status changed from WAITING to IN_PROGRESS"
-      );
       fetchBracket();
     }
 
@@ -177,15 +147,8 @@ const TournamentBracket = () => {
       const now = new Date();
       const timeUntilStart = startTime - now;
 
-      console.log(
-        `[BRACKET_CHECK] Time until start: ${Math.ceil(
-          timeUntilStart / 1000
-        )}s, Status: ${tournament.status}`
-      );
-
       if (timeUntilStart <= 0 && !hasReloadedRef.current) {
         hasReloadedRef.current = true;
-        console.log("[BRACKET] Tournament start time reached, reloading...");
 
         toast({
           title: "🎮 Torneio Iniciado!",
@@ -206,11 +169,6 @@ const TournamentBracket = () => {
       setError(null);
       const data = await tournamentService.getTournament(tournamentId);
       setTournament(data.tournament);
-      console.log("[BRACKET] Tournament data loaded:", {
-        status: data.tournament.status,
-        currentRound: data.tournament.currentRound,
-        totalRounds: data.tournament.totalRounds,
-      });
 
       if (data.tournament.status === "WAITING") {
         const startTime = new Date(data.tournament.startTime);
@@ -226,11 +184,9 @@ const TournamentBracket = () => {
       }
 
       if (data.tournament.status === "IN_PROGRESS") {
-        console.log("[BRACKET] Tournament is IN_PROGRESS, fetching bracket...");
         await fetchBracket();
       }
     } catch (error) {
-      console.error("[BRACKET] Error fetching tournament:", error);
       setError(error.message);
       toast({
         title: "Erro ao carregar torneio",
@@ -244,21 +200,16 @@ const TournamentBracket = () => {
 
   const fetchBracket = async () => {
     try {
-      console.log("[BRACKET] Fetching bracket for tournament:", tournamentId);
       const data = await tournamentService.getTournamentBracket(tournamentId);
-      console.log("[BRACKET] Bracket data received:", data.bracket);
       setBracket(data.bracket);
 
       if (Object.keys(data.bracket).length === 0) {
-        console.log("[BRACKET] ⚠️ Bracket is empty, retrying in 2s...");
         setTimeout(() => {
           fetchBracket();
         }, 2000);
       }
     } catch (error) {
-      console.error("[BRACKET] Error fetching bracket:", error);
       setTimeout(() => {
-        console.log("[BRACKET] Retrying fetchBracket...");
         fetchBracket();
       }, 2000);
     }
@@ -280,11 +231,6 @@ const TournamentBracket = () => {
           if (match.status === "COMPLETED" || match.status === "BYE") {
             if (match.winnerId && match.winnerId !== user.id) {
               userLostAMatch = true;
-              console.log("[BRACKET] User lost in round", round, {
-                matchId: match.id,
-                winnerId: match.winnerId,
-                userId: user.id,
-              });
               break;
             }
           }
@@ -315,21 +261,10 @@ const TournamentBracket = () => {
     );
   }, [bracket, tournament, user, userIsEliminated]);
 
-  useEffect(() => {
-    if (bracket && tournament && user) {
-      console.log("[BRACKET_DEBUG] Current state:", {
-        userId: user.id,
-        currentRound: tournament.currentRound,
-        totalRounds: tournament.totalRounds,
-        tournamentStatus: tournament.status,
-        userIsEliminated,
-        userJustWon,
-        hasNextMatch,
-        bracketKeys: Object.keys(bracket),
-        bracketEmpty: Object.keys(bracket).length === 0,
-      });
-    }
-  }, [bracket, tournament, user, userIsEliminated, userJustWon, hasNextMatch]);
+  const userIsChampion = useMemo(() => {
+    if (!tournament || !user) return false;
+    return tournament.status === "FINISHED" && tournament.winnerId === user.id;
+  }, [tournament, user]);
 
   const handlePlayMatch = async (match) => {
     if (userIsEliminated) {
@@ -514,6 +449,25 @@ const TournamentBracket = () => {
             <p className="text-sm text-slate-400 mt-2">
               Aguarde enquanto os outros jogos da rodada terminam...
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {userIsChampion && (
+        <Card className="mb-6 bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border-yellow-500">
+          <CardContent className="p-6 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <Trophy className="w-16 h-16 text-yellow-400 animate-bounce" />
+              <span className="text-2xl font-bold text-yellow-400">
+                🏆 VOCÊ VENCEU O TORNEIO! 🏆
+              </span>
+              <p className="text-lg text-slate-300 mt-2">
+                Parabéns, {user.name}! Você é o campeão!
+              </p>
+              <p className="text-sm text-slate-400">
+                +200 pontos de torneio conquistados!
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}
