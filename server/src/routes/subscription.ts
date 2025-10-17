@@ -69,7 +69,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Rota do portal
   fastify.post(
     "/portal",
     { preHandler: [fastify.authenticate] },
@@ -99,6 +98,59 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
         fastify.log.error("Erro ao criar portal:", error);
         return reply.code(500).send({
           error: "Erro ao acessar portal",
+          message: error.message,
+        });
+      }
+    }
+  );
+
+  fastify.post(
+    "/cancel",
+    { preHandler: [fastify.authenticate] },
+    async (request: AuthenticatedRequest, reply: FastifyReply) => {
+      try {
+        const userId = request.user.id;
+
+        const user = await fastify.prisma.user.findUnique({
+          where: { id: userId },
+        });
+
+        if (!user) {
+          return reply.code(404).send({ error: "Usuário não encontrado" });
+        }
+
+        if (user.role !== "PREMIUM") {
+          return reply.code(400).send({ error: "Você não é premium" });
+        }
+
+        if (!user.stripeSubscriptionId) {
+          return reply
+            .code(400)
+            .send({ error: "Nenhuma assinatura encontrada" });
+        }
+
+        await stripe.subscriptions.update(user.stripeSubscriptionId, {
+          cancel_at_period_end: true,
+        });
+
+        await fastify.prisma.user.update({
+          where: { id: userId },
+          data: {
+            role: "FREEMIUM",
+          },
+        });
+
+        fastify.log.info(`Assinatura cancelada para usuário ${userId}`);
+
+        return reply.send({
+          success: true,
+          message:
+            "Assinatura cancelada. Você manterá os benefícios até o fim do período.",
+        });
+      } catch (error: any) {
+        fastify.log.error("Erro ao cancelar assinatura:", error);
+        return reply.code(500).send({
+          error: "Erro ao cancelar assinatura",
           message: error.message,
         });
       }

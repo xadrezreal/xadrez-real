@@ -11,9 +11,28 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "../ui/use-toast";
-import { UserCheck, Crown } from "lucide-react";
+import {
+  UserCheck,
+  Crown,
+  Settings,
+  CreditCard,
+  AlertTriangle,
+  Check,
+  X,
+} from "lucide-react";
 import { UserContext } from "../../contexts/UserContext";
 import { useAuth } from "../../contexts/AuthContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../ui/alert-dialog";
 
 const itemVariants = {
   hidden: { opacity: 0, x: -20 },
@@ -33,6 +52,7 @@ const ProfileView = () => {
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     if (authUser) {
@@ -63,11 +83,7 @@ const ProfileView = () => {
 
   const handleUpgrade = async () => {
     try {
-      console.log("=== DEBUG UPGRADE ===");
-      console.log("VITE_API_URL:", import.meta.env.VITE_API_URL);
-
       const token = localStorage.getItem("auth_token");
-      console.log("Token exists:", !!token);
 
       if (!token) {
         toast({
@@ -78,47 +94,28 @@ const ProfileView = () => {
         return;
       }
 
-      const apiUrl = `${import.meta.env.VITE_API_URL}/subscription/checkout`;
-      console.log("Full URL:", apiUrl);
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/subscription/checkout`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      console.log("Response status:", response.status);
-      console.log("Response ok:", response.ok);
-
-      const responseText = await response.text();
-      console.log("Raw response:", responseText);
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        console.error("Failed to parse JSON:", e);
-        throw new Error("Resposta inválida do servidor");
-      }
-
-      console.log("Parsed data:", data);
-      console.log("data.url:", data.url);
-      console.log("typeof data.url:", typeof data.url);
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.message || `Erro ${response.status}`);
       }
 
       if (!data.url) {
-        console.error("URL is missing in response!");
         throw new Error("URL de checkout não recebida");
       }
 
-      console.log("Redirecting to:", data.url);
       window.location.href = data.url;
     } catch (error) {
-      console.error("=== ERROR ===", error);
       toast({
         title: "Erro",
         description: error.message || "Não foi possível processar o upgrade",
@@ -149,13 +146,67 @@ const ProfileView = () => {
     }
   };
 
+  const handleCancelSubscription = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/subscription/cancel`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao cancelar assinatura");
+      }
+
+      toast({
+        title: "✅ Assinatura cancelada",
+        description:
+          "Sua assinatura foi cancelada com sucesso. Você manterá os benefícios até o fim do período pago.",
+      });
+
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
   };
 
+  const premiumFeatures = [
+    "Sem anúncios",
+    "Acesso a todos os níveis de bot",
+    "Análise de partidas com IA",
+    "Criar torneios privados",
+    "Customização avançada do tabuleiro",
+    "Suporte prioritário",
+  ];
+
+  const freemiumLimitations = [
+    "Anúncios entre partidas",
+    "Bot limitado a nível 3",
+    "Sem análise de IA",
+    "Apenas torneios públicos",
+    "Temas de tabuleiro limitados",
+  ];
+
   return (
     <motion.div
-      className="max-w-md mx-auto"
+      className="max-w-4xl mx-auto space-y-6"
       initial="hidden"
       animate="visible"
       variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
@@ -229,28 +280,15 @@ const ProfileView = () => {
                 {loading ? "Salvando..." : "Salvar Alterações"}
               </Button>
 
-              {!isPremium && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full border-yellow-400 text-yellow-400 hover:bg-yellow-400/10"
-                  onClick={handleUpgrade}
-                >
-                  <Crown className="w-4 h-4 mr-2" />
-                  Fazer Upgrade para Premium
-                </Button>
-              )}
-
-              {isPremium && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleManageSubscription}
-                >
-                  Gerenciar Assinatura
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowSettings(!showSettings)}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                {showSettings ? "Ocultar" : "Gerenciar"} Assinatura
+              </Button>
 
               <Button
                 onClick={handleSignOut}
@@ -264,6 +302,138 @@ const ProfileView = () => {
           </form>
         </CardContent>
       </Card>
+
+      {showSettings && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          <Card className="bg-slate-800/50 border-slate-700 text-white">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <CreditCard className="w-6 h-6 text-cyan-400" />
+                Gerenciar Assinatura
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="font-bold text-lg flex items-center gap-2">
+                    <Crown className="w-5 h-5 text-yellow-400" />
+                    Premium
+                  </h3>
+                  <ul className="space-y-2">
+                    {premiumFeatures.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <Check className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                        <span className="text-slate-300">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {!isPremium && (
+                    <Button
+                      onClick={handleUpgrade}
+                      className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
+                    >
+                      <Crown className="w-4 h-4 mr-2" />
+                      Fazer Upgrade - R$ 19,90/mês
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-bold text-lg flex items-center gap-2">
+                    Freemium
+                  </h3>
+                  <ul className="space-y-2">
+                    {freemiumLimitations.map((limitation, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <X className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                        <span className="text-slate-400">{limitation}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {isPremium && (
+                <div className="border-t border-slate-700 pt-6 space-y-4">
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <Crown className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-1" />
+                      <div>
+                        <h4 className="font-bold text-yellow-400 mb-1">
+                          Você é Premium!
+                        </h4>
+                        <p className="text-sm text-slate-300">
+                          Aproveite todos os benefícios exclusivos. Sua
+                          assinatura renova automaticamente.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={handleManageSubscription}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      Gerenciar no Stripe
+                    </Button>
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="flex-1">
+                          <AlertTriangle className="w-4 h-4 mr-2" />
+                          Cancelar Assinatura
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="bg-slate-800 border-slate-700">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="text-white flex items-center gap-2">
+                            <AlertTriangle className="w-6 h-6 text-red-400" />
+                            Tem certeza?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription className="text-slate-300">
+                            Ao cancelar sua assinatura Premium:
+                            <ul className="list-disc list-inside mt-3 space-y-1 text-sm">
+                              <li>Você perderá acesso aos recursos Premium</li>
+                              <li>Voltará para a conta Freemium</li>
+                              <li>
+                                Manterá os benefícios até o fim do período pago
+                              </li>
+                              <li>
+                                Poderá fazer upgrade novamente a qualquer
+                                momento
+                              </li>
+                            </ul>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="bg-slate-700">
+                            Manter Premium
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleCancelSubscription}
+                            disabled={loading}
+                            className="bg-red-500 hover:bg-red-600"
+                          >
+                            {loading
+                              ? "Cancelando..."
+                              : "Confirmar Cancelamento"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
     </motion.div>
   );
 };
