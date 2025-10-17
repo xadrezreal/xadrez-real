@@ -1,4 +1,3 @@
-// useChessGame.ts - COM PERSISTÊNCIA COMPLETA
 import {
   useState,
   useEffect,
@@ -178,6 +177,60 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     console.log("Payout desabilitado - Supabase removido");
   }, []);
 
+  const handleGameEnd = useCallback(
+    async (gameInstance, reason) => {
+      if (gameType === "bot" || !gameId || !gameData) return;
+
+      const winnerId =
+        gameInstance.turn() === "w"
+          ? gameData.black_player_id
+          : gameData.white_player_id;
+
+      const winnerInfo =
+        gameInstance.turn() === "w"
+          ? {
+              id: gameData.black_player_id,
+              name: gameData.black_player_name,
+            }
+          : {
+              id: gameData.white_player_id,
+              name: gameData.white_player_name,
+            };
+
+      setGameStatus(reason);
+
+      if (reason !== "stalemate" && reason !== "draw") {
+        setWinner(winnerInfo);
+      }
+
+      try {
+        const token = localStorage.getItem("auth_token");
+        const response = await fetch(`${API_URL}/api/game/${gameId}/end`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            winnerId:
+              reason === "stalemate" || reason === "draw" ? null : winnerId,
+            reason,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Erro ao finalizar jogo");
+        }
+
+        const data = await response.json();
+        console.log("[GAME_END] Game finalized:", data);
+      } catch (error) {
+        console.error("[GAME_END] Error finalizing game:", error);
+      }
+    },
+    [gameId, gameType, gameData]
+  );
+
   const updateStatus = useCallback(
     (gameInstance = game) => {
       let status = "playing";
@@ -187,12 +240,16 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
         status = "checkmate";
         newWinner =
           gameInstance.turn() === "w" ? blackPlayerInfo : whitePlayerInfo;
+        handleGameEnd(gameInstance, "checkmate");
+      } else if (gameInstance.isStalemate()) {
+        status = "stalemate";
+        handleGameEnd(gameInstance, "stalemate");
       } else if (
-        gameInstance.isStalemate() ||
         gameInstance.isThreefoldRepetition() ||
         gameInstance.isDraw()
       ) {
         status = "draw";
+        handleGameEnd(gameInstance, "draw");
       }
 
       if (status !== "playing") {
@@ -204,10 +261,16 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       setGameStatus(status);
       return { status, newWinner };
     },
-    [game, blackPlayerInfo, whitePlayerInfo, handleWagerPayout, onGameEnd]
+    [
+      game,
+      blackPlayerInfo,
+      whitePlayerInfo,
+      handleWagerPayout,
+      onGameEnd,
+      handleGameEnd,
+    ]
   );
 
-  // 🔥 NOVA FUNÇÃO: Salvar estado do jogo no banco
   const saveGameState = useCallback(
     async (newFen, moveFrom, moveTo, newWhiteTime, newBlackTime) => {
       if (gameType === "bot" || !gameId) return;
@@ -222,7 +285,6 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
           blackTime: newBlackTime,
         });
 
-        // Atualizar o jogo no banco
         await fetch(`${API_URL}/api/game/${gameId}/move`, {
           method: "PUT",
           headers: {
@@ -236,7 +298,6 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
           }),
         });
 
-        // Salvar também os tempos atualizados
         if (newWhiteTime !== null && newBlackTime !== null) {
           await fetch(`${API_URL}/api/game/${gameId}/state`, {
             method: "POST",
@@ -414,7 +475,6 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
           const { status, newWinner } = updateStatus(newGame);
 
-          // 🔥 SALVAR O ESTADO NO BANCO
           await saveGameState(
             newFen,
             moveResult.from,
