@@ -389,8 +389,12 @@ export class TournamentOrchestrator {
       },
     });
 
-    // Agenda o início da próxima rodada (22 minutos)
-    await this.scheduleRoundStart(tournamentId, nextRound);
+    // Agenda o início da próxima rodada com INTERVALO de 2 minutos
+    await this.scheduleNextRoundWithInterval(
+      tournamentId,
+      nextRound,
+      completedRound
+    );
 
     this.logger.info(
       `Tournament ${tournamentId} advanced to round ${nextRound} with ${winnerUsers.length} winners.`
@@ -464,6 +468,66 @@ export class TournamentOrchestrator {
 
     this.logger.info(
       `Round ${round} scheduled to start at ${nextRoundStartTime.toISOString()}`
+    );
+  }
+
+  // NOVA FUNÇÃO: Agenda próxima rodada COM INTERVALO de 2 minutos
+  private async scheduleNextRoundWithInterval(
+    tournamentId: string,
+    nextRound: number,
+    completedRound: number
+  ): Promise<void> {
+    const now = new Date();
+    const intervalTime = 2 * 60 * 1000; // 2 minutos de intervalo
+    const nextRoundStartTime = new Date(now.getTime() + intervalTime);
+
+    // Atualiza o banco com o horário de início da próxima rodada
+    await this.prisma.tournament.update({
+      where: { id: tournamentId },
+      data: {
+        nextRoundStartTime: nextRoundStartTime,
+      },
+    });
+
+    // Busca apenas a contagem de partidas
+    const matchCount = await this.prisma.tournamentMatch.count({
+      where: {
+        tournamentId,
+        round: nextRound,
+      },
+    });
+
+    // Notifica sobre a nova rodada com o tempo de espera
+    this.wsManager.broadcastToTournament(tournamentId, {
+      type: "ROUND_ADVANCED",
+      data: {
+        completedRound,
+        nextRound,
+        winnersCount: matchCount * 2,
+        winners: [],
+        startsAt: nextRoundStartTime.toISOString(),
+        message: `Intervalo! Próxima rodada começa em 2 minutos às ${nextRoundStartTime.toLocaleTimeString(
+          "pt-BR",
+          { hour: "2-digit", minute: "2-digit" }
+        )}`,
+      },
+    });
+
+    // Cria timer para iniciar automaticamente a rodada após 2 minutos
+    const timerKey = `${tournamentId}-${nextRound}-start`;
+    if (this.roundTimers.has(timerKey)) {
+      clearTimeout(this.roundTimers.get(timerKey));
+    }
+
+    const timer = setTimeout(async () => {
+      await this.startRoundImmediately(tournamentId, nextRound);
+      this.roundTimers.delete(timerKey);
+    }, intervalTime);
+
+    this.roundTimers.set(timerKey, timer);
+
+    this.logger.info(
+      `Round ${nextRound} scheduled to start after 2-minute interval at ${nextRoundStartTime.toISOString()}`
     );
   }
 
@@ -674,19 +738,49 @@ export class TournamentOrchestrator {
       return;
     }
 
-    let championId: string;
     let championName: string;
+    let championId: string;
 
     if (finalMatch.winnerId) {
       championId = finalMatch.winnerId;
-      championName = finalMatch.winner!.name;
     } else {
       // Se a final não terminou, determina vencedor
-      if (!finalMatch.player1Id) {
-        throw new Error("Player1 ID is null in the final match");
+      if (!finalMatch.player1Id || !finalMatch.player2Id) {
+        this.logger.error(`Final match ${finalMatch.id} is missing players`);
+        return;
       }
-      championId = finalMatch.player1Id;
-      championName = finalMatch?.player1?.name || "Unknown";
+
+      // Busca o jogo da final para ver quem tem mais tempo
+      const finalGameId = `tournament-${tournamentId}-r${
+        tournament.totalRounds
+      }-m${finalMatch.matchNumber || 1}`;
+      const finalGame = await this.prisma.game.findUnique({
+        where: { game_id_text: finalGameId },
+        select: {
+          white_time: true,
+          black_time: true,
+          white_player_id: true,
+          black_player_id: true,
+        },
+      });
+
+      if (finalGame) {
+        // Quem tem mais tempo vence
+        championId =
+          finalGame.white_time > finalGame.black_time
+            ? finalGame.white_player_id
+            : finalGame.black_player_id;
+        this.logger.info(
+          `Final match incomplete. Winner by time: ${championId}`
+        );
+      } else {
+        // Fallback: sorteia
+        championId =
+          Math.random() < 0.5 ? finalMatch.player1Id : finalMatch.player2Id;
+        this.logger.warn(
+          `Final match has no game. Random champion: ${championId}`
+        );
+      }
 
       await this.prisma.tournamentMatch.update({
         where: { id: finalMatch.id },
