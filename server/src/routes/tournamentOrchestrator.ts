@@ -45,8 +45,8 @@ export class TournamentOrchestrator {
 
     await this.createRoundMatches(tournamentId, 1, participants);
 
-    // Inicia automaticamente a primeira rodada
-    await this.scheduleRoundStart(tournamentId, 1);
+    // Inicia a primeira rodada IMEDIATAMENTE (sem delay)
+    await this.startRoundImmediately(tournamentId, 1);
 
     this.logger.info(
       `Bracket created for tournament ${tournamentId}: ${totalRounds} rounds`
@@ -86,6 +86,76 @@ export class TournamentOrchestrator {
         );
       }
     }
+  }
+
+  // NOVA FUNÇÃO: Inicia uma rodada IMEDIATAMENTE (sem delay)
+  private async startRoundImmediately(
+    tournamentId: string,
+    round: number
+  ): Promise<void> {
+    this.logger.info(`🚀 Starting round ${round} immediately`);
+
+    const now = new Date();
+    const roundDuration = 20 * 60 * 1000; // 20 minutos para os jogos
+    const intervalDuration = 2 * 60 * 1000; // 2 minutos de intervalo
+    const totalTime = roundDuration + intervalDuration; // 22 minutos total
+    const roundEndTime = new Date(now.getTime() + totalTime);
+
+    // Atualiza o banco com os timestamps
+    await this.prisma.tournament.update({
+      where: { id: tournamentId },
+      data: {
+        currentRoundStartTime: now,
+        nextRoundStartTime: roundEndTime,
+      },
+    });
+
+    // Busca todas as partidas PENDING da rodada
+    const matches = await this.prisma.tournamentMatch.findMany({
+      where: {
+        tournamentId,
+        round,
+        status: "PENDING",
+      },
+    });
+
+    // Inicia todas as partidas
+    for (const match of matches) {
+      try {
+        await this.startMatch(match.id);
+      } catch (error: any) {
+        this.logger.error(`Error starting match ${match.id}:`, error);
+      }
+    }
+
+    // Notifica que a rodada começou
+    this.wsManager.broadcastToTournament(tournamentId, {
+      type: "ROUND_STARTED_AUTO",
+      data: {
+        round,
+        startsAt: roundEndTime.toISOString(),
+        message:
+          "Rodada iniciada! Clique em 'Jogar Agora' para entrar na partida.",
+        timestamp: now.toISOString(),
+      },
+    });
+
+    // Cria timer para forçar avanço após 22 minutos (20 de jogo + 2 de intervalo)
+    const timerKey = `${tournamentId}-${round}-advance`;
+    if (this.roundTimers.has(timerKey)) {
+      clearTimeout(this.roundTimers.get(timerKey));
+    }
+
+    const timer = setTimeout(async () => {
+      await this.forceAdvanceToNextRound(tournamentId, round);
+      this.roundTimers.delete(timerKey);
+    }, totalTime);
+
+    this.roundTimers.set(timerKey, timer);
+
+    this.logger.info(
+      `Round ${round} started at ${now.toISOString()}. Will force advance at ${roundEndTime.toISOString()} (22 minutes: 20 game + 2 interval)`
+    );
   }
 
   async startMatch(matchId: string): Promise<any> {
@@ -389,210 +459,16 @@ export class TournamentOrchestrator {
       },
     });
 
-    // Agenda o início da próxima rodada com INTERVALO de 2 minutos
-    await this.scheduleNextRoundWithInterval(
-      tournamentId,
-      nextRound,
-      completedRound
+    // Inicia a próxima rodada IMEDIATAMENTE (sem intervalo adicional)
+    // O intervalo de 2 minutos já está incluído nos 22 minutos totais da rodada
+    this.logger.info(
+      `All matches completed for round ${completedRound}. Starting round ${nextRound} immediately.`
     );
+
+    await this.startRoundImmediately(tournamentId, nextRound);
 
     this.logger.info(
       `Tournament ${tournamentId} advanced to round ${nextRound} with ${winnerUsers.length} winners.`
-    );
-  }
-
-  // NOVA FUNÇÃO: Agenda o início de uma rodada
-  private async scheduleRoundStart(
-    tournamentId: string,
-    round: number
-  ): Promise<void> {
-    const roundStartTime = new Date();
-    const nextRoundStartTime = new Date(
-      roundStartTime.getTime() + 22 * 60 * 1000 // 22 minutos
-    );
-
-    // Atualiza o banco com o horário da próxima rodada
-    await this.prisma.tournament.update({
-      where: { id: tournamentId },
-      data: {
-        currentRoundStartTime: roundStartTime,
-        nextRoundStartTime: nextRoundStartTime,
-      },
-    });
-
-    // Busca os vencedores para notificar
-    const matches = await this.prisma.tournamentMatch.findMany({
-      where: {
-        tournamentId,
-        round,
-      },
-      include: {
-        player1: true,
-        player2: true,
-      },
-    });
-
-    // Notifica sobre a nova rodada
-    this.wsManager.broadcastToTournament(tournamentId, {
-      type: "ROUND_ADVANCED",
-      data: {
-        completedRound: round - 1,
-        nextRound: round,
-        winnersCount: matches.length * 2, // Aproximado
-        winners: matches
-          .flatMap((m) => [
-            m.player1 ? { id: m.player1.id, name: m.player1.name } : null,
-            m.player2 ? { id: m.player2.id, name: m.player2.name } : null,
-          ])
-          .filter(Boolean),
-        startsAt: nextRoundStartTime.toISOString(),
-        message: `Nova rodada começa às ${nextRoundStartTime.toLocaleTimeString(
-          "pt-BR",
-          { hour: "2-digit", minute: "2-digit" }
-        )}`,
-      },
-    });
-
-    // Cria timer para iniciar automaticamente a rodada
-    const timerKey = `${tournamentId}-${round}-start`;
-    if (this.roundTimers.has(timerKey)) {
-      clearTimeout(this.roundTimers.get(timerKey));
-    }
-
-    const timer = setTimeout(async () => {
-      await this.startAllMatchesInRound(tournamentId, round);
-      this.roundTimers.delete(timerKey);
-    }, 22 * 60 * 1000); // 22 minutos
-
-    this.roundTimers.set(timerKey, timer);
-
-    this.logger.info(
-      `Round ${round} scheduled to start at ${nextRoundStartTime.toISOString()}`
-    );
-  }
-
-  // NOVA FUNÇÃO: Agenda próxima rodada COM INTERVALO de 2 minutos
-  private async scheduleNextRoundWithInterval(
-    tournamentId: string,
-    nextRound: number,
-    completedRound: number
-  ): Promise<void> {
-    const now = new Date();
-    const intervalTime = 2 * 60 * 1000; // 2 minutos de intervalo
-    const nextRoundStartTime = new Date(now.getTime() + intervalTime);
-
-    // Atualiza o banco com o horário de início da próxima rodada
-    await this.prisma.tournament.update({
-      where: { id: tournamentId },
-      data: {
-        nextRoundStartTime: nextRoundStartTime,
-      },
-    });
-
-    // Busca apenas a contagem de partidas
-    const matchCount = await this.prisma.tournamentMatch.count({
-      where: {
-        tournamentId,
-        round: nextRound,
-      },
-    });
-
-    // Notifica sobre a nova rodada com o tempo de espera
-    this.wsManager.broadcastToTournament(tournamentId, {
-      type: "ROUND_ADVANCED",
-      data: {
-        completedRound,
-        nextRound,
-        winnersCount: matchCount * 2,
-        winners: [],
-        startsAt: nextRoundStartTime.toISOString(),
-        message: `Intervalo! Próxima rodada começa em 2 minutos às ${nextRoundStartTime.toLocaleTimeString(
-          "pt-BR",
-          { hour: "2-digit", minute: "2-digit" }
-        )}`,
-      },
-    });
-
-    // Cria timer para iniciar automaticamente a rodada após 2 minutos
-    const timerKey = `${tournamentId}-${nextRound}-start`;
-    if (this.roundTimers.has(timerKey)) {
-      clearTimeout(this.roundTimers.get(timerKey));
-    }
-
-    const timer = setTimeout(async () => {
-      await this.startRoundImmediately(tournamentId, nextRound);
-      this.roundTimers.delete(timerKey);
-    }, intervalTime);
-
-    this.roundTimers.set(timerKey, timer);
-
-    this.logger.info(
-      `Round ${nextRound} scheduled to start after 2-minute interval at ${nextRoundStartTime.toISOString()}`
-    );
-  }
-
-  private async startAllMatchesInRound(
-    tournamentId: string,
-    round: number
-  ): Promise<void> {
-    this.logger.info(`🚀 Auto-starting all matches in round ${round}`);
-
-    const matches = await this.prisma.tournamentMatch.findMany({
-      where: {
-        tournamentId,
-        round,
-        status: "PENDING",
-      },
-    });
-
-    const now = new Date();
-    const nextRoundStartTime = new Date(now.getTime() + 22 * 60 * 1000);
-
-    // Atualiza o timestamp de início da rodada atual
-    await this.prisma.tournament.update({
-      where: { id: tournamentId },
-      data: {
-        currentRoundStartTime: now,
-        nextRoundStartTime: nextRoundStartTime,
-      },
-    });
-
-    // Inicia todas as partidas
-    for (const match of matches) {
-      try {
-        await this.startMatch(match.id);
-      } catch (error: any) {
-        this.logger.error(`Error starting match ${match.id}:`, error);
-      }
-    }
-
-    // Notifica que a rodada começou
-    this.wsManager.broadcastToTournament(tournamentId, {
-      type: "ROUND_STARTED_AUTO",
-      data: {
-        round,
-        startsAt: nextRoundStartTime.toISOString(),
-        message:
-          "Rodada iniciada! Clique em 'Jogar Agora' para entrar na partida.",
-        timestamp: now.toISOString(),
-      },
-    });
-
-    // Cria timer para forçar avanço após 22 minutos
-    const timerKey = `${tournamentId}-${round}-advance`;
-    if (this.roundTimers.has(timerKey)) {
-      clearTimeout(this.roundTimers.get(timerKey));
-    }
-
-    const timer = setTimeout(async () => {
-      await this.forceAdvanceToNextRound(tournamentId, round);
-      this.roundTimers.delete(timerKey);
-    }, 22 * 60 * 1000);
-
-    this.roundTimers.set(timerKey, timer);
-
-    this.logger.info(
-      `Round ${round} started at ${now.toISOString()}. Will force advance at ${nextRoundStartTime.toISOString()}`
     );
   }
 
@@ -714,6 +590,9 @@ export class TournamentOrchestrator {
   private async finalizeTournament(tournamentId: string): Promise<void> {
     const tournament = await this.prisma.tournament.findUnique({
       where: { id: tournamentId },
+      select: {
+        totalRounds: true,
+      },
     });
 
     if (!tournament) return;
@@ -726,10 +605,12 @@ export class TournamentOrchestrator {
       orderBy: {
         round: "desc",
       },
-      include: {
-        winner: true,
-        player1: true,
-        player2: true,
+      select: {
+        id: true,
+        winnerId: true,
+        player1Id: true,
+        player2Id: true,
+        matchNumber: true,
       },
     });
 
@@ -739,7 +620,6 @@ export class TournamentOrchestrator {
     }
 
     let championId: string;
-    let championName: string;
 
     if (finalMatch.winnerId) {
       championId = finalMatch.winnerId;
@@ -808,12 +688,13 @@ export class TournamentOrchestrator {
       },
     });
 
+    // Busca o nome do campeão
     const champion = await this.prisma.user.findUnique({
       where: { id: championId },
       select: { name: true },
     });
 
-    championName = champion?.name || "Unknown";
+    const championName = champion?.name || "Unknown Champion";
 
     this.wsManager.broadcastToTournament(tournamentId, {
       type: "TOURNAMENT_FINISHED",
