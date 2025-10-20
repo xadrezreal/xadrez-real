@@ -514,14 +514,8 @@ const TournamentBracket = () => {
                   />
                 </div>
               </div>
-              <p className="text-sm text-slate-400">
-                A rodada termina em {timeRemaining.minutes}:
-                {timeRemaining.seconds}
-              </p>
-
               <p className="text-xs text-slate-400 text-center max-w-md">
-                Jogue agora! Quando o tempo acabar, a próxima rodada começa
-                automaticamente.
+                Quando o tempo acabar, a próxima rodada é liberada.
               </p>
             </div>
           </CardContent>
@@ -558,58 +552,6 @@ const TournamentBracket = () => {
                 ? "Aguarde o cronômetro zerar para começar sua próxima partida"
                 : "Aguarde enquanto os outros jogos da rodada terminam..."}
             </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {timeRemaining && !userIsEliminated && userJustWon && (
-        <Card className="mb-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/50">
-          <CardContent className="p-6">
-            <div className="flex flex-col items-center gap-4">
-              <div className="flex items-center gap-3">
-                <Timer className="w-8 h-8 text-cyan-400 animate-pulse" />
-                <div className="text-center">
-                  <h3 className="text-2xl font-bold text-cyan-400">
-                    Próxima Rodada
-                  </h3>
-                  <p className="text-sm text-slate-400">
-                    Aguarde o início automático
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-center">
-                <div className="bg-slate-800/50 rounded-lg px-6 py-4 min-w-[100px]">
-                  <div className="text-4xl font-bold text-cyan-400">
-                    {String(timeRemaining.minutes).padStart(2, "0")}
-                  </div>
-                  <div className="text-xs text-slate-400 mt-1">minutos</div>
-                </div>
-                <div className="text-3xl font-bold text-cyan-400">:</div>
-                <div className="bg-slate-800/50 rounded-lg px-6 py-4 min-w-[100px]">
-                  <div className="text-4xl font-bold text-cyan-400">
-                    {String(timeRemaining.seconds).padStart(2, "0")}
-                  </div>
-                  <div className="text-xs text-slate-400 mt-1">segundos</div>
-                </div>
-              </div>
-              <div className="w-full max-w-md">
-                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-1000"
-                    style={{
-                      width: `${Math.max(
-                        0,
-                        100 - (timeRemaining.total / (22 * 60 * 1000)) * 100
-                      )}%`,
-                    }}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-slate-400 text-center max-w-md">
-                Quando o tempo zerar, sua partida começará automaticamente.
-                Esteja pronto!
-              </p>
-            </div>
           </CardContent>
         </Card>
       )}
