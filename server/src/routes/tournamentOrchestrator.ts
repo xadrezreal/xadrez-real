@@ -738,8 +738,8 @@ export class TournamentOrchestrator {
       return;
     }
 
-    let championName: string;
     let championId: string;
+    let championName: string;
 
     if (finalMatch.winnerId) {
       championId = finalMatch.winnerId;
@@ -807,6 +807,13 @@ export class TournamentOrchestrator {
         winnerId: championId,
       },
     });
+
+    const champion = await this.prisma.user.findUnique({
+      where: { id: championId },
+      select: { name: true },
+    });
+
+    championName = champion?.name || "Unknown";
 
     this.wsManager.broadcastToTournament(tournamentId, {
       type: "TOURNAMENT_FINISHED",
