@@ -350,17 +350,10 @@ export class TournamentOrchestrator {
 
     await this.createRoundMatches(tournamentId, nextRound, winnerUsers);
 
-    const currentRoundStartTime =
-      tournament.currentRoundStartTime || new Date();
-    const nextRoundStartTime = new Date(
-      currentRoundStartTime.getTime() + 22 * 60 * 1000
-    );
-
     await this.prisma.tournament.update({
       where: { id: tournamentId },
       data: {
         currentRound: nextRound,
-        nextRoundStartTime: nextRoundStartTime,
       },
     });
 
@@ -371,33 +364,12 @@ export class TournamentOrchestrator {
         nextRound,
         winnersCount: winnerUsers.length,
         winners: winnerUsers.map((w) => ({ id: w.id, name: w.name })),
-        startsAt: nextRoundStartTime.toISOString(),
-        message: `Nova rodada começa às ${nextRoundStartTime.toLocaleTimeString(
-          "pt-BR",
-          { hour: "2-digit", minute: "2-digit" }
-        )}`,
+        message: "Nova rodada criada! Aguardando todos os jogadores...",
       },
     });
 
-    const now = new Date();
-    const timeUntilStart = nextRoundStartTime.getTime() - now.getTime();
-
-    const timerKey = `${tournamentId}-${nextRound}`;
-    if (this.roundTimers.has(timerKey)) {
-      clearTimeout(this.roundTimers.get(timerKey));
-    }
-
-    const timer = setTimeout(async () => {
-      await this.startAllMatchesInRound(tournamentId, nextRound);
-      this.roundTimers.delete(timerKey);
-    }, Math.max(0, timeUntilStart));
-
-    this.roundTimers.set(timerKey, timer);
-
     this.logger.info(
-      `Tournament ${tournamentId} advanced to round ${nextRound} with ${
-        winnerUsers.length
-      } winners. Starts at ${nextRoundStartTime.toISOString()}`
+      `Tournament ${tournamentId} advanced to round ${nextRound} with ${winnerUsers.length} winners. Waiting for timer...`
     );
   }
 
