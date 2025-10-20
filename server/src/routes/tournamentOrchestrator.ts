@@ -298,7 +298,41 @@ export class TournamentOrchestrator {
       return;
     }
 
-    await this.advanceToNextRound(tournamentId, round);
+    const tournament = await this.prisma.tournament.findUnique({
+      where: { id: tournamentId },
+    });
+
+    if (!tournament || !tournament.nextRoundStartTime) {
+      await this.advanceToNextRound(tournamentId, round);
+      return;
+    }
+
+    const now = new Date();
+    const timeUntilStart =
+      tournament.nextRoundStartTime.getTime() - now.getTime();
+
+    if (timeUntilStart <= 0) {
+      await this.advanceToNextRound(tournamentId, round);
+      return;
+    }
+
+    this.logger.info(
+      `Round ${round} completed early. Waiting ${Math.ceil(
+        timeUntilStart / 1000
+      )}s before advancing...`
+    );
+
+    const timerKey = `${tournamentId}-${round}`;
+    if (this.roundTimers.has(timerKey)) {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      await this.advanceToNextRound(tournamentId, round);
+      this.roundTimers.delete(timerKey);
+    }, timeUntilStart);
+
+    this.roundTimers.set(timerKey, timer);
   }
 
   private async advanceToNextRound(
@@ -417,9 +451,46 @@ export class TournamentOrchestrator {
       },
     });
 
+    const timerKey = `${tournamentId}-${round}-advance`;
+    if (this.roundTimers.has(timerKey)) {
+      clearTimeout(this.roundTimers.get(timerKey));
+    }
+
+    const timer = setTimeout(async () => {
+      await this.forceAdvanceToNextRound(tournamentId, round);
+      this.roundTimers.delete(timerKey);
+    }, 22 * 60 * 1000);
+
+    this.roundTimers.set(timerKey, timer);
+
     this.logger.info(
-      `All matches in round ${round} started automatically at ${roundStartTime.toISOString()}`
+      `Round ${round} started at ${roundStartTime.toISOString()}. Will advance at ${nextRoundStartTime.toISOString()}`
     );
+  }
+
+  private async forceAdvanceToNextRound(
+    tournamentId: string,
+    currentRound: number
+  ): Promise<void> {
+    this.logger.info(
+      `Timer expired for round ${currentRound}. Forcing advancement...`
+    );
+
+    const pendingMatches = await this.prisma.tournamentMatch.count({
+      where: {
+        tournamentId,
+        round: currentRound,
+        status: { in: ["PENDING", "IN_PROGRESS"] },
+      },
+    });
+
+    if (pendingMatches > 0) {
+      this.logger.warn(
+        `Round ${currentRound} still has ${pendingMatches} matches in progress. Advancing anyway...`
+      );
+    }
+
+    await this.advanceToNextRound(tournamentId, currentRound);
   }
 
   private async finalizeTournament(tournamentId: string): Promise<void> {
