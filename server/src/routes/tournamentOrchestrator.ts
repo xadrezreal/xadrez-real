@@ -293,16 +293,23 @@ export class TournamentOrchestrator {
 
     if (pendingMatches > 0) {
       this.logger.info(
-        `Round ${round} still has ${pendingMatches} pending matches`
+        `Round ${round} still has ${pendingMatches} pending matches. Timer will handle advancement.`
       );
       return;
     }
+
+    this.logger.info(
+      `Round ${round} completed early! All matches finished before timer.`
+    );
 
     const tournament = await this.prisma.tournament.findUnique({
       where: { id: tournamentId },
     });
 
     if (!tournament || !tournament.nextRoundStartTime) {
+      this.logger.warn(
+        `No timer set for round ${round}. Advancing immediately.`
+      );
       await this.advanceToNextRound(tournamentId, round);
       return;
     }
@@ -312,27 +319,16 @@ export class TournamentOrchestrator {
       tournament.nextRoundStartTime.getTime() - now.getTime();
 
     if (timeUntilStart <= 0) {
+      this.logger.info(`Timer already expired. Advancing now.`);
       await this.advanceToNextRound(tournamentId, round);
       return;
     }
 
     this.logger.info(
-      `Round ${round} completed early. Waiting ${Math.ceil(
+      `Waiting ${Math.ceil(
         timeUntilStart / 1000
-      )}s before advancing...`
+      )}s before advancing to next round.`
     );
-
-    const timerKey = `${tournamentId}-${round}`;
-    if (this.roundTimers.has(timerKey)) {
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      await this.advanceToNextRound(tournamentId, round);
-      this.roundTimers.delete(timerKey);
-    }, timeUntilStart);
-
-    this.roundTimers.set(timerKey, timer);
   }
 
   private async advanceToNextRound(
@@ -391,6 +387,8 @@ export class TournamentOrchestrator {
       },
     });
 
+    const nextRoundStartTime = tournament.nextRoundStartTime;
+
     this.wsManager.broadcastToTournament(tournamentId, {
       type: "ROUND_ADVANCED",
       data: {
@@ -398,12 +396,18 @@ export class TournamentOrchestrator {
         nextRound,
         winnersCount: winnerUsers.length,
         winners: winnerUsers.map((w) => ({ id: w.id, name: w.name })),
-        message: "Nova rodada criada! Aguardando todos os jogadores...",
+        startsAt: nextRoundStartTime ? nextRoundStartTime.toISOString() : null,
+        message: nextRoundStartTime
+          ? `Nova rodada começa às ${nextRoundStartTime.toLocaleTimeString(
+              "pt-BR",
+              { hour: "2-digit", minute: "2-digit" }
+            )}`
+          : "Nova rodada criada! Aguardando início...",
       },
     });
 
     this.logger.info(
-      `Tournament ${tournamentId} advanced to round ${nextRound} with ${winnerUsers.length} winners. Waiting for timer...`
+      `Tournament ${tournamentId} advanced to round ${nextRound} with ${winnerUsers.length} winners.`
     );
   }
 
