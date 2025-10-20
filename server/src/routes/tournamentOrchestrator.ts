@@ -423,7 +423,7 @@ export class TournamentOrchestrator {
     for (const match of matches) {
       try {
         await this.startMatch(match.id);
-      } catch (error) {
+      } catch (error: any) {
         this.logger.error(`Error starting match ${match.id}:`, error);
       }
     }
