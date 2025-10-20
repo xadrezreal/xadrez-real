@@ -414,10 +414,16 @@ export class TournamentOrchestrator {
     });
 
     const roundStartTime = new Date();
+    const nextRoundStartTime = new Date(
+      roundStartTime.getTime() + 22 * 60 * 1000
+    );
 
     await this.prisma.tournament.update({
       where: { id: tournamentId },
-      data: { currentRoundStartTime: roundStartTime },
+      data: {
+        currentRoundStartTime: roundStartTime,
+        nextRoundStartTime: nextRoundStartTime,
+      },
     });
 
     for (const match of matches) {
@@ -432,6 +438,7 @@ export class TournamentOrchestrator {
       type: "ROUND_STARTED_AUTO",
       data: {
         round,
+        startsAt: nextRoundStartTime.toISOString(),
         message:
           "Rodada iniciada! Clique em 'Jogar Agora' para entrar na partida.",
         timestamp: roundStartTime.toISOString(),

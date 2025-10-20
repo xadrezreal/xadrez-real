@@ -552,7 +552,7 @@ const TournamentBracket = () => {
         </Card>
       )}
 
-      {timeRemaining && !userIsEliminated && (
+      {timeRemaining && !userIsEliminated && userJustWon && (
         <Card className="mb-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/50">
           <CardContent className="p-6">
             <div className="flex flex-col items-center gap-4">
