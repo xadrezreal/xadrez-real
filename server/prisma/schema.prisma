@@ -59,18 +59,20 @@ model User {
 }
 
 model Tournament {
-  id                String            @id @default(cuid())
-  name              String
-  entryFee          Float             @default(0.0)
-  playerCount       Int
-  prizeDistribution PrizeDistribution @default(SPLIT_TOP_2)
-  status            TournamentStatus  @default(WAITING)
-  startTime         DateTime
-  currentRound      Int               @default(0)
-  totalRounds       Int               @default(0)
-  winnerId          String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id                   String            @id @default(cuid())
+  name                 String
+  entryFee             Float             @default(0.0)
+  playerCount          Int
+  prizeDistribution    PrizeDistribution @default(SPLIT_TOP_2)
+  status               TournamentStatus  @default(WAITING)
+  startTime            DateTime
+  currentRound         Int               @default(0)
+  totalRounds          Int               @default(0)
+  winnerId             String?
+  nextRoundStartTime   DateTime?
+  currentRoundStartTime DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
   creatorId String
   creator   User   @relation("TournamentCreator", fields: [creatorId], references: [id])

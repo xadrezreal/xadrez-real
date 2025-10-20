@@ -6,6 +6,7 @@ export class TournamentOrchestrator {
   private prisma: PrismaClient;
   private wsManager: WebSocketManager;
   private logger: FastifyBaseLogger;
+  private roundTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(
     prisma: PrismaClient,
@@ -349,27 +350,19 @@ export class TournamentOrchestrator {
 
     await this.createRoundMatches(tournamentId, nextRound, winnerUsers);
 
+    const currentRoundStartTime =
+      tournament.currentRoundStartTime || new Date();
+    const nextRoundStartTime = new Date(
+      currentRoundStartTime.getTime() + 22 * 60 * 1000
+    );
+
     await this.prisma.tournament.update({
       where: { id: tournamentId },
-      data: { currentRound: nextRound },
-    });
-
-    const newMatches = await this.prisma.tournamentMatch.findMany({
-      where: {
-        tournamentId,
-        round: nextRound,
+      data: {
+        currentRound: nextRound,
+        nextRoundStartTime: nextRoundStartTime,
       },
     });
-
-    const startPromises = newMatches
-      .filter((m) => m.status !== "BYE")
-      .map((match) =>
-        this.startMatch(match.id).catch((error) => {
-          this.logger.error(`Error starting match ${match.id}:`, error);
-        })
-      );
-
-    await Promise.all(startPromises);
 
     this.wsManager.broadcastToTournament(tournamentId, {
       type: "ROUND_ADVANCED",
@@ -378,12 +371,75 @@ export class TournamentOrchestrator {
         nextRound,
         winnersCount: winnerUsers.length,
         winners: winnerUsers.map((w) => ({ id: w.id, name: w.name })),
-        message: "Nova rodada iniciada! Clique em 'Jogar' para começar.",
+        startsAt: nextRoundStartTime.toISOString(),
+        message: `Nova rodada começa às ${nextRoundStartTime.toLocaleTimeString(
+          "pt-BR",
+          { hour: "2-digit", minute: "2-digit" }
+        )}`,
+      },
+    });
+
+    const now = new Date();
+    const timeUntilStart = nextRoundStartTime.getTime() - now.getTime();
+
+    const timerKey = `${tournamentId}-${nextRound}`;
+    if (this.roundTimers.has(timerKey)) {
+      clearTimeout(this.roundTimers.get(timerKey));
+    }
+
+    const timer = setTimeout(async () => {
+      await this.startAllMatchesInRound(tournamentId, nextRound);
+      this.roundTimers.delete(timerKey);
+    }, Math.max(0, timeUntilStart));
+
+    this.roundTimers.set(timerKey, timer);
+
+    this.logger.info(
+      `Tournament ${tournamentId} advanced to round ${nextRound} with ${
+        winnerUsers.length
+      } winners. Starts at ${nextRoundStartTime.toISOString()}`
+    );
+  }
+
+  private async startAllMatchesInRound(
+    tournamentId: string,
+    round: number
+  ): Promise<void> {
+    const matches = await this.prisma.tournamentMatch.findMany({
+      where: {
+        tournamentId,
+        round,
+        status: "PENDING",
+      },
+    });
+
+    const roundStartTime = new Date();
+
+    await this.prisma.tournament.update({
+      where: { id: tournamentId },
+      data: { currentRoundStartTime: roundStartTime },
+    });
+
+    for (const match of matches) {
+      try {
+        await this.startMatch(match.id);
+      } catch (error) {
+        this.logger.error(`Error starting match ${match.id}:`, error);
+      }
+    }
+
+    this.wsManager.broadcastToTournament(tournamentId, {
+      type: "ROUND_STARTED_AUTO",
+      data: {
+        round,
+        message:
+          "Rodada iniciada! Clique em 'Jogar Agora' para entrar na partida.",
+        timestamp: roundStartTime.toISOString(),
       },
     });
 
     this.logger.info(
-      `Tournament ${tournamentId} advanced to round ${nextRound} with ${winnerUsers.length} winners`
+      `All matches in round ${round} started automatically at ${roundStartTime.toISOString()}`
     );
   }
 
@@ -434,6 +490,17 @@ export class TournamentOrchestrator {
         championName: champion.name,
         totalPoints: championBonus,
       },
+    });
+
+    const timerKeys = Array.from(this.roundTimers.keys()).filter((key) =>
+      key.startsWith(tournamentId)
+    );
+    timerKeys.forEach((key) => {
+      const timer = this.roundTimers.get(key);
+      if (timer) {
+        clearTimeout(timer);
+        this.roundTimers.delete(key);
+      }
     });
 
     this.logger.info(

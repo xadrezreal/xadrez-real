@@ -267,6 +267,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           status: tournament.status,
           currentRound: tournament.currentRound,
           totalRounds: tournament.totalRounds,
+          nextRoundStartTime: tournament.nextRoundStartTime,
         },
         bracket: bracketByRound,
       });
@@ -547,13 +548,6 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             error: "Você não participa desta partida",
           });
         }
-
-        // if (match.status !== "PENDING") {
-        //   console.log("[ROUTE] Match not pending, status:", match.status);
-        //   return reply.status(400).send({
-        //     error: `Partida não está disponível para iniciar. Status: ${match.status}`,
-        //   });
-        // }
 
         console.log("[ROUTE] Creating orchestrator...");
 
