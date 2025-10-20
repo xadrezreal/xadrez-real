@@ -20,6 +20,9 @@ import {
   Percent,
   Trophy,
   Info,
+  Lock,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../contexts/UserContext";
@@ -32,6 +35,8 @@ const playerCounts = [4, 8, 16, 32, 64, 128, 256, 500];
 
 const CreateTournament = () => {
   const [tournamentName, setTournamentName] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [entryFee, setEntryFee] = useState("1");
   const [playerCount, setPlayerCount] = useState(8);
   const [prizeDistribution, setPrizeDistribution] = useState("SPLIT_TOP_2");
@@ -139,6 +144,7 @@ const CreateTournament = () => {
           },
           body: JSON.stringify({
             name: tournamentName,
+            password: password || undefined,
             entryFee: fee,
             playerCount: playerCount,
             prizeDistribution: prizeDistribution,
@@ -247,6 +253,44 @@ const CreateTournament = () => {
                 className="bg-slate-900/50 border-slate-700"
                 disabled={isLoading}
               />
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="space-y-2">
+              <Label htmlFor="password">
+                <Lock className="inline-block w-4 h-4 mr-1" />
+                Senha do Torneio (Opcional)
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Deixe em branco para torneio público"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-slate-900/50 border-slate-700 pr-10"
+                  disabled={isLoading}
+                  maxLength={50}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              {password && (
+                <p className="text-xs text-yellow-400">
+                  <Info className="inline w-3 h-3 mr-1" />
+                  Apenas jogadores com a senha poderão entrar
+                </p>
+              )}
             </motion.div>
 
             <motion.div

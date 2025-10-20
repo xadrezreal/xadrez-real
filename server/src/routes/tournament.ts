@@ -5,10 +5,15 @@ import "../types/fastify";
 
 const createTournamentSchema = z.object({
   name: z.string().min(3).max(100),
+  password: z.string().min(4).max(50).optional(),
   entryFee: z.number().min(0).max(10000),
   playerCount: z.number().int().min(2).max(8192),
   prizeDistribution: z.enum(["WINNER_TAKES_ALL", "SPLIT_TOP_2", "SPLIT_TOP_4"]),
   startTime: z.string().datetime(),
+});
+
+const joinTournamentSchema = z.object({
+  password: z.string().optional(),
 });
 
 export async function tournamentRoutes(fastify: FastifyInstance) {
@@ -46,6 +51,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           const tournament = await prisma.tournament.create({
             data: {
               name: tournamentData.name,
+              password: tournamentData.password || null,
               entryFee: tournamentData.entryFee,
               playerCount: tournamentData.playerCount,
               prizeDistribution: tournamentData.prizeDistribution,
@@ -114,7 +120,16 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
 
       const tournaments = await fastify.prisma.tournament.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          name: true,
+          entryFee: true,
+          playerCount: true,
+          prizeDistribution: true,
+          status: true,
+          startTime: true,
+          createdAt: true,
+          password: true,
           creator: {
             select: {
               id: true,
@@ -122,7 +137,8 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             },
           },
           participants: {
-            include: {
+            select: {
+              userId: true,
               user: {
                 select: {
                   id: true,
@@ -144,10 +160,16 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         take: parseInt(limit),
       });
 
+      const tournamentsWithPasswordFlag = tournaments.map((t) => ({
+        ...t,
+        hasPassword: !!t.password,
+        password: undefined,
+      }));
+
       const total = await fastify.prisma.tournament.count({ where });
 
       return reply.send({
-        tournaments,
+        tournaments: tournamentsWithPasswordFlag,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -169,7 +191,23 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
 
       const tournament = await fastify.prisma.tournament.findUnique({
         where: { id },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          entryFee: true,
+          playerCount: true,
+          prizeDistribution: true,
+          status: true,
+          startTime: true,
+          currentRound: true,
+          totalRounds: true,
+          winnerId: true,
+          nextRoundStartTime: true,
+          currentRoundStartTime: true,
+          createdAt: true,
+          updatedAt: true,
+          creatorId: true,
+          password: true,
           creator: {
             select: {
               id: true,
@@ -178,7 +216,9 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             },
           },
           participants: {
-            include: {
+            select: {
+              userId: true,
+              joinedAt: true,
               user: {
                 select: {
                   id: true,
@@ -210,6 +250,8 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
       return reply.send({
         tournament: {
           ...tournament,
+          hasPassword: !!tournament.password,
+          password: undefined,
           prizePool,
         },
       });
@@ -288,6 +330,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
       try {
         const { id: tournamentId } = request.params;
         const userId = request.user.id;
+        const body = joinTournamentSchema.parse(request.body);
 
         const tournament = await fastify.prisma.tournament.findUnique({
           where: { id: tournamentId },
@@ -304,6 +347,18 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({
             error: "Torneio não encontrado",
           });
+        }
+
+        if (tournament.password) {
+          if (!body.password) {
+            return reply.status(400).send({
+              error: "Este torneio requer senha",
+              requiresPassword: true,
+            });
+          }
+          if (body.password !== tournament.password) {
+            return reply.status(403).send({ error: "Senha incorreta" });
+          }
         }
 
         if (tournament.status !== "WAITING") {

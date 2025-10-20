@@ -8,7 +8,14 @@ import {
   CardTitle,
   CardDescription,
 } from "./ui/card";
-import { Trophy, Users, DollarSign, ArrowRight, Plus } from "lucide-react";
+import {
+  Trophy,
+  Users,
+  DollarSign,
+  ArrowRight,
+  Plus,
+  Lock,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { tournamentService } from "../lib/tournamentService";
 import { UserContext } from "../contexts/UserContext";
@@ -89,6 +96,12 @@ const TournamentCard = React.memo(
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {tournament.hasPassword && (
+                <div className="flex items-center gap-1 text-amber-400 text-xs bg-amber-400/10 px-3 py-2 rounded-lg border border-amber-400/30">
+                  <Lock className="w-3 h-3" />
+                  <span>Torneio Privado</span>
+                </div>
+              )}
               {prizePool > 0 && (
                 <div className="p-3 bg-slate-900/50 rounded-lg">
                   <p className="text-sm text-slate-400">
