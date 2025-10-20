@@ -514,9 +514,14 @@ const TournamentBracket = () => {
                   />
                 </div>
               </div>
+              <p className="text-sm text-slate-400">
+                A rodada termina em {timeRemaining.minutes}:
+                {timeRemaining.seconds}
+              </p>
+
               <p className="text-xs text-slate-400 text-center max-w-md">
-                Quando o tempo zerar, sua partida começará automaticamente.
-                Esteja pronto!
+                Jogue agora! Quando o tempo acabar, a próxima rodada começa
+                automaticamente.
               </p>
             </div>
           </CardContent>
@@ -739,15 +744,9 @@ const TournamentBracket = () => {
                                     size="sm"
                                     className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
                                     onClick={() => handlePlayMatch(match)}
-                                    disabled={
-                                      userIsEliminated ||
-                                      (timeRemaining && timeRemaining.total > 0)
-                                    }
                                   >
                                     <Swords className="w-4 h-4 mr-2" />
-                                    {timeRemaining && timeRemaining.total > 0
-                                      ? "Aguarde o timer..."
-                                      : "Jogar Agora"}
+                                    Jogar Agora
                                   </Button>
                                 )}
 
