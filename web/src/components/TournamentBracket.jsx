@@ -481,9 +481,6 @@ const TournamentBracket = () => {
                   <h3 className="text-2xl font-bold text-cyan-400">
                     Próxima Rodada
                   </h3>
-                  <p className="text-sm text-slate-400">
-                    Aguarde o início automático
-                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-4 text-center">
