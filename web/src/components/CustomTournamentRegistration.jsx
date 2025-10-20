@@ -8,7 +8,17 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import { useToast } from "./ui/use-toast";
 import {
   Trophy,
@@ -21,6 +31,9 @@ import {
   Calendar,
   Clock,
   Percent,
+  Lock,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { UserContext } from "../contexts/UserContext";
 import { tournamentService } from "../lib/tournamentService";
@@ -34,6 +47,10 @@ const CustomTournamentRegistration = () => {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, setUser } = useContext(UserContext);
 
   const isRegistered = tournament?.participants?.some(
@@ -184,7 +201,7 @@ const CustomTournamentRegistration = () => {
     }
   };
 
-  const handleRegister = async () => {
+  const handleRegisterClick = () => {
     if (isRegistered || !tournament) return;
 
     const fee = parseFloat(tournament.entryFee || 0);
@@ -199,8 +216,20 @@ const CustomTournamentRegistration = () => {
       return;
     }
 
+    if (tournament.hasPassword) {
+      setShowPasswordModal(true);
+    } else {
+      handleRegister();
+    }
+  };
+
+  const handleRegister = async (password = null) => {
+    if (isRegistered || !tournament) return;
+
+    setIsSubmitting(true);
+
     try {
-      const result = await tournamentService.joinTournament(id);
+      const result = await tournamentService.joinTournament(id, password);
 
       sendMessage({
         type: "join_tournament",
@@ -213,6 +242,7 @@ const CustomTournamentRegistration = () => {
         variant: "default",
       });
 
+      const fee = parseFloat(tournament.entryFee || 0);
       if (fee > 0) {
         setUser((prev) => ({
           ...prev,
@@ -220,6 +250,8 @@ const CustomTournamentRegistration = () => {
         }));
       }
 
+      setShowPasswordModal(false);
+      setPasswordInput("");
       fetchTournament();
     } catch (error) {
       console.error("Erro ao se inscrever:", error);
@@ -228,7 +260,22 @@ const CustomTournamentRegistration = () => {
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault();
+    if (!passwordInput.trim()) {
+      toast({
+        title: "Senha obrigatória",
+        description: "Digite a senha do torneio",
+        variant: "destructive",
+      });
+      return;
+    }
+    handleRegister(passwordInput);
   };
 
   const handleLeave = async () => {
@@ -386,6 +433,72 @@ const CustomTournamentRegistration = () => {
         Voltar para Torneios
       </Button>
 
+      <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-cyan-400">
+              <Lock className="w-5 h-5" />
+              Torneio Privado
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Este torneio requer senha. Digite a senha para se inscrever.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePasswordSubmit}>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Digite a senha do torneio"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="bg-slate-900/50 border-slate-700 pr-10"
+                    disabled={isSubmitting}
+                    autoFocus
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPasswordInput("");
+                }}
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                className="bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Entrando..." : "Entrar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Card className="bg-slate-800/50 border-slate-700 text-white">
         <CardHeader className="text-center">
           <Trophy className="mx-auto h-12 w-12 text-yellow-400" />
@@ -398,6 +511,12 @@ const CustomTournamentRegistration = () => {
               {tournament.creator?.name || "Criador"}
             </span>
           </CardDescription>
+          {tournament.hasPassword && (
+            <div className="flex items-center justify-center gap-1 text-amber-400 text-sm mt-2">
+              <Lock className="w-4 h-4" />
+              <span>Torneio Privado</span>
+            </div>
+          )}
         </CardHeader>
 
         <CardContent className="space-y-6">
@@ -508,7 +627,7 @@ const CustomTournamentRegistration = () => {
             {tournament.status === "WAITING" && !isFull && !isRegistered && (
               <Button
                 className="w-full text-lg bg-gradient-to-r from-green-500 to-cyan-500 shadow-lg hover:from-green-600 hover:to-cyan-600"
-                onClick={handleRegister}
+                onClick={handleRegisterClick}
               >
                 <LogIn className="mr-2" />
                 Inscrever-se
