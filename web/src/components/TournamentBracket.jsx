@@ -80,6 +80,7 @@ const TournamentBracket = () => {
           title: "Partida finalizada",
           description: `Vencedor: ${message.data.winnerName}`,
         });
+
         fetchBracket();
         if (wasMyMatch && message.data.winnerId === user.id) {
           setTimeout(() => {
@@ -108,8 +109,12 @@ const TournamentBracket = () => {
           description: message.data.message,
           duration: 8000,
         });
-        setNextRoundStartTime(null);
-        setTimeRemaining(null);
+        if (message.data.startsAt) {
+          setNextRoundStartTime(new Date(message.data.startsAt));
+        } else {
+          setNextRoundStartTime(null);
+          setTimeRemaining(null);
+        }
         fetchBracket();
         break;
       case "TOURNAMENT_FINISHED":
@@ -732,12 +737,17 @@ const TournamentBracket = () => {
                                   match.player2.id === user.id) && (
                                   <Button
                                     size="sm"
-                                    className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 animate-pulse"
+                                    className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
                                     onClick={() => handlePlayMatch(match)}
-                                    disabled={userIsEliminated}
+                                    disabled={
+                                      userIsEliminated ||
+                                      (timeRemaining && timeRemaining.total > 0)
+                                    }
                                   >
                                     <Swords className="w-4 h-4 mr-2" />
-                                    Jogar Agora
+                                    {timeRemaining && timeRemaining.total > 0
+                                      ? "Aguarde o timer..."
+                                      : "Jogar Agora"}
                                   </Button>
                                 )}
 
