@@ -539,7 +539,7 @@ const TournamentBracket = () => {
             <div className="flex items-center justify-center gap-2 text-green-400">
               <Trophy className="w-5 h-5 animate-bounce" />
               <span className="font-semibold">
-                {tournament.currentRound === tournament.totalRounds
+                {tournament.currentRound === tournament.totalRounds - 1
                   ? "🎉 Você passou para a FINAL!"
                   : "🎉 Você passou para a próxima fase!"}
               </span>
