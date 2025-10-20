@@ -15,6 +15,7 @@ import {
   Wifi,
   WifiOff,
   Clock,
+  Timer,
 } from "lucide-react";
 import { tournamentService } from "../lib/tournamentService";
 import { useWebSocket } from "../hooks/useWebSocket";
@@ -35,6 +36,8 @@ const TournamentBracket = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [bracket, setBracket] = useState({});
+  const [nextRoundStartTime, setNextRoundStartTime] = useState(null);
+  const [timeRemaining, setTimeRemaining] = useState(null);
   const hasReloadedRef = useRef(false);
   const previousStatusRef = useRef(null);
 
@@ -89,12 +92,25 @@ const TournamentBracket = () => {
         break;
       case "ROUND_ADVANCED":
         toast({
-          title: "🎉 Nova rodada começou!",
+          title: "🎉 Nova rodada agendada!",
           description: message.data.message,
           duration: 10000,
         });
+        if (message.data.startsAt) {
+          setNextRoundStartTime(new Date(message.data.startsAt));
+        }
         fetchBracket();
         fetchTournamentData();
+        break;
+      case "ROUND_STARTED_AUTO":
+        toast({
+          title: "⚡ Rodada iniciada!",
+          description: message.data.message,
+          duration: 8000,
+        });
+        setNextRoundStartTime(null);
+        setTimeRemaining(null);
+        fetchBracket();
         break;
       case "TOURNAMENT_FINISHED":
         toast({
@@ -133,8 +149,33 @@ const TournamentBracket = () => {
       fetchBracket();
     }
 
+    if (tournament.nextRoundStartTime) {
+      setNextRoundStartTime(new Date(tournament.nextRoundStartTime));
+    }
+
     previousStatusRef.current = tournament.status;
-  }, [tournament?.status]);
+  }, [tournament?.status, tournament?.nextRoundStartTime]);
+
+  useEffect(() => {
+    if (!nextRoundStartTime) return;
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diff = nextRoundStartTime - now;
+
+      if (diff <= 0) {
+        setTimeRemaining(null);
+        setNextRoundStartTime(null);
+        clearInterval(interval);
+      } else {
+        const minutes = Math.floor(diff / 60000);
+        const seconds = Math.floor((diff % 60000) / 1000);
+        setTimeRemaining({ minutes, seconds, total: diff });
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [nextRoundStartTime]);
 
   useEffect(() => {
     if (!tournament || tournament.status !== "WAITING") {
@@ -202,6 +243,10 @@ const TournamentBracket = () => {
     try {
       const data = await tournamentService.getTournamentBracket(tournamentId);
       setBracket(data.bracket);
+
+      if (data.tournament?.nextRoundStartTime) {
+        setNextRoundStartTime(new Date(data.tournament.nextRoundStartTime));
+      }
 
       if (Object.keys(data.bracket).length === 0) {
         setTimeout(() => {
@@ -421,6 +466,58 @@ const TournamentBracket = () => {
         </Card>
       )}
 
+      {timeRemaining && !userIsEliminated && (
+        <Card className="mb-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/50">
+          <CardContent className="p-6">
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex items-center gap-3">
+                <Timer className="w-8 h-8 text-cyan-400 animate-pulse" />
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-cyan-400">
+                    Próxima Rodada
+                  </h3>
+                  <p className="text-sm text-slate-400">
+                    Aguarde o início automático
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-center">
+                <div className="bg-slate-800/50 rounded-lg px-6 py-4 min-w-[100px]">
+                  <div className="text-4xl font-bold text-cyan-400">
+                    {String(timeRemaining.minutes).padStart(2, "0")}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1">minutos</div>
+                </div>
+                <div className="text-3xl font-bold text-cyan-400">:</div>
+                <div className="bg-slate-800/50 rounded-lg px-6 py-4 min-w-[100px]">
+                  <div className="text-4xl font-bold text-cyan-400">
+                    {String(timeRemaining.seconds).padStart(2, "0")}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1">segundos</div>
+                </div>
+              </div>
+              <div className="w-full max-w-md">
+                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-1000"
+                    style={{
+                      width: `${Math.max(
+                        0,
+                        100 - (timeRemaining.total / (22 * 60 * 1000)) * 100
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 text-center max-w-md">
+                Quando o tempo zerar, sua partida começará automaticamente.
+                Esteja pronto!
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {userIsEliminated && (
         <Card className="mb-6 bg-red-500/10 border-red-500/50">
           <CardContent className="p-4 text-center">
@@ -447,8 +544,62 @@ const TournamentBracket = () => {
               </span>
             </div>
             <p className="text-sm text-slate-400 mt-2">
-              Aguarde enquanto os outros jogos da rodada terminam...
+              {timeRemaining
+                ? "Aguarde o cronômetro zerar para começar sua próxima partida"
+                : "Aguarde enquanto os outros jogos da rodada terminam..."}
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {timeRemaining && !userIsEliminated && (
+        <Card className="mb-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/50">
+          <CardContent className="p-6">
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex items-center gap-3">
+                <Timer className="w-8 h-8 text-cyan-400 animate-pulse" />
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-cyan-400">
+                    Próxima Rodada
+                  </h3>
+                  <p className="text-sm text-slate-400">
+                    Aguarde o início automático
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-center">
+                <div className="bg-slate-800/50 rounded-lg px-6 py-4 min-w-[100px]">
+                  <div className="text-4xl font-bold text-cyan-400">
+                    {String(timeRemaining.minutes).padStart(2, "0")}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1">minutos</div>
+                </div>
+                <div className="text-3xl font-bold text-cyan-400">:</div>
+                <div className="bg-slate-800/50 rounded-lg px-6 py-4 min-w-[100px]">
+                  <div className="text-4xl font-bold text-cyan-400">
+                    {String(timeRemaining.seconds).padStart(2, "0")}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1">segundos</div>
+                </div>
+              </div>
+              <div className="w-full max-w-md">
+                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-1000"
+                    style={{
+                      width: `${Math.max(
+                        0,
+                        100 - (timeRemaining.total / (22 * 60 * 1000)) * 100
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 text-center max-w-md">
+                Quando o tempo zerar, sua partida começará automaticamente.
+                Esteja pronto!
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}
