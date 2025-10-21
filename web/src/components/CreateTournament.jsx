@@ -31,7 +31,7 @@ const entryFees = [
   0, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0, 50.0, 70.0, 100.0,
   200.0, 500.0, 1000, 2000, 5000, 10000,
 ];
-const playerCounts = [4, 8, 16, 32, 64, 128, 256, 500];
+const playerCounts = [4, 8, 16, 32, 64, 128, 256, 512];
 
 const CreateTournament = () => {
   const [tournamentName, setTournamentName] = useState("");
