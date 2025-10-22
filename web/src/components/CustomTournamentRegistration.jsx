@@ -186,6 +186,8 @@ const CustomTournamentRegistration = () => {
 
       const data = await tournamentService.getTournament(id);
       console.log("Tournament data received:", data);
+      console.log("Tournament password:", data.tournament.password);
+      console.log("Is creator:", data.tournament.creatorId === user.id);
 
       setTournament(data.tournament);
 
@@ -480,45 +482,32 @@ const CustomTournamentRegistration = () => {
             </div>
           )}
           {isCreator && tournament.hasPassword && tournament.password && (
-            <div className="mt-3 p-3 bg-slate-900/50 rounded-lg border border-amber-500/30">
-              <p className="text-xs text-slate-400 mb-2">
-                Senha do Torneio (apenas você pode ver)
-              </p>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    type={showCreatorPassword ? "text" : "password"}
-                    value={tournament.password}
-                    readOnly
-                    className="bg-slate-800 border-slate-600 text-white pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
-                    onClick={() => setShowCreatorPassword(!showCreatorPassword)}
-                  >
-                    {showCreatorPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={copyPassword}
-                  className="border-amber-500/30 hover:bg-amber-500/10"
-                >
-                  {passwordCopied ? (
-                    <Check className="w-4 h-4 text-green-400" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </Button>
-              </div>
+            <div className="mt-2 text-xs bg-slate-700/50 p-2 rounded inline-flex items-center gap-2">
+              <span className="text-slate-400">Senha:</span>
+              <code className="bg-slate-900 px-2 py-0.5 rounded text-cyan-300 font-mono text-xs">
+                {showCreatorPassword ? tournament.password : "••••••••"}
+              </code>
+              <button
+                type="button"
+                onClick={() => setShowCreatorPassword(!showCreatorPassword)}
+                className="text-slate-400 hover:text-white"
+              >
+                {showCreatorPassword ? (
+                  <EyeOff className="h-3 w-3" />
+                ) : (
+                  <Eye className="h-3 w-3" />
+                )}
+              </button>
+              <button
+                onClick={copyPassword}
+                className="text-slate-400 hover:text-white"
+              >
+                {passwordCopied ? (
+                  <Check className="w-3 h-3 text-green-400" />
+                ) : (
+                  <Copy className="w-3 h-3" />
+                )}
+              </button>
             </div>
           )}
         </CardHeader>
