@@ -181,13 +181,7 @@ const CustomTournamentRegistration = () => {
       setLoading(true);
       setError(null);
 
-      console.log("=== FETCHING TOURNAMENT REGISTRATION ===");
-      console.log("Tournament ID:", id);
-
       const data = await tournamentService.getTournament(id);
-      console.log("Tournament data received:", data);
-      console.log("Tournament password:", data.tournament.password);
-      console.log("Is creator:", data.tournament.creatorId === user.id);
 
       setTournament(data.tournament);
 
@@ -195,7 +189,6 @@ const CustomTournamentRegistration = () => {
         navigate(`/tournament/${id}/bracket`);
       }
     } catch (error) {
-      console.error("Erro ao buscar torneio:", error);
       setError(error.message);
 
       toast({
@@ -258,8 +251,6 @@ const CustomTournamentRegistration = () => {
 
       setTimeout(() => fetchTournament(), 1000);
     } catch (error) {
-      console.error("Erro ao registrar:", error);
-
       toast({
         title: "Erro na Inscrição",
         description: error.message || "Falha ao se inscrever no torneio",
@@ -337,10 +328,10 @@ const CustomTournamentRegistration = () => {
     switch (distribution) {
       case "WINNER_TAKES_ALL":
         return "Vencedor leva tudo (100%)";
-      case "TOP_3":
+      case "SPLIT_TOP_2":
         return "Top 3 (60%, 30%, 10%)";
-      case "TOP_5":
-        return "Top 5 (50%, 25%, 15%, 6%, 4%)";
+      case "SPLIT_TOP_4":
+        return "Top 4 (50%, 25%, 15%, 6%, 4%)";
       default:
         return distribution;
     }
@@ -348,7 +339,7 @@ const CustomTournamentRegistration = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 to-slate-900">
         <p className="text-white text-xl">Carregando torneio...</p>
       </div>
     );
@@ -356,7 +347,7 @@ const CustomTournamentRegistration = () => {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 to-slate-900">
         <div className="text-center">
           <p className="text-red-400 text-xl mb-4">{error}</p>
           <Button onClick={() => navigate("/tournament")}>Voltar</Button>
@@ -367,7 +358,7 @@ const CustomTournamentRegistration = () => {
 
   if (!tournament) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900  to-slate-900">
         <p className="text-white text-xl">Torneio não encontrado</p>
       </div>
     );
@@ -387,9 +378,9 @@ const CustomTournamentRegistration = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-900 p-6"
+      className="min-h-screen w-auto flex justify-center items-center flex-col bg-gradient-to-br from-slate-900 to-slate-900 p-6"
     >
-      <div className="max-w-xl mx-auto">
+      <div className="max-w-xl mx-auto text-start">
         <Button
           variant="ghost"
           className="mb-4 text-white hover:bg-slate-800"
@@ -616,7 +607,7 @@ const CustomTournamentRegistration = () => {
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
             {tournament.status === "WAITING" && !isFull && !isRegistered && (
               <Button
                 className="w-full text-lg bg-gradient-to-r from-green-500 to-cyan-500 shadow-lg hover:from-green-600 hover:to-cyan-600"
@@ -630,17 +621,19 @@ const CustomTournamentRegistration = () => {
             {tournament.status === "WAITING" && isRegistered && (
               <Button
                 variant="destructive"
-                className="w-full text-lg"
+                className="w-auto text-lg"
                 onClick={handleLeave}
               >
-                Sair do Torneio
+                Sair
               </Button>
             )}
 
             {isRegistered && (
-              <div className="w-full p-3 bg-green-500/20 border border-green-500 rounded-lg text-center">
-                <Check className="mx-auto w-6 h-6 text-green-400 mb-1" />
-                <p className="text-green-400 font-bold">Você está inscrito!</p>
+              <div className="flex items-center justify-center gap-2 w-full p-3 bg-green-500/20 border border-green-500 rounded-lg text-center">
+                <Check className="w-6 h-6 text-green-400 mb-1" />
+                <p className="text-green-400 font-bold w-full whitespace-nowrap">
+                  Você está inscrito!
+                </p>
               </div>
             )}
 
