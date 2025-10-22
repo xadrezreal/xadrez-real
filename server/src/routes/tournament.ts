@@ -188,6 +188,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
   fastify.get("/:id", async (request: any, reply: any) => {
     try {
       const { id } = request.params;
+      const userId = request.user?.id;
 
       const tournament = await fastify.prisma.tournament.findUnique({
         where: { id },
@@ -247,11 +248,13 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
       const prizePool =
         tournament.entryFee * tournament._count.participants * 0.8;
 
+      const isCreator = userId && tournament.creatorId === userId;
+
       return reply.send({
         tournament: {
           ...tournament,
           hasPassword: !!tournament.password,
-          password: undefined,
+          password: isCreator ? tournament.password : undefined,
           prizePool,
         },
       });
