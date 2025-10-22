@@ -34,6 +34,7 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Copy,
 } from "lucide-react";
 import { UserContext } from "../contexts/UserContext";
 import { tournamentService } from "../lib/tournamentService";
@@ -45,17 +46,21 @@ const CustomTournamentRegistration = () => {
   const { toast } = useToast();
   const [tournament, setTournament] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [passwordCopied, setPasswordCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showCreatorPassword, setShowCreatorPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, setUser } = useContext(UserContext);
 
   const isRegistered = tournament?.participants?.some(
     (participant) => participant.user.id === user.id
   );
+
+  const isCreator = tournament?.creatorId === user.id;
 
   useEffect(() => {
     if (!tournament || tournament.status !== "WAITING") {
@@ -242,26 +247,74 @@ const CustomTournamentRegistration = () => {
         variant: "default",
       });
 
-      const fee = parseFloat(tournament.entryFee || 0);
-      if (fee > 0) {
-        setUser((prev) => ({
-          ...prev,
-          balance: prev.balance - fee,
-        }));
-      }
-
       setShowPasswordModal(false);
       setPasswordInput("");
-      fetchTournament();
+
+      if (result.updatedUser) {
+        setUser(result.updatedUser);
+      }
+
+      setTimeout(() => fetchTournament(), 1000);
     } catch (error) {
-      console.error("Erro ao se inscrever:", error);
+      console.error("Erro ao registrar:", error);
+
       toast({
-        title: "Erro ao se inscrever",
-        description: error.message,
+        title: "Erro na Inscrição",
+        description: error.message || "Falha ao se inscrever no torneio",
         variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    try {
+      await tournamentService.leaveTournament(id);
+
+      sendMessage({
+        type: "leave_tournament",
+        participant: { user: { id: user.id, name: user.name } },
+      });
+
+      toast({
+        title: "Saída confirmada",
+        description:
+          "Você saiu do torneio e seu valor de entrada foi reembolsado",
+      });
+
+      setTimeout(() => fetchTournament(), 1000);
+    } catch (error) {
+      console.error("Erro ao sair do torneio:", error);
+
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao sair do torneio",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const shareLink = () => {
+    const link = window.location.href;
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    toast({
+      title: "Link copiado!",
+      description: "Compartilhe com seus amigos",
+    });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyPassword = () => {
+    if (tournament?.password) {
+      navigator.clipboard.writeText(tournament.password);
+      setPasswordCopied(true);
+      toast({
+        title: "Senha copiada!",
+        description: "Compartilhe com os participantes",
+      });
+      setTimeout(() => setPasswordCopied(false), 2000);
     }
   };
 
@@ -270,7 +323,7 @@ const CustomTournamentRegistration = () => {
     if (!passwordInput.trim()) {
       toast({
         title: "Senha obrigatória",
-        description: "Digite a senha do torneio",
+        description: "Por favor, digite a senha do torneio",
         variant: "destructive",
       });
       return;
@@ -278,170 +331,79 @@ const CustomTournamentRegistration = () => {
     handleRegister(passwordInput);
   };
 
-  const handleLeave = async () => {
-    if (!isRegistered || !tournament) return;
-
-    try {
-      const result = await tournamentService.leaveTournament(id);
-
-      sendMessage({
-        type: "leave_tournament",
-        participant: { user: { id: user.id, name: user.name } },
-      });
-
-      toast({
-        title: "Você saiu do torneio",
-        description: result.message,
-        variant: "default",
-      });
-
-      const fee = parseFloat(tournament.entryFee || 0);
-      if (fee > 0) {
-        setUser((prev) => ({
-          ...prev,
-          balance: prev.balance + fee,
-        }));
-      }
-
-      fetchTournament();
-    } catch (error) {
-      console.error("Erro ao sair do torneio:", error);
-      toast({
-        title: "Erro ao sair do torneio",
-        description: error.message,
-        variant: "destructive",
-      });
+  const getPrizeText = (distribution) => {
+    switch (distribution) {
+      case "WINNER_TAKES_ALL":
+        return "Vencedor leva tudo (100%)";
+      case "TOP_3":
+        return "Top 3 (60%, 30%, 10%)";
+      case "TOP_5":
+        return "Top 5 (50%, 25%, 15%, 6%, 4%)";
+      default:
+        return distribution;
     }
-  };
-
-  const shareLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    toast({ title: "Link Copiado!" });
-    setTimeout(() => setCopied(false), 2000);
   };
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto p-4">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto"></div>
-          <p className="text-slate-400 mt-4">Carregando torneio...</p>
-        </div>
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <p className="text-white text-xl">Carregando torneio...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-2xl mx-auto p-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/tournament")}
-          className="mb-4"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Voltar para Torneios
-        </Button>
-
-        <Card className="bg-slate-800/50 border-red-500">
-          <CardHeader>
-            <CardTitle className="text-red-400">
-              Erro ao carregar torneio
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => navigate("/tournament")}
-                  variant="outline"
-                >
-                  Voltar aos Torneios
-                </Button>
-                <Button
-                  onClick={fetchTournament}
-                  className="bg-cyan-500 hover:bg-cyan-600"
-                >
-                  Tentar Novamente
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="text-center">
+          <p className="text-red-400 text-xl mb-4">{error}</p>
+          <Button onClick={() => navigate("/tournament")}>Voltar</Button>
+        </div>
       </div>
     );
   }
 
   if (!tournament) {
     return (
-      <div className="max-w-2xl mx-auto p-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/tournament")}
-          className="mb-4"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Voltar para Torneios
-        </Button>
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardContent className="p-8 text-center">
-            <p className="text-slate-400">Torneio não encontrado</p>
-            <Button onClick={() => navigate("/tournament")} className="mt-4">
-              Voltar aos Torneios
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <p className="text-white text-xl">Torneio não encontrado</p>
       </div>
     );
   }
 
-  const participantCount =
-    tournament._count?.participants || tournament.participants?.length || 0;
-  const totalPrizePool = (
-    parseFloat(tournament.entryFee || 0) *
-    participantCount *
-    0.8
-  ).toFixed(2);
+  const participantCount = tournament.participants?.length || 0;
   const isFull = participantCount >= tournament.playerCount;
+
   const startTime = new Date(tournament.startTime);
 
-  const getPrizeText = (type) => {
-    const prizes = {
-      WINNER_TAKES_ALL: "Campeão leva tudo (100%)",
-      SPLIT_TOP_2: "Top 2: 60% / 40%",
-      SPLIT_TOP_4: "Top 4: 40% / 30% / 20% / 10%",
-      winner_takes_all: "Campeão leva tudo (100%)",
-      split_top_2: "Top 2: 60% / 40%",
-      split_top_4: "Top 4: 40% / 30% / 20% / 10%",
-    };
-    return prizes[type] || "Não especificado";
-  };
+  const totalPrizePool = (
+    parseFloat(tournament.entryFee || 0) * participantCount
+  ).toFixed(2);
 
   return (
     <motion.div
-      className="max-w-2xl mx-auto p-4"
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6"
     >
-      <Button
-        variant="ghost"
-        onClick={() => navigate("/tournament")}
-        className="mb-4"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Voltar para Torneios
-      </Button>
+      <div className="max-w-3xl mx-auto">
+        <Button
+          variant="ghost"
+          className="mb-4 text-white hover:bg-slate-800"
+          onClick={() => navigate("/tournament")}
+        >
+          <ArrowLeft className="mr-2" />
+          Voltar
+        </Button>
+      </div>
 
       <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-cyan-400">
-              <Lock className="w-5 h-5" />
-              Torneio Privado
-            </DialogTitle>
+            <DialogTitle>Torneio Privado</DialogTitle>
             <DialogDescription className="text-slate-400">
-              Este torneio requer senha. Digite a senha para se inscrever.
+              Este torneio requer uma senha para participar.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handlePasswordSubmit}>
@@ -515,6 +477,48 @@ const CustomTournamentRegistration = () => {
             <div className="flex items-center justify-center gap-1 text-amber-400 text-sm mt-2">
               <Lock className="w-4 h-4" />
               <span>Torneio Privado</span>
+            </div>
+          )}
+          {isCreator && tournament.hasPassword && tournament.password && (
+            <div className="mt-3 p-3 bg-slate-900/50 rounded-lg border border-amber-500/30">
+              <p className="text-xs text-slate-400 mb-2">
+                Senha do Torneio (apenas você pode ver)
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type={showCreatorPassword ? "text" : "password"}
+                    value={tournament.password}
+                    readOnly
+                    className="bg-slate-800 border-slate-600 text-white pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                    onClick={() => setShowCreatorPassword(!showCreatorPassword)}
+                  >
+                    {showCreatorPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={copyPassword}
+                  className="border-amber-500/30 hover:bg-amber-500/10"
+                >
+                  {passwordCopied ? (
+                    <Check className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </CardHeader>
