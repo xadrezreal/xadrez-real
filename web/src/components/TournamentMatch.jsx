@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { DndProvider } from "react-dnd";
@@ -6,6 +6,7 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import ChessBoard from "./ChessBoard";
 import PlayerInfo from "./PlayerInfo";
 import CapturedPieces from "./CapturedPieces";
+import ConfirmDialog from "./ui/confirm-dialog";
 import { UserContext } from "../contexts/UserContext";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -27,8 +28,11 @@ const TournamentMatch = () => {
   const location = useLocation();
   const { user } = useContext(UserContext);
   const { toast } = useToast();
-
   const matchData = location.state;
+
+  const [showResignDialog, setShowResignDialog] = useState(false);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+
   const gameId = `tournament-${tournamentId}-${matchId}`;
 
   const {
@@ -61,7 +65,6 @@ const TournamentMatch = () => {
   useEffect(() => {
     if (gameStatus && gameStatus !== "playing") {
       const isWinner = winner?.id === user.id;
-
       const getWinnerMessage = () => {
         if (!isWinner) {
           return {
@@ -69,7 +72,6 @@ const TournamentMatch = () => {
             description: "Você foi eliminado do torneio.",
           };
         }
-
         return {
           title: "🎉 VITÓRIA!",
           description: "Parabéns pela vitória!",
@@ -115,6 +117,26 @@ const TournamentMatch = () => {
     }
   };
 
+  const handleConfirmResign = () => {
+    handleResign();
+    setShowResignDialog(false);
+  };
+
+  const handleConfirmLeave = () => {
+    if (gameStatus === "playing") {
+      handleResign();
+    }
+    navigate(`/tournament/${tournamentId}/bracket`);
+  };
+
+  const handleBackClick = () => {
+    if (gameStatus === "playing") {
+      setShowLeaveDialog(true);
+    } else {
+      navigate(`/tournament/${tournamentId}/bracket`);
+    }
+  };
+
   if (isGameLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 flex items-center justify-center p-4">
@@ -152,10 +174,7 @@ const TournamentMatch = () => {
     <DndProvider backend={HTML5Backend}>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 flex flex-col p-2 sm:p-4">
         <div className="flex items-center justify-between mb-4">
-          <Button
-            variant="ghost"
-            onClick={() => navigate(`/tournament/${tournamentId}/bracket`)}
-          >
+          <Button variant="ghost" onClick={handleBackClick}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar ao Torneio
           </Button>
@@ -185,9 +204,8 @@ const TournamentMatch = () => {
               )}
               {isConnected ? "Online" : "Offline"}
             </div>
-
             <Button
-              onClick={handleResign}
+              onClick={() => setShowResignDialog(true)}
               disabled={gameStatus !== "playing"}
               variant="destructive"
               size="sm"
@@ -309,13 +327,34 @@ const TournamentMatch = () => {
                 {isPlayerTurn ? "Sua vez" : "Vez do oponente"}
               </span>
             </div>
-
             {gameStatus === "playing" && isConnected && (
               <div className="text-green-400 text-xs">Sincronizado</div>
             )}
           </div>
         </motion.div>
       </div>
+
+      <ConfirmDialog
+        open={showResignDialog}
+        onOpenChange={setShowResignDialog}
+        onConfirm={handleConfirmResign}
+        title="Desistir da Partida?"
+        description="Você tem certeza que deseja desistir? Esta ação resultará em uma derrota e você será eliminado do torneio."
+        confirmText="Sim, desistir"
+        cancelText="Continuar jogando"
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={showLeaveDialog}
+        onOpenChange={setShowLeaveDialog}
+        onConfirm={handleConfirmLeave}
+        title="Sair da Partida?"
+        description="Se você sair agora, estará automaticamente desistindo do jogo e será eliminado do torneio. Deseja realmente sair?"
+        confirmText="Sim, sair e desistir"
+        cancelText="Continuar jogando"
+        variant="destructive"
+      />
     </DndProvider>
   );
 };
