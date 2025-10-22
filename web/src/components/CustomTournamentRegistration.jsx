@@ -387,9 +387,9 @@ const CustomTournamentRegistration = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6"
+      className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-900 p-6"
     >
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-xl mx-auto">
         <Button
           variant="ghost"
           className="mb-4 text-white hover:bg-slate-800"
