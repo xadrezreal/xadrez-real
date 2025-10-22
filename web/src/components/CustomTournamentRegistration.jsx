@@ -378,7 +378,7 @@ const CustomTournamentRegistration = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="min-h-screen w-auto flex justify-center items-center flex-col bg-gradient-to-br from-slate-900 to-slate-900 p-6"
+      className="min-h-screen w-full flex justify-center items-center flex-col bg-gradient-to-br from-slate-900 to-slate-900 p-6"
     >
       <div className="max-w-xl mx-auto text-start">
         <Button

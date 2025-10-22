@@ -333,7 +333,8 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
       try {
         const { id: tournamentId } = request.params;
         const userId = request.user.id;
-        const body = joinTournamentSchema.parse(request.body);
+        const parseResult = joinTournamentSchema.safeParse(request.body);
+        const body = parseResult.success ? parseResult.data : {};
 
         const tournament = await fastify.prisma.tournament.findUnique({
           where: { id: tournamentId },
