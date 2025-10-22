@@ -6,7 +6,7 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import ChessBoard from "./ChessBoard";
 import PlayerInfo from "./PlayerInfo";
 import CapturedPieces from "./CapturedPieces";
-import ConfirmDialog from "./ui/confirm-dialog";
+
 import { UserContext } from "../contexts/UserContext";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useChessGame } from "../hooks/useChessGame";
 import { useToast } from "./ui/use-toast";
+import { ConfirmDialog } from "./ui/confirm-dialog";
 
 const TournamentMatch = () => {
   const { tournamentId, matchId } = useParams();

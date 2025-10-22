@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 
-const ConfirmDialog = ({
+export const ConfirmDialog = ({
   open,
   onOpenChange,
   onConfirm,
@@ -48,5 +48,3 @@ const ConfirmDialog = ({
     </AlertDialog>
   );
 };
-
-export default ConfirmDialog;
