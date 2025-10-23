@@ -1,11 +1,8 @@
 import React from "react";
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./alert-dialog";
@@ -20,9 +17,12 @@ export const ConfirmDialog = ({
   cancelText = "Cancelar",
   variant = "destructive",
 }) => {
-  const handleConfirm = (e) => {
-    e.preventDefault();
+  const handleConfirm = () => {
     onConfirm();
+    onOpenChange(false);
+  };
+
+  const handleCancel = () => {
     onOpenChange(false);
   };
 
@@ -35,21 +35,26 @@ export const ConfirmDialog = ({
             {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel className="bg-slate-700 hover:bg-slate-600 text-white border-slate-600">
+        <div className="flex justify-end gap-3 mt-4">
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="bg-slate-700 hover:bg-slate-600 text-white border border-slate-600 inline-flex h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition-colors"
+          >
             {cancelText}
-          </AlertDialogCancel>
-          <AlertDialogAction
+          </button>
+          <button
+            type="button"
             onClick={handleConfirm}
-            className={
+            className={`inline-flex h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
               variant === "destructive"
-                ? "bg-red-500 hover:bg-red-600"
-                : "bg-cyan-500 hover:bg-cyan-600"
-            }
+                ? "bg-red-500 hover:bg-red-600 text-white"
+                : "bg-cyan-500 hover:bg-cyan-600 text-white"
+            }`}
           >
             {confirmText}
-          </AlertDialogAction>
-        </AlertDialogFooter>
+          </button>
+        </div>
       </AlertDialogContent>
     </AlertDialog>
   );
