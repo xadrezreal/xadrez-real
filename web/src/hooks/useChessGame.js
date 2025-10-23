@@ -305,6 +305,85 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     [gameType, gameId]
   );
 
+  const processGameData = useCallback(
+    (data) => {
+      if (!data) return;
+
+      if (isProcessingMoveRef.current) return;
+
+      if (
+        gameData?.game_id_text === data.game_id_text &&
+        gameData.status === data.status &&
+        gameData.fen === data.fen
+      )
+        return;
+
+      console.log("[PROCESS_GAME_DATA] ========== LOADING GAME ==========");
+      console.log("[PROCESS_GAME_DATA] Game ID:", data.game_id_text);
+      console.log("[PROCESS_GAME_DATA] FEN:", data.fen);
+      console.log("[PROCESS_GAME_DATA] White Time:", data.white_time);
+      console.log("[PROCESS_GAME_DATA] Black Time:", data.black_time);
+      console.log("[PROCESS_GAME_DATA] Status:", data.status);
+      console.log("[PROCESS_GAME_DATA] Winner ID:", data.winner_id);
+      console.log("[PROCESS_GAME_DATA] ===============================");
+
+      const newGame = new Chess(data.fen);
+      gameInstanceRef.current = newGame;
+
+      setGameData(data);
+      setGame(newGame);
+      setFen(data.fen);
+      setBoard(newGame.board());
+      setWhiteTime(data.white_time);
+      setBlackTime(data.black_time);
+      setGameStatus(data.status);
+      setMoveHistory(newGame.history({ verbose: true }));
+      setCapturedPieces(updateCapturedPieces(newGame));
+      setLastMove(data.last_move);
+
+      lastSavedTimeRef.current = {
+        white: data.white_time,
+        black: data.black_time,
+      };
+
+      if (data.winner_id) {
+        const winnerInfo =
+          data.winner_id === data.white_player_id
+            ? {
+                id: data.white_player_id,
+                name: data.white_player_name,
+                country: data.white_player_country,
+              }
+            : {
+                id: data.black_player_id,
+                name: data.black_player_name,
+                country: data.black_player_country,
+              };
+
+        setWinner(winnerInfo);
+      }
+
+      if (data.status === "playing") {
+        setUser((prevUser) => ({
+          ...prevUser,
+          status: "in_game",
+          currentGameId: data.game_id_text,
+        }));
+        setIsGameLoading(false);
+      } else if (data.status !== "waiting") {
+        console.log(
+          "[PROCESS_GAME_DATA] ⚠️ Game is already finished:",
+          data.status
+        );
+        onGameEnd();
+        setIsGameLoading(false);
+      } else {
+        setIsGameLoading(false);
+      }
+    },
+    [gameData, updateCapturedPieces, setUser, onGameEnd]
+  );
+
   const { isConnected, connectionStatus, sendMessage, lastMessage, reconnect } =
     useWebSocket({
       gameId,
@@ -665,85 +744,6 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     sendMessage,
     toast,
   ]);
-
-  const processGameData = useCallback(
-    (data) => {
-      if (!data) return;
-
-      if (isProcessingMoveRef.current) return;
-
-      if (
-        gameData?.game_id_text === data.game_id_text &&
-        gameData.status === data.status &&
-        gameData.fen === data.fen
-      )
-        return;
-
-      console.log("[PROCESS_GAME_DATA] ========== LOADING GAME ==========");
-      console.log("[PROCESS_GAME_DATA] Game ID:", data.game_id_text);
-      console.log("[PROCESS_GAME_DATA] FEN:", data.fen);
-      console.log("[PROCESS_GAME_DATA] White Time:", data.white_time);
-      console.log("[PROCESS_GAME_DATA] Black Time:", data.black_time);
-      console.log("[PROCESS_GAME_DATA] Status:", data.status);
-      console.log("[PROCESS_GAME_DATA] Winner ID:", data.winner_id);
-      console.log("[PROCESS_GAME_DATA] ===============================");
-
-      const newGame = new Chess(data.fen);
-      gameInstanceRef.current = newGame;
-
-      setGameData(data);
-      setGame(newGame);
-      setFen(data.fen);
-      setBoard(newGame.board());
-      setWhiteTime(data.white_time);
-      setBlackTime(data.black_time);
-      setGameStatus(data.status);
-      setMoveHistory(newGame.history({ verbose: true }));
-      setCapturedPieces(updateCapturedPieces(newGame));
-      setLastMove(data.last_move);
-
-      lastSavedTimeRef.current = {
-        white: data.white_time,
-        black: data.black_time,
-      };
-
-      if (data.winner_id) {
-        const winnerInfo =
-          data.winner_id === data.white_player_id
-            ? {
-                id: data.white_player_id,
-                name: data.white_player_name,
-                country: data.white_player_country,
-              }
-            : {
-                id: data.black_player_id,
-                name: data.black_player_name,
-                country: data.black_player_country,
-              };
-
-        setWinner(winnerInfo);
-      }
-
-      if (data.status === "playing") {
-        setUser((prevUser) => ({
-          ...prevUser,
-          status: "in_game",
-          currentGameId: data.game_id_text,
-        }));
-        setIsGameLoading(false);
-      } else if (data.status !== "waiting") {
-        console.log(
-          "[PROCESS_GAME_DATA] ⚠️ Game is already finished:",
-          data.status
-        );
-        onGameEnd();
-        setIsGameLoading(false);
-      } else {
-        setIsGameLoading(false);
-      }
-    },
-    [gameData, updateCapturedPieces, setUser, onGameEnd]
-  );
 
   useEffect(() => {
     gameInstanceRef.current = game;
