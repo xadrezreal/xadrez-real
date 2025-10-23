@@ -118,9 +118,10 @@ const TournamentMatch = () => {
     }
   };
 
-  const handleConfirmResign = () => {
-    handleResign();
+  const handleConfirmResign = async () => {
     setShowResignDialog(false);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    handleResign();
   };
 
   const handleConfirmLeave = () => {

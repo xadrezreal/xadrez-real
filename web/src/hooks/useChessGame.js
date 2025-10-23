@@ -293,250 +293,203 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
           },
           body: JSON.stringify({
             fen: newFen,
-            lastMove:
-              moveFrom && moveTo ? { from: moveFrom, to: moveTo } : null,
+            move: { from: moveFrom, to: moveTo },
+            whiteTime: newWhiteTime,
+            blackTime: newBlackTime,
           }),
         });
-
-        if (newWhiteTime !== null && newBlackTime !== null) {
-          await fetch(`${API_URL}/api/game/${gameId}/state`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              fen: newFen,
-              white_time: newWhiteTime,
-              black_time: newBlackTime,
-              status: "playing",
-            }),
-          });
-
-          lastSavedTimeRef.current = {
-            white: newWhiteTime,
-            black: newBlackTime,
-          };
-        }
-
-        console.log("[SAVE_GAME] ✅ Game state saved successfully");
       } catch (error) {
-        console.error("[SAVE_GAME] ❌ Error saving game state:", error);
+        console.error("[SAVE_GAME] Error saving game state:", error);
       }
     },
-    [gameId, gameType]
+    [gameType, gameId]
   );
 
-  const handleWebSocketMessage = useCallback(
-    (message) => {
-      const isTournamentGame = gameId?.includes("tournament-");
-      const isSelfMessage = message.data?.playerId === user.id;
-
-      if (!isTournamentGame && isSelfMessage) {
-        return;
-      }
-
-      switch (message.type) {
-        case "move":
-          const { fen: newFen, from, to } = message.data;
-          try {
-            const newGame = new Chess(newFen);
-            gameInstanceRef.current = newGame;
-            setGame(newGame);
-            setFen(newFen);
-            setBoard(newGame.board());
-            setMoveHistory(newGame.history({ verbose: true }));
-            setCapturedPieces(updateCapturedPieces(newGame));
-            setSelectedSquare(null);
-            setLastMove(null);
-            updateStatus(newGame);
-
-            if (!isTournamentGame || !isSelfMessage) {
-              toast({
-                title: "Movimento do oponente",
-                description: `${from} → ${to}`,
-              });
-            }
-          } catch (error) {
-            console.error("Erro ao processar movimento:", error);
-          }
-          break;
-
-        case "game_end":
-          setGameStatus(message.data.reason);
-
-          const gameEndWinner =
-            message.data.winner?.id === gameData?.white_player_id
-              ? whitePlayerInfo
-              : message.data.winner?.id === gameData?.black_player_id
-              ? blackPlayerInfo
-              : null;
-
-          setWinner(gameEndWinner);
-          onGameEnd();
-          toast({
-            title: "Partida finalizada",
-            description: `Fim de jogo: ${message.data.reason}`,
-          });
-          break;
-
-        case "resign":
-          setGameStatus("resignation");
-
-          const resignWinner =
-            message.data.winner?.id === gameData?.white_player_id
-              ? whitePlayerInfo
-              : message.data.winner?.id === gameData?.black_player_id
-              ? blackPlayerInfo
-              : message.data.winner;
-
-          setWinner(resignWinner);
-          onGameEnd();
-
-          const didIWin = resignWinner?.id === user.id;
-          toast({
-            title: didIWin ? "🎉 Vitória!" : "😞 Seu oponente desistiu",
-            description: didIWin
-              ? "Você venceu! Aguarde a próxima rodada."
-              : `${resignWinner?.name || "Oponente"} venceu por desistência`,
-            duration: 5000,
-          });
-          break;
-
-        case "connection_confirmed":
-          break;
-
-        case "error":
-          toast({
-            title: "Erro do servidor",
-            description: message.data.message,
-            variant: "destructive",
-          });
-          break;
-      }
-    },
-    [
-      user.id,
+  const { isConnected, connectionStatus, sendMessage, lastMessage, reconnect } =
+    useWebSocket({
       gameId,
-      gameData,
-      toast,
-      updateCapturedPieces,
-      updateStatus,
-      onGameEnd,
-      whitePlayerInfo,
-      blackPlayerInfo,
-    ]
-  );
+      userId: user?.id,
+      enabled: gameType !== "bot" && !!gameId && !!user?.id,
+      getWebSocketURL,
+    });
 
-  const { connectionStatus, sendMessage, isConnected } = useWebSocket(
-    gameId && gameType !== "bot"
-      ? `${getWebSocketURL()}/ws/game/${gameId}`
-      : null,
-    {
-      onMessage: handleWebSocketMessage,
-      onOpen: () => console.log("Conectado ao WebSocket"),
-      onClose: () => console.log("Desconectado do WebSocket"),
+  useEffect(() => {
+    if (lastMessage) {
+      const data = lastMessage;
+      console.log("[WS_MESSAGE] Received:", data);
+
+      if (data.type === "game_update" || data.type === "game_state") {
+        processGameData(data.game);
+      }
+
+      if (data.type === "move") {
+        const { move, fen: newFen, whiteTime: wt, blackTime: bt } = data;
+
+        console.log("[WS_MOVE] Move received:", move);
+        console.log("[WS_MOVE] New FEN:", newFen);
+        console.log("[WS_MOVE] Times:", { white: wt, black: bt });
+
+        const newGame = new Chess(newFen);
+        gameInstanceRef.current = newGame;
+
+        setGame(newGame);
+        setFen(newFen);
+        setBoard(newGame.board());
+        setWhiteTime(wt);
+        setBlackTime(bt);
+        setMoveHistory(newGame.history({ verbose: true }));
+        setCapturedPieces(updateCapturedPieces(newGame));
+        setLastMove(move);
+        setSelectedSquare(null);
+
+        updateStatus(newGame);
+      }
+
+      if (data.type === "game_over" || data.type === "resign") {
+        console.log("[WS_GAME_OVER] Game ended:", data);
+        setGameStatus(data.reason || "resignation");
+        setWinner(data.winner);
+        onGameEnd();
+      }
+
+      if (data.type === "opponent_disconnected") {
+        toast({
+          title: "Oponente desconectado",
+          description: "Aguardando reconexão...",
+        });
+      }
+
+      if (data.type === "opponent_reconnected") {
+        toast({
+          title: "Oponente reconectado",
+          description: "O jogo pode continuar!",
+        });
+      }
+
+      if (data.type === "draw_offer") {
+        toast({
+          title: "Oferta de empate",
+          description: `${data.playerName} ofereceu empate`,
+        });
+      }
+
+      if (data.type === "chat_message") {
+        setMessages((prev) => [...prev, data.message]);
+      }
     }
-  );
+  }, [
+    lastMessage,
+    processGameData,
+    updateStatus,
+    updateCapturedPieces,
+    toast,
+    onGameEnd,
+  ]);
 
   const makeMove = useCallback(
-    async (move) => {
+    async (from, to, promotion = "q") => {
       if (isProcessingMoveRef.current) {
-        return null;
+        console.log("[MAKE_MOVE] Already processing a move, ignoring...");
+        return false;
+      }
+
+      if (gameStatus !== "playing") {
+        console.log("[MAKE_MOVE] Game is not in playing state:", gameStatus);
+        return false;
       }
 
       if (!isPlayerTurn) {
-        return null;
+        console.log("[MAKE_MOVE] Not player's turn");
+        return false;
       }
 
       isProcessingMoveRef.current = true;
 
       try {
         const currentGame = gameInstanceRef.current;
-        const moveResult = currentGame.move(move);
 
-        if (moveResult) {
-          const newGame = new Chess(currentGame.fen());
-          const newFen = newGame.fen();
+        console.log("[MAKE_MOVE] Attempting move:", {
+          from,
+          to,
+          promotion,
+          currentFen: currentGame.fen(),
+        });
 
-          gameInstanceRef.current = newGame;
-          setGame(newGame);
-          setFen(newFen);
-          updateBoard(newGame);
-          setLastMove({ from: moveResult.from, to: moveResult.to });
-          setMoveHistory(newGame.history({ verbose: true }));
-          setCapturedPieces(updateCapturedPieces(newGame));
-          setSelectedSquare(null);
-          setPromotionMove(null);
+        const move = currentGame.move({
+          from,
+          to,
+          promotion,
+        });
 
-          setTimeout(() => {
-            setLastMove(null);
-          }, 2000);
-
-          const { status, newWinner } = updateStatus(newGame);
-
-          await saveGameState(
-            newFen,
-            moveResult.from,
-            moveResult.to,
-            whiteTime,
-            blackTime
-          );
-
-          if (gameId && gameType !== "bot" && isConnected) {
-            sendMessage({
-              type: "move",
-              from: moveResult.from,
-              to: moveResult.to,
-              promotion: moveResult.promotion,
-              playerId: user.id,
-              fen: newFen,
-            });
-          }
+        if (!move) {
+          console.log("[MAKE_MOVE] Invalid move");
+          isProcessingMoveRef.current = false;
+          return false;
         }
 
-        return moveResult;
-      } finally {
-        setTimeout(() => {
-          isProcessingMoveRef.current = false;
-        }, 100);
+        console.log("[MAKE_MOVE] Valid move:", move);
+
+        const newFen = currentGame.fen();
+        const newBoard = currentGame.board();
+        const newHistory = currentGame.history({ verbose: true });
+        const newCapturedPieces = updateCapturedPieces(currentGame);
+
+        const newWhiteTime = currentPlayer === "white" ? whiteTime : whiteTime;
+        const newBlackTime = currentPlayer === "black" ? blackTime : blackTime;
+
+        setGame(new Chess(newFen));
+        setFen(newFen);
+        setBoard(newBoard);
+        setMoveHistory(newHistory);
+        setCapturedPieces(newCapturedPieces);
+        setLastMove(move);
+        setSelectedSquare(null);
+
+        gameInstanceRef.current = currentGame;
+
+        if (gameType !== "bot" && isConnected) {
+          console.log("[MAKE_MOVE] Sending move via WebSocket");
+          sendMessage({
+            type: "move",
+            move: { from, to, promotion },
+            fen: newFen,
+            whiteTime: newWhiteTime,
+            blackTime: newBlackTime,
+          });
+        }
+
+        await saveGameState(newFen, from, to, newWhiteTime, newBlackTime);
+
+        updateStatus(currentGame);
+
+        isProcessingMoveRef.current = false;
+        return true;
+      } catch (error) {
+        console.error("[MAKE_MOVE] Error:", error);
+        isProcessingMoveRef.current = false;
+        return false;
       }
     },
     [
+      gameStatus,
       isPlayerTurn,
-      updateBoard,
-      gameId,
-      updateCapturedPieces,
-      gameType,
-      user.id,
-      isConnected,
-      sendMessage,
-      updateStatus,
-      saveGameState,
+      currentPlayer,
       whiteTime,
       blackTime,
+      gameType,
+      isConnected,
+      sendMessage,
+      saveGameState,
+      updateStatus,
+      updateCapturedPieces,
     ]
   );
 
   const handleMove = useCallback(
-    (from, to, promotion) => {
-      if (game.isGameOver() || !isPlayerTurn) return;
-
-      const move = { from, to, promotion };
-      const piece = game.get(from);
-
-      if (piece?.type === "p" && (to.endsWith("8") || to.endsWith("1"))) {
-        const moves = game.moves({ square: from, verbose: true });
-        const isPromotionMove = moves.some((m) => m.to === to && m.promotion);
-        if (isPromotionMove && !promotion) {
-          setPromotionMove({ from, to });
-          return;
-        }
-      }
-
-      makeMove(move);
+    (from, to, promotion = "q") => {
+      return makeMove(from, to, promotion);
     },
-    [game, isPlayerTurn, makeMove]
+    [makeMove]
   );
 
   const handleSquareClick = useCallback(
@@ -545,39 +498,69 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
         return;
       }
 
+      if (gameStatus !== "playing") {
+        return;
+      }
+
       if (selectedSquare) {
-        if (selectedSquare === square) {
-          setSelectedSquare(null);
-        } else {
-          handleMove(selectedSquare, square);
+        const success = handleMove(selectedSquare, square);
+        if (!success) {
+          const piece = game.get(square);
+          const isTournamentGame = gameId?.includes("tournament-");
+
+          if (isTournamentGame) {
+            const isWhitePlayer = gameData?.white_player_id === user.id;
+            const isBlackPlayer = gameData?.black_player_id === user.id;
+
+            if (
+              piece &&
+              ((piece.color === "w" && isWhitePlayer) ||
+                (piece.color === "b" && isBlackPlayer))
+            ) {
+              setSelectedSquare(square);
+            } else {
+              setSelectedSquare(null);
+            }
+          } else {
+            if (
+              piece &&
+              ((piece.color === "w" && currentPlayer === "white") ||
+                (piece.color === "b" && currentPlayer === "black"))
+            ) {
+              setSelectedSquare(square);
+            } else {
+              setSelectedSquare(null);
+            }
+          }
         }
       } else {
         const piece = game.get(square);
+        const isTournamentGame = gameId?.includes("tournament-");
 
-        if (piece) {
-          const isTournamentGame = gameId?.includes("tournament-");
-          let canSelectPiece = false;
+        if (isTournamentGame) {
+          const isWhitePlayer = gameData?.white_player_id === user.id;
+          const isBlackPlayer = gameData?.black_player_id === user.id;
 
-          let myPieceColor;
-
-          if (isTournamentGame && gameData) {
-            if (gameData.white_player_id === user.id) {
-              myPieceColor = "w";
-            } else if (gameData.black_player_id === user.id) {
-              myPieceColor = "b";
-            }
-          } else if (playerColor) {
-            myPieceColor = playerColor[0];
+          if (
+            piece &&
+            ((piece.color === "w" && isWhitePlayer) ||
+              (piece.color === "b" && isBlackPlayer))
+          ) {
+            setSelectedSquare(square);
+          } else {
+            toast({
+              title: "Peça inválida",
+              description: "Você só pode mover suas próprias peças!",
+              variant: "destructive",
+            });
           }
-
-          canSelectPiece =
-            piece.color === myPieceColor && piece.color === currentPlayer[0];
-
-          if (canSelectPiece) {
-            const moves = game.moves({ square: square, verbose: true });
-            if (moves.length > 0) {
-              setSelectedSquare(square);
-            }
+        } else {
+          if (
+            piece &&
+            ((piece.color === "w" && currentPlayer === "white") ||
+              (piece.color === "b" && currentPlayer === "black"))
+          ) {
+            setSelectedSquare(square);
           } else {
             toast({
               title: "Peça inválida",
@@ -599,89 +582,89 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       gameData,
       user.id,
       toast,
+      gameStatus,
     ]
   );
 
-  const handleResign = useCallback(
-    async (isAutomatic = false) => {
-      if (!gameData?.white_player_id || !gameData?.black_player_id) {
-        toast({
-          title: "Erro",
-          description: "Aguarde o jogo carregar completamente",
-          variant: "destructive",
+  const handleResign = useCallback(async () => {
+    if (!gameData?.white_player_id || !gameData?.black_player_id) {
+      toast({
+        title: "Erro",
+        description: "Aguarde o jogo carregar completamente",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (gameStatus !== "playing") {
+      return;
+    }
+
+    const winnerInfo =
+      playerColor === "white" ? blackPlayerInfo : whitePlayerInfo;
+
+    if (!winnerInfo?.id) {
+      console.error("[RESIGN] Winner info invalid:", winnerInfo);
+      return;
+    }
+
+    console.log("[RESIGN] ========== RESIGNING ==========");
+    console.log("[RESIGN] Resigning player:", user.id);
+    console.log("[RESIGN] Winner:", winnerInfo.id, winnerInfo.name);
+
+    const token = localStorage.getItem("auth_token");
+
+    const payload = {
+      winnerId: winnerInfo.id,
+      reason: "resignation",
+    };
+
+    console.log("[RESIGN] Payload being sent:", payload);
+
+    try {
+      const response = await fetch(`${API_URL}/api/game/${gameId}/end`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[RESIGN] API failed:", response.status, errorText);
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("[RESIGN] API success:", result);
+
+      setGameStatus("resignation");
+      setWinner(winnerInfo);
+
+      if (isConnected) {
+        sendMessage({
+          type: "resign",
+          playerId: user.id,
+          winner: winnerInfo,
         });
-        return;
       }
-
-      const winnerInfo =
-        playerColor === "white" ? blackPlayerInfo : whitePlayerInfo;
-      const resignationType = isAutomatic ? "timeout" : "resignation";
-
-      if (!winnerInfo?.id) {
-        console.error("[RESIGN] Winner info invalid:", winnerInfo);
-        return;
-      }
-
-      console.log("[RESIGN] ========== RESIGNING ==========");
-      console.log("[RESIGN] Resigning player:", user.id);
-      console.log("[RESIGN] Winner:", winnerInfo.id, winnerInfo.name);
-
-      const token = localStorage.getItem("auth_token");
-
-      const payload = {
-        winnerId: winnerInfo.id,
-        reason: resignationType,
-      };
-
-      console.log("[RESIGN] Payload being sent:", payload);
-
-      try {
-        const response = await fetch(`${API_URL}/api/game/${gameId}/end`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("[RESIGN] API failed:", response.status, errorText);
-          throw new Error(`API error: ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log("[RESIGN] API success:", result);
-
-        setGameStatus(resignationType);
-        setWinner(winnerInfo);
-
-        if (isConnected) {
-          sendMessage({
-            type: "resign",
-            playerId: user.id,
-            winner: winnerInfo,
-          });
-        }
-      } catch (error) {
-        console.error("[RESIGN] Error:", error);
-      }
-    },
-    [
-      gameData,
-      playerColor,
-      blackPlayerInfo,
-      whitePlayerInfo,
-      gameId,
-      user.id,
-      isConnected,
-      sendMessage,
-      toast,
-      setGameStatus,
-      setWinner,
-    ]
-  );
+    } catch (error) {
+      console.error("[RESIGN] Error:", error);
+    }
+  }, [
+    gameData,
+    gameStatus,
+    playerColor,
+    blackPlayerInfo,
+    whitePlayerInfo,
+    gameId,
+    user.id,
+    isConnected,
+    sendMessage,
+    toast,
+  ]);
 
   const processGameData = useCallback(
     (data) => {
