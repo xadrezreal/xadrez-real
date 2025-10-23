@@ -20,6 +20,12 @@ export const ConfirmDialog = ({
   cancelText = "Cancelar",
   variant = "destructive",
 }) => {
+  const handleConfirm = (e) => {
+    e.preventDefault();
+    onConfirm();
+    onOpenChange(false);
+  };
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="bg-slate-800 border-slate-700">
@@ -34,7 +40,7 @@ export const ConfirmDialog = ({
             {cancelText}
           </AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={handleConfirm}
             className={
               variant === "destructive"
                 ? "bg-red-500 hover:bg-red-600"
