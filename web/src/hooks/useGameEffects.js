@@ -245,7 +245,6 @@ export const useGameEffects = ({
         setWhiteTime((t) => {
           if (t !== null && t <= 0 && !timeoutCalled) {
             timeoutCalled = true;
-            const winnerId = gameData.black_player_id;
             const loserName = gameData.white_player_name;
             const winnerName = gameData.black_player_name;
 
@@ -263,9 +262,11 @@ export const useGameEffects = ({
               variant: isUserTheLoser ? "destructive" : "default",
             });
 
-            setTimeout(() => {
-              handleResign(true);
-            }, 100);
+            if (isUserTheLoser) {
+              setTimeout(() => {
+                handleResign(true);
+              }, 100);
+            }
 
             return 0;
           }
@@ -275,7 +276,6 @@ export const useGameEffects = ({
         setBlackTime((t) => {
           if (t !== null && t <= 0 && !timeoutCalled) {
             timeoutCalled = true;
-            const winnerId = gameData.white_player_id;
             const loserName = gameData.black_player_name;
             const winnerName = gameData.white_player_name;
 
@@ -293,9 +293,11 @@ export const useGameEffects = ({
               variant: isUserTheLoser ? "destructive" : "default",
             });
 
-            setTimeout(() => {
-              handleResign(true);
-            }, 100);
+            if (isUserTheLoser) {
+              setTimeout(() => {
+                handleResign(true);
+              }, 100);
+            }
 
             return 0;
           }
