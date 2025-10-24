@@ -15,6 +15,7 @@ import PromotionModal from "./PromotionModal";
 import BoardAppearance from "./BoardAppearance";
 import { useToast } from "./ui/use-toast";
 import { Button } from "./ui/button";
+import { SimpleConfirmDialog } from "./ui/simple-confirm-dialog";
 import {
   Home,
   Flag,
@@ -176,7 +177,15 @@ const ChessGame = () => {
   const { user } = useContext(UserContext);
   const { toast } = useToast();
   const [activePanel, setActivePanel] = useState(null);
+  const [showResignDialog, setShowResignDialog] = useState(false);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const { gameType } = location.state || { gameType: "online" };
+
+  console.log("ChessGame - States:", {
+    showResignDialog,
+    showLeaveDialog,
+    gameStatus,
+  });
 
   const {
     game,
@@ -242,6 +251,47 @@ const ChessGame = () => {
       return () => clearTimeout(timeout);
     }
   }, [gameStatus, winner, isTournamentGame, gameData, navigate, user, toast]);
+
+  const handleResignClick = () => {
+    console.log("handleResignClick - gameStatus:", gameStatus);
+    if (gameStatus === "playing") {
+      console.log("Abrindo dialog resign");
+      setShowResignDialog(true);
+    }
+  };
+
+  const handleReturnHomeClick = () => {
+    console.log("handleReturnHomeClick - gameStatus:", gameStatus);
+    if (gameStatus === "playing") {
+      console.log("Abrindo dialog leave");
+      setShowLeaveDialog(true);
+    } else {
+      console.log("Navegando direto");
+      handleReturnHome();
+    }
+  };
+
+  const handleConfirmResign = () => {
+    console.log("handleConfirmResign confirmado");
+    setShowResignDialog(false);
+    setTimeout(() => {
+      console.log("Executando handleResign");
+      handleResign();
+    }, 100);
+  };
+
+  const handleConfirmLeave = () => {
+    console.log("handleConfirmLeave confirmado");
+    setShowLeaveDialog(false);
+    if (gameStatus === "playing") {
+      console.log("Chamando handleResign");
+      handleResign();
+    }
+    setTimeout(() => {
+      console.log("Navegando");
+      handleReturnHome();
+    }, 100);
+  };
 
   const formatTime = (seconds) =>
     `${Math.floor(seconds / 60)
@@ -309,9 +359,9 @@ const ChessGame = () => {
         <div className="w-full max-w-xl mx-auto py-2 px-1">
           <Toolbar
             onTogglePanel={togglePanel}
-            onResign={handleResign}
+            onResign={handleResignClick}
             onDrawOffer={handleDrawOffer}
-            onReturnHome={handleReturnHome}
+            onReturnHome={handleReturnHomeClick}
             gameStatus={gameStatus}
             isBotGame={gameType === "bot"}
             isTournamentGame={isTournamentGame}
@@ -371,6 +421,28 @@ const ChessGame = () => {
           )}
         </AnimatePresence>
       </div>
+
+      <SimpleConfirmDialog
+        open={showResignDialog}
+        onOpenChange={setShowResignDialog}
+        onConfirm={handleConfirmResign}
+        title="Desistir da Partida?"
+        description="Você tem certeza que deseja desistir? Esta ação não poderá ser desfeita."
+        confirmText="Sim, desistir"
+        cancelText="Continuar jogando"
+        variant="destructive"
+      />
+
+      <SimpleConfirmDialog
+        open={showLeaveDialog}
+        onOpenChange={setShowLeaveDialog}
+        onConfirm={handleConfirmLeave}
+        title="Sair da Partida?"
+        description="Se você sair agora enquanto a partida está em andamento, será considerada uma desistência. Deseja realmente sair?"
+        confirmText="Sim, sair e desistir"
+        cancelText="Continuar jogando"
+        variant="destructive"
+      />
     </DndProvider>
   );
 };
