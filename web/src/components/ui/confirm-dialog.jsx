@@ -1,14 +1,13 @@
 import React from "react";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "./alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./dialog";
+import { Button } from "./button";
 
 export const ConfirmDialog = ({
   open,
@@ -20,31 +19,42 @@ export const ConfirmDialog = ({
   cancelText = "Cancelar",
   variant = "destructive",
 }) => {
+  console.log("SimpleConfirmDialog render:", { open, title });
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="bg-slate-800 border-slate-700">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="text-white">{title}</AlertDialogTitle>
-          <AlertDialogDescription className="text-slate-300">
-            {description}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel className="bg-slate-700 hover:bg-slate-600 text-white border border-slate-600">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-slate-800 border-slate-700">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              console.log("Botão cancelar clicado");
+              onOpenChange(false);
+            }}
+            className="bg-slate-700 hover:bg-slate-600 text-white border-slate-600"
+          >
             {cancelText}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
+          </Button>
+          <Button
+            variant={variant}
+            onClick={() => {
+              console.log("Botão confirmar clicado");
+              onConfirm();
+            }}
             className={
               variant === "destructive"
-                ? "bg-red-500 hover:bg-red-600 text-white"
-                : "bg-cyan-500 hover:bg-cyan-600 text-white"
+                ? "bg-red-500 hover:bg-red-600"
+                : "bg-cyan-500 hover:bg-cyan-600"
             }
           >
             {confirmText}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
