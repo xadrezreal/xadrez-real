@@ -181,12 +181,6 @@ const ChessGame = () => {
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const { gameType } = location.state || { gameType: "online" };
 
-  console.log("ChessGame - States:", {
-    showResignDialog,
-    showLeaveDialog,
-    gameStatus,
-  });
-
   const {
     game,
     board,
@@ -331,6 +325,12 @@ const ChessGame = () => {
   if (isGameLoading || isWaitingForOpponent) {
     return <WaitingForOpponent />;
   }
+
+  console.log("ChessGame - States:", {
+    showResignDialog,
+    showLeaveDialog,
+    gameStatus,
+  });
 
   return (
     <DndProvider backend={HTML5Backend}>
