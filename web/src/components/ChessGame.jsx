@@ -15,7 +15,7 @@ import PromotionModal from "./PromotionModal";
 import BoardAppearance from "./BoardAppearance";
 import { useToast } from "./ui/use-toast";
 import { Button } from "./ui/button";
-import { SimpleConfirmDialog } from "./ui/simple-confirm-dialog";
+import { ConfirmDialog } from "./ui/confirm-dialog";
 import {
   Home,
   Flag,
@@ -422,7 +422,7 @@ const ChessGame = () => {
         </AnimatePresence>
       </div>
 
-      <SimpleConfirmDialog
+      <ConfirmDialog
         open={showResignDialog}
         onOpenChange={setShowResignDialog}
         onConfirm={handleConfirmResign}
@@ -433,7 +433,7 @@ const ChessGame = () => {
         variant="destructive"
       />
 
-      <SimpleConfirmDialog
+      <ConfirmDialog
         open={showLeaveDialog}
         onOpenChange={setShowLeaveDialog}
         onConfirm={handleConfirmLeave}
