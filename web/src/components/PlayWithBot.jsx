@@ -102,7 +102,7 @@ const PlayWithBot = () => {
         variants={itemVariants}
         className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto"
       >
-        <Card className="bg-slate-800/50 border-slate-700 text-white">
+        {/* <Card className="bg-slate-800/50 border-slate-700 text-white">
           <CardHeader>
             <CardTitle className="flex items-center justify-center gap-2 text-cyan-300">
               <Clock className="w-6 h-6" />
@@ -123,7 +123,7 @@ const PlayWithBot = () => {
               </Button>
             ))}
           </CardContent>
-        </Card>
+        </Card> */}
         <Card className="bg-slate-800/50 border-slate-700 text-white">
           <CardHeader>
             <CardTitle className="flex items-center justify-center gap-2 text-cyan-300">

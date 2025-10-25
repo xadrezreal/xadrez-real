@@ -126,7 +126,7 @@ const Home = () => {
         <InstallPWA />
       </motion.div>
 
-      <motion.div variants={itemVariants}>
+      {/* <motion.div variants={itemVariants}>
         <Card className="bg-slate-800/50 border-slate-700 text-white mb-8">
           <CardHeader>
             <CardTitle className="flex items-center justify-center gap-2 text-cyan-300">
@@ -149,7 +149,7 @@ const Home = () => {
             ))}
           </CardContent>
         </Card>
-      </motion.div>
+      </motion.div> */}
 
       <motion.div
         className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4"
