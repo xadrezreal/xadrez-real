@@ -12,12 +12,6 @@ import { Gem, CheckCircle, Tv, Trophy, Video, Loader2 } from "lucide-react";
 import { UserContext } from "../contexts/UserContext";
 import { toast } from "./ui/use-toast";
 import { useNavigate } from "react-router-dom";
-import { loadStripe } from "@stripe/stripe-js";
-
-const STRIPE_PUBLISHABLE_KEY =
-  "pk_test_51RtHls2XMJs3OkwIAqlBmCIWeOSrot4G6KZXfOjhGVxoYeZj6BgpPUEuIPyXdlxdCvxSQLEpZQeicbGf2YQz7uAa00EVPUfCj7";
-const STRIPE_PRICE_ID = "price_1RtHqF2XMJs3OkwI4a1gO3xP"; // Example Price ID for subscription
-const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 
 const Premium = () => {
   const { user } = useContext(UserContext);
@@ -25,32 +19,47 @@ const Premium = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubscribe = async () => {
-    setIsLoading(true);
-    try {
-      const stripe = await stripePromise;
-      const { error } = await stripe.redirectToCheckout({
-        lineItems: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
-        mode: "subscription",
-        successUrl: `${window.location.origin}/profile?subscription_success=true`,
-        cancelUrl: `${window.location.origin}/premium`,
-      });
-
-      if (error) {
-        console.error("Stripe checkout error:", error);
-        toast({
-          title: "Erro",
-          description: "Não foi possível iniciar o processo de assinatura.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Stripe error:", error);
+    if (!user || !user.id) {
       toast({
         title: "Erro",
-        description: "Ocorreu um erro. Tente novamente.",
+        description: "Você precisa estar logado para assinar.",
         variant: "destructive",
       });
-    } finally {
+      navigate("/login");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/create-checkout-session",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            email: user.email,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao criar sessão de checkout");
+      }
+
+      window.location.href = data.url;
+    } catch (error) {
+      console.error("Erro ao criar checkout:", error);
+      toast({
+        title: "Erro",
+        description:
+          error.message || "Não foi possível iniciar o processo de assinatura.",
+        variant: "destructive",
+      });
       setIsLoading(false);
     }
   };
@@ -126,11 +135,11 @@ const Premium = () => {
               size="lg"
               className="w-full mt-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-lg py-6"
               onClick={handleSubscribe}
-              disabled={isLoading || user.isPremium}
+              disabled={isLoading || user?.isPremium}
             >
               {isLoading ? (
                 <Loader2 className="w-6 h-6 animate-spin" />
-              ) : user.isPremium ? (
+              ) : user?.isPremium ? (
                 "Você já é Premium"
               ) : (
                 "Assinar Agora"
