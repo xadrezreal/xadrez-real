@@ -160,3 +160,10 @@ model GameState {
 
   @@map("game_states")
 }
+
+model StripeEvent {
+     id          String   @id @default(cuid())
+     eventId     String   @unique
+     type        String
+     processedAt DateTime @default(now())
+}

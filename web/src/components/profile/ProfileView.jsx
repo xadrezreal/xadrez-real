@@ -61,6 +61,30 @@ const ProfileView = () => {
     }
   }, [authUser]);
 
+  // ✅ Tratamento de parâmetros da URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("upgraded") === "true") {
+      toast({
+        title: "🎉 Bem-vindo ao Premium!",
+        description:
+          "Seu upgrade foi concluído com sucesso! Aproveite todos os benefícios.",
+        duration: 5000,
+      });
+      window.history.replaceState({}, "", "/profile");
+    }
+
+    if (params.get("cancelled") === "true") {
+      toast({
+        title: "Checkout cancelado",
+        description: "Você pode tentar novamente quando quiser.",
+        variant: "default",
+      });
+      window.history.replaceState({}, "", "/profile");
+    }
+  }, [toast]);
+
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -83,6 +107,7 @@ const ProfileView = () => {
 
   const handleUpgrade = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem("auth_token");
 
       if (!token) {
@@ -107,13 +132,14 @@ const ProfileView = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || `Erro ${response.status}`);
+        throw new Error(data.error || `Erro ${response.status}`);
       }
 
       if (!data.url) {
         throw new Error("URL de checkout não recebida");
       }
 
+      // Redireciona para o Stripe
       window.location.href = data.url;
     } catch (error) {
       toast({
@@ -121,11 +147,14 @@ const ProfileView = () => {
         description: error.message || "Não foi possível processar o upgrade",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleManageSubscription = async () => {
     try {
+      setLoading(true);
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/subscription/portal`,
         {
@@ -135,14 +164,27 @@ const ProfileView = () => {
           },
         }
       );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Erro ao acessar portal");
+      }
+
       const { url } = await response.json();
+
+      if (!url) {
+        throw new Error("URL do portal não recebida");
+      }
+
       window.location.href = url;
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Não foi possível acessar o portal",
+        description: error.message || "Não foi possível acessar o portal",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -334,10 +376,13 @@ const ProfileView = () => {
                   {!isPremium && (
                     <Button
                       onClick={handleUpgrade}
+                      disabled={loading}
                       className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
                     >
                       <Crown className="w-4 h-4 mr-2" />
-                      Fazer Upgrade - R$ 19,90/mês
+                      {loading
+                        ? "Processando..."
+                        : "Fazer Upgrade - R$ 19,90/mês"}
                     </Button>
                   )}
                 </div>
@@ -377,15 +422,20 @@ const ProfileView = () => {
                   <div className="flex gap-3">
                     <Button
                       onClick={handleManageSubscription}
+                      disabled={loading}
                       variant="outline"
                       className="flex-1"
                     >
-                      Gerenciar no Stripe
+                      {loading ? "Carregando..." : "Gerenciar no Stripe"}
                     </Button>
 
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="destructive" className="flex-1">
+                        <Button
+                          variant="destructive"
+                          disabled={loading}
+                          className="flex-1"
+                        >
                           <AlertTriangle className="w-4 h-4 mr-2" />
                           Cancelar Assinatura
                         </Button>

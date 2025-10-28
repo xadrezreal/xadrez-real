@@ -10,6 +10,7 @@ interface AuthenticatedRequest extends FastifyRequest {
 }
 
 export async function subscriptionRoutes(fastify: FastifyInstance) {
+  // ==================== CHECKOUT ====================
   fastify.post(
     "/checkout",
     { preHandler: [fastify.authenticate] },
@@ -29,6 +30,7 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
           return reply.code(400).send({ error: "Usuário já é premium" });
         }
 
+        // Verifica se já tem assinatura ativa
         if (user.stripeCustomerId && user.stripeSubscriptionId) {
           try {
             const subscription = await stripe.subscriptions.retrieve(
@@ -42,8 +44,10 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
           }
         }
 
+        // Cria sessão de checkout
         const session = await stripe.checkout.sessions.create({
-          customer_email: user.email,
+          customer: user.stripeCustomerId || undefined, // ✅ Reutiliza customer se existir
+          customer_email: user.stripeCustomerId ? undefined : user.email, // ✅ Email só para novos
           mode: "subscription",
           line_items: [
             {
@@ -52,7 +56,8 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
             },
           ],
           success_url: `${process.env.FRONTEND_URL}/profile?upgraded=true`,
-          cancel_url: `${process.env.FRONTEND_URL}/profile`,
+          cancel_url: `${process.env.FRONTEND_URL}/profile?cancelled=true`,
+          allow_promotion_codes: true, // ✅ Permite cupons de desconto
           metadata: {
             userId: userId,
           },
@@ -69,6 +74,7 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // ==================== PORTAL ====================
   fastify.post(
     "/portal",
     { preHandler: [fastify.authenticate] },
@@ -104,6 +110,7 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // ==================== CANCELAR ====================
   fastify.post(
     "/cancel",
     { preHandler: [fastify.authenticate] },
@@ -133,14 +140,9 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
           cancel_at_period_end: true,
         });
 
-        await fastify.prisma.user.update({
-          where: { id: userId },
-          data: {
-            role: "FREEMIUM",
-          },
-        });
-
-        fastify.log.info(`Assinatura cancelada para usuário ${userId}`);
+        fastify.log.info(
+          `Assinatura agendada para cancelamento: usuário ${userId}`
+        );
 
         return reply.send({
           success: true,
@@ -157,6 +159,7 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // ==================== WEBHOOK ====================
   fastify.post(
     "/webhook",
     {
@@ -189,32 +192,72 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
           return reply.code(400).send(`Webhook Error: ${err.message}`);
         }
 
-        fastify.log.info(`Webhook recebido: ${event.type}`);
+        // ✅ IDEMPOTÊNCIA - Verifica se evento já foi processado
+        const existingEvent = await fastify.prisma.stripeEvent.findUnique({
+          where: { eventId: event.id },
+        });
 
+        if (existingEvent) {
+          fastify.log.info(`Evento ${event.id} já processado, ignorando`);
+          return reply.send({ received: true });
+        }
+
+        fastify.log.info({
+          message: "Webhook recebido",
+          eventType: event.type,
+          eventId: event.id,
+          timestamp: new Date().toISOString(),
+        });
+
+        // ==================== PROCESSAR EVENTOS ====================
         switch (event.type) {
+          // ✅ Salva o customer ID quando checkout completa
           case "checkout.session.completed": {
             const session = event.data.object as any;
 
-            if (!session.metadata?.userId) {
-              fastify.log.error("userId não encontrado nos metadados");
-              break;
+            if (session.metadata?.userId) {
+              await fastify.prisma.user.update({
+                where: { id: session.metadata.userId },
+                data: {
+                  stripeCustomerId: session.customer as string,
+                  // ⚠️ NÃO torna PREMIUM aqui - espera customer.subscription.created
+                },
+              });
+
+              fastify.log.info(
+                `Customer ID salvo para usuário ${session.metadata.userId}`
+              );
             }
-
-            await fastify.prisma.user.update({
-              where: { id: session.metadata.userId },
-              data: {
-                role: "PREMIUM",
-                stripeCustomerId: session.customer as string,
-                stripeSubscriptionId: session.subscription as string,
-              },
-            });
-
-            fastify.log.info(
-              `Usuário ${session.metadata.userId} atualizado para PREMIUM`
-            );
             break;
           }
 
+          // ✅ Torna PREMIUM apenas quando assinatura é criada E está ativa
+          case "customer.subscription.created": {
+            const subscription = event.data.object as any;
+
+            const user = await fastify.prisma.user.findFirst({
+              where: { stripeCustomerId: subscription.customer as string },
+            });
+
+            if (user && subscription.status === "active") {
+              await fastify.prisma.user.update({
+                where: { id: user.id },
+                data: {
+                  role: "PREMIUM",
+                  stripeSubscriptionId: subscription.id,
+                },
+              });
+
+              fastify.log.info({
+                message: "Usuário atualizado para PREMIUM",
+                userId: user.id,
+                subscriptionId: subscription.id,
+              });
+            }
+            break;
+          }
+
+          // ✅ Remove PREMIUM quando assinatura é deletada
           case "customer.subscription.deleted": {
             const subscription = event.data.object as any;
 
@@ -231,11 +274,16 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
                 },
               });
 
-              fastify.log.info(`Usuário ${user.id} rebaixado para FREEMIUM`);
+              fastify.log.info({
+                message: "Usuário rebaixado para FREEMIUM",
+                userId: user.id,
+                reason: "subscription.deleted",
+              });
             }
             break;
           }
 
+          // ✅ Atualiza status da assinatura
           case "customer.subscription.updated": {
             const subscription = event.data.object as any;
 
@@ -244,9 +292,22 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
             });
 
             if (user) {
+              // Log de cancelamento agendado
+              if (subscription.cancel_at_period_end) {
+                fastify.log.info({
+                  message: "Assinatura agendada para cancelamento",
+                  userId: user.id,
+                  cancelAt: new Date(
+                    subscription.current_period_end * 1000
+                  ).toISOString(),
+                });
+              }
+
+              // Remove premium se status mudou para canceled/unpaid
               if (
                 subscription.status === "canceled" ||
-                subscription.status === "unpaid"
+                subscription.status === "unpaid" ||
+                subscription.status === "past_due"
               ) {
                 await fastify.prisma.user.update({
                   where: { id: user.id },
@@ -254,10 +315,53 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
                     role: "FREEMIUM",
                   },
                 });
-                fastify.log.info(
-                  `Usuário ${user.id} rebaixado para FREEMIUM (status: ${subscription.status})`
-                );
+
+                fastify.log.info({
+                  message: "Usuário rebaixado para FREEMIUM",
+                  userId: user.id,
+                  reason: `status: ${subscription.status}`,
+                });
               }
+
+              // Reativa se voltou a ficar ativo
+              if (subscription.status === "active" && user.role !== "PREMIUM") {
+                await fastify.prisma.user.update({
+                  where: { id: user.id },
+                  data: {
+                    role: "PREMIUM",
+                  },
+                });
+
+                fastify.log.info({
+                  message: "Usuário reativado para PREMIUM",
+                  userId: user.id,
+                  reason: "subscription reativada",
+                });
+              }
+            }
+            break;
+          }
+
+          // ✅ Trata falha de pagamento
+          case "invoice.payment_failed": {
+            const invoice = event.data.object as any;
+
+            const user = await fastify.prisma.user.findFirst({
+              where: { stripeCustomerId: invoice.customer as string },
+            });
+
+            if (user) {
+              fastify.log.warn({
+                message: "Falha no pagamento",
+                userId: user.id,
+                attemptCount: invoice.attempt_count,
+                nextPaymentAttempt: invoice.next_payment_attempt
+                  ? new Date(invoice.next_payment_attempt * 1000).toISOString()
+                  : null,
+              });
+
+              // Aqui você pode enviar email ao usuário notificando
+              // Stripe tentará cobrar automaticamente
             }
             break;
           }
@@ -265,6 +369,14 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
           default:
             fastify.log.info(`Evento não tratado: ${event.type}`);
         }
+
+        // ✅ Marca evento como processado
+        await fastify.prisma.stripeEvent.create({
+          data: {
+            eventId: event.id,
+            type: event.type,
+          },
+        });
 
         return reply.send({ received: true });
       } catch (error: any) {
