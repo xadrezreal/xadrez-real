@@ -315,7 +315,7 @@ const CreateTournament = () => {
                   Fazer Upgrade Premium
                 </Button>
                 <Button
-                  onClick={() => navigate("/tournaments")}
+                  onClick={() => navigate("/tournament")}
                   variant="outline"
                   className="flex-1"
                 >
