@@ -3,25 +3,32 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 const getAuthHeaders = (includeContentType = true) => {
   const token = localStorage.getItem("auth_token");
   const headers = {};
+
   if (includeContentType) {
     headers["Content-Type"] = "application/json";
   }
+
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
+
   return headers;
 };
 
 const handleApiResponse = async (response) => {
   const contentType = response.headers.get("content-type");
+
   if (!contentType || !contentType.includes("application/json")) {
     const text = await response.text();
     throw new Error(`Servidor retornou resposta inválida (não JSON)`);
   }
+
   const data = await response.json();
+
   if (!response.ok) {
     throw new Error(data.error || `Erro HTTP: ${response.status}`);
   }
+
   return data;
 };
 
@@ -39,6 +46,7 @@ export const tournamentService = {
         startTime: tournamentData.start_time,
       }),
     });
+
     return await handleApiResponse(response);
   },
 
@@ -47,6 +55,7 @@ export const tournamentService = {
       method: "GET",
       headers: getAuthHeaders(),
     });
+
     return await handleApiResponse(response);
   },
 
@@ -58,6 +67,7 @@ export const tournamentService = {
         headers: getAuthHeaders(),
       }
     );
+
     return await handleApiResponse(response);
   },
 
@@ -67,25 +77,42 @@ export const tournamentService = {
       page: params.page || 1,
       limit: params.limit || 20,
     });
+
     const url = `${API_URL}/tournaments?${queryParams}`;
+
     const response = await fetch(url, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
     });
+
     return await handleApiResponse(response);
   },
 
+  // ✅ CORRIGIDO: Não envia password se for null/undefined
   async joinTournament(tournamentId, password = null) {
+    // ✅ Cria o body apenas com password se ela existir
+    const body = {};
+    if (password !== null && password !== undefined && password !== "") {
+      body.password = password;
+    }
+
+    console.log(
+      "[JOIN] Sending request to:",
+      `${API_URL}/tournaments/${tournamentId}/join`
+    );
+    console.log("[JOIN] Body:", body);
+
     const response = await fetch(
       `${API_URL}/tournaments/${tournamentId}/join`,
       {
         method: "POST",
         headers: getAuthHeaders(),
-        body: JSON.stringify({ password }),
+        body: JSON.stringify(body), // ✅ Envia {} ou {password: "senha"}
       }
     );
+
     return await handleApiResponse(response);
   },
 
@@ -97,6 +124,7 @@ export const tournamentService = {
         headers: getAuthHeaders(),
       }
     );
+
     return await handleApiResponse(response);
   },
 
@@ -105,6 +133,7 @@ export const tournamentService = {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
+
     return await handleApiResponse(response);
   },
 
@@ -118,6 +147,7 @@ export const tournamentService = {
         },
       }
     );
+
     return await handleApiResponse(response);
   },
 };
