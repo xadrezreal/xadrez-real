@@ -90,26 +90,19 @@ export const tournamentService = {
     return await handleApiResponse(response);
   },
 
-  // ✅ CORRIGIDO: Não envia password se for null/undefined
   async joinTournament(tournamentId, password = null) {
-    // ✅ Cria o body apenas com password se ela existir
     const body = {};
+
     if (password !== null && password !== undefined && password !== "") {
       body.password = password;
     }
-
-    console.log(
-      "[JOIN] Sending request to:",
-      `${API_URL}/tournaments/${tournamentId}/join`
-    );
-    console.log("[JOIN] Body:", body);
 
     const response = await fetch(
       `${API_URL}/tournaments/${tournamentId}/join`,
       {
         method: "POST",
         headers: getAuthHeaders(),
-        body: JSON.stringify(body), // ✅ Envia {} ou {password: "senha"}
+        body: JSON.stringify(body),
       }
     );
 
