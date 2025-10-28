@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "./ui/button";
 import {
@@ -10,56 +10,84 @@ import {
 } from "./ui/card";
 import { Gem, CheckCircle, Tv, Trophy, Video, Loader2 } from "lucide-react";
 import { UserContext } from "../contexts/UserContext";
-import { toast } from "./ui/use-toast";
+import { useToast } from "./ui/use-toast";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 const Premium = () => {
   const { user } = useContext(UserContext);
+  const { isPremium } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubscribe = async () => {
-    if (!user || !user.id) {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("upgraded") === "true") {
       toast({
-        title: "Erro",
-        description: "Você precisa estar logado para assinar.",
-        variant: "destructive",
+        title: "🎉 Bem-vindo ao Premium!",
+        description:
+          "Seu upgrade foi concluído com sucesso! Aproveite todos os benefícios.",
+        duration: 5000,
       });
-      navigate("/login");
-      return;
+      window.history.replaceState({}, "", "/premium");
     }
 
-    setIsLoading(true);
+    if (params.get("cancelled") === "true") {
+      toast({
+        title: "Checkout cancelado",
+        description: "Você pode tentar novamente quando quiser.",
+        variant: "default",
+      });
+      window.history.replaceState({}, "", "/premium");
+    }
+  }, [toast]);
+
+  const handleSubscribe = async () => {
     try {
+      setIsLoading(true);
+      const token = localStorage.getItem("auth_token");
+
+      if (!token) {
+        toast({
+          title: "Erro",
+          description: "Você precisa estar logado",
+          variant: "destructive",
+        });
+        navigate("/login");
+        return;
+      }
+
       const response = await fetch(
-        "http://localhost:5000/api/create-checkout-session",
+        `${import.meta.env.VITE_API_URL}/subscription/checkout`,
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            userId: user.id,
-            email: user.email,
-          }),
         }
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Erro ao criar sessão de checkout");
+        throw new Error(data.error || `Erro ${response.status}`);
+      }
+
+      if (!data.url) {
+        throw new Error("URL de checkout não recebida");
       }
 
       window.location.href = data.url;
     } catch (error) {
-      console.error("Erro ao criar checkout:", error);
       toast({
         title: "Erro",
         description:
           error.message || "Não foi possível iniciar o processo de assinatura.",
         variant: "destructive",
       });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -135,11 +163,11 @@ const Premium = () => {
               size="lg"
               className="w-full mt-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-lg py-6"
               onClick={handleSubscribe}
-              disabled={isLoading || user?.isPremium}
+              disabled={isLoading || isPremium}
             >
               {isLoading ? (
                 <Loader2 className="w-6 h-6 animate-spin" />
-              ) : user?.isPremium ? (
+              ) : isPremium ? (
                 "Você já é Premium"
               ) : (
                 "Assinar Agora"
