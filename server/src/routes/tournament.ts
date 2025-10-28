@@ -27,6 +27,25 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         const tournamentData = createTournamentSchema.parse(request.body);
         const userId = request.user.id;
 
+        const user = await fastify.prisma.user.findUnique({
+          where: { id: userId },
+          select: { balance: true, role: true },
+        });
+
+        if (!user) {
+          return reply.status(404).send({
+            error: "Usuário não encontrado",
+          });
+        }
+
+        if (user.role !== "PREMIUM") {
+          return reply.status(403).send({
+            error: "Acesso negado",
+            message:
+              "Apenas usuários Premium podem criar torneios. Faça upgrade para desbloquear este recurso!",
+          });
+        }
+
         const startTime = new Date(tournamentData.startTime);
         if (startTime <= new Date()) {
           return reply.status(400).send({

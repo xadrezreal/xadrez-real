@@ -46,6 +46,7 @@ const CreateTournament = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, setUser } = useContext(UserContext);
+  const isPremium = authUser?.role === "PREMIUM";
 
   const getDefaultDateTime = () => {
     const now = new Date();
@@ -72,6 +73,18 @@ const CreateTournament = () => {
 
   const handleCreateTournament = async (e) => {
     e.preventDefault();
+
+    if (!isPremium) {
+      toast({
+        title: "Recurso Premium",
+        description:
+          "Apenas usuários Premium podem criar torneios. Faça upgrade para desbloquear!",
+        variant: "destructive",
+      });
+      navigate("/premium");
+      return;
+    }
+
     if (!tournamentName || !startDate || !startTime) {
       toast({
         title: "Campos obrigatórios",
