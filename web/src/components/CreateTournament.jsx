@@ -23,9 +23,12 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Crown,
+  AlertTriangle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../contexts/UserContext";
+import { useAuth } from "../contexts/AuthContext";
 
 const entryFees = [
   0, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0, 50.0, 70.0, 100.0,
@@ -46,6 +49,8 @@ const CreateTournament = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, setUser } = useContext(UserContext);
+  const { user: authUser } = useAuth();
+
   const isPremium = authUser?.role === "PREMIUM";
 
   const getDefaultDateTime = () => {
@@ -237,6 +242,81 @@ const CreateTournament = () => {
     });
   };
 
+  if (!isPremium) {
+    return (
+      <motion.div
+        className="max-w-2xl mx-auto p-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <Card className="bg-slate-800/50 border-yellow-500/50 text-white">
+          <CardHeader className="text-center">
+            <Crown className="mx-auto h-16 w-16 text-yellow-400 mb-4" />
+            <CardTitle className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
+              Recurso Premium
+            </CardTitle>
+            <CardDescription className="text-slate-400 text-lg">
+              Criação de torneios é exclusiva para membros Premium
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="bg-slate-900/50 p-6 rounded-lg space-y-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-1" />
+                <div>
+                  <h3 className="font-bold text-yellow-400 mb-2">
+                    Benefícios Premium para Criadores de Torneios:
+                  </h3>
+                  <ul className="space-y-2 text-slate-300">
+                    <li className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-cyan-400" />
+                      Crie torneios ilimitados
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-cyan-400" />
+                      Torneios privados com senha
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-cyan-400" />
+                      Controle total sobre regras e premiações
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-cyan-400" />
+                      Configure valores de entrada personalizados
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-center space-y-4">
+              <p className="text-slate-400">
+                Você ainda pode participar de torneios criados por outros
+                jogadores!
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => navigate("/premium")}
+                  className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold"
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  Fazer Upgrade Premium
+                </Button>
+                <Button
+                  onClick={() => navigate("/tournaments")}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Ver Torneios Disponíveis
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       className="max-w-2xl mx-auto p-4"
@@ -246,7 +326,10 @@ const CreateTournament = () => {
     >
       <Card className="bg-slate-800/50 border-slate-700 text-white">
         <CardHeader className="text-center">
-          <Trophy className="mx-auto h-12 w-12 text-cyan-400" />
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Trophy className="h-12 w-12 text-cyan-400" />
+            <Crown className="h-6 w-6 text-yellow-400" />
+          </div>
           <CardTitle className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
             Criar seu Torneio
           </CardTitle>

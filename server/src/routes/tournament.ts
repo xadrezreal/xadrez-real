@@ -53,17 +53,13 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           });
         }
 
-        if (tournamentData.entryFee > 0) {
-          const user = await fastify.prisma.user.findUnique({
-            where: { id: userId },
-            select: { balance: true },
+        if (
+          tournamentData.entryFee > 0 &&
+          user.balance < tournamentData.entryFee
+        ) {
+          return reply.status(400).send({
+            error: "Saldo insuficiente para criar e participar do torneio",
           });
-
-          if (!user || user.balance < tournamentData.entryFee) {
-            return reply.status(400).send({
-              error: "Saldo insuficiente para criar e participar do torneio",
-            });
-          }
         }
 
         const result = await fastify.prisma.$transaction(async (prisma) => {
@@ -317,22 +313,15 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
 
       const bracketByRound: Record<number, any[]> = {};
 
-      tournament.matches.forEach((match) => {
+      for (const match of tournament.matches) {
         if (!bracketByRound[match.round]) {
           bracketByRound[match.round] = [];
         }
         bracketByRound[match.round].push(match);
-      });
+      }
 
       return reply.send({
-        tournament: {
-          id: tournament.id,
-          name: tournament.name,
-          status: tournament.status,
-          currentRound: tournament.currentRound,
-          totalRounds: tournament.totalRounds,
-          nextRoundStartTime: tournament.nextRoundStartTime,
-        },
+        tournament,
         bracket: bracketByRound,
       });
     } catch (error) {
@@ -352,8 +341,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
       try {
         const { id: tournamentId } = request.params;
         const userId = request.user.id;
-        const parseResult = joinTournamentSchema.safeParse(request.body);
-        const body = parseResult.success ? parseResult.data : {};
+        const body = joinTournamentSchema.parse(request.body);
 
         const tournament = await fastify.prisma.tournament.findUnique({
           where: { id: tournamentId },
