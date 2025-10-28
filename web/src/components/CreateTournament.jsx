@@ -81,7 +81,7 @@ const CreateTournament = () => {
 
     if (!isPremium) {
       toast({
-        title: "Recurso Premium",
+        title: "🔒 Recurso Premium",
         description:
           "Apenas usuários Premium podem criar torneios. Faça upgrade para desbloquear!",
         variant: "destructive",
@@ -174,6 +174,18 @@ const CreateTournament = () => {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 403) {
+          toast({
+            title: "🔒 Recurso Premium",
+            description:
+              data.message ||
+              "Apenas usuários Premium podem criar torneios. Faça upgrade para desbloquear!",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          navigate("/premium");
+          return;
+        }
         throw new Error(data.error || "Erro ao criar torneio");
       }
 
