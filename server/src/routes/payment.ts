@@ -197,6 +197,7 @@ export async function paymentRoutes(fastify: FastifyInstance) {
             });
           } catch (error: any) {
             fastify.log.error("[WEBHOOK] Error updating balance:", error);
+            console.error("[WEBHOOK] FULL ERROR:", error);
             return reply.code(500).send({
               error: "Erro ao processar pagamento",
             });
