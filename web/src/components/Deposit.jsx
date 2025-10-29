@@ -1,5 +1,6 @@
 import React, { useState, useContext } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -10,7 +11,7 @@ import {
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { useToast } from "./ui/use-toast";
-import { Wallet, CreditCard, Loader2 } from "lucide-react";
+import { Wallet, CreditCard, Loader2, ArrowLeft } from "lucide-react";
 import { UserContext } from "../contexts/UserContext";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -18,17 +19,19 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 const depositOptions = [
   {
     amount: 1,
-    priceId: "price_1SMqB9BOcWVXza8Xb7xIl8mE", // Seu Price ID de R$ 1,00
+    priceId: "price_1SMqB9BOcWVXza8Xb7xIl8mE",
   },
-  // Adicione mais quando tiver os outros Price IDs
+  // Adicione mais Price IDs conforme criar no Stripe:
   // { amount: 10, priceId: "price_xxx" },
   // { amount: 20, priceId: "price_xxx" },
   // { amount: 50, priceId: "price_xxx" },
+  // { amount: 100, priceId: "price_xxx" },
 ];
 
 const Deposit = () => {
   const { toast } = useToast();
   const { user } = useContext(UserContext);
+  const navigate = useNavigate();
   const [selectedOption, setSelectedOption] = useState(depositOptions[0]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -37,6 +40,16 @@ const Deposit = () => {
 
     try {
       const token = localStorage.getItem("auth_token");
+
+      if (!token) {
+        toast({
+          title: "Erro de Autenticação",
+          description: "Você precisa estar logado para fazer um depósito.",
+          variant: "destructive",
+        });
+        navigate("/login");
+        return;
+      }
 
       const response = await fetch(`${API_URL}/payments/create-checkout`, {
         method: "POST",
@@ -82,6 +95,15 @@ const Deposit = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
+      <Button
+        variant="ghost"
+        onClick={() => navigate("/wallet")}
+        className="mb-4 text-slate-300 hover:text-white"
+      >
+        <ArrowLeft className="w-4 h-4 mr-2" />
+        Voltar para Carteira
+      </Button>
+
       <Card className="bg-slate-800/50 border-slate-700 text-white">
         <CardHeader>
           <CardTitle className="flex items-center gap-3 text-2xl text-cyan-300">
@@ -96,12 +118,12 @@ const Deposit = () => {
           <div className="p-4 bg-slate-900/50 rounded-lg text-center">
             <p className="text-sm text-slate-400">SALDO ATUAL</p>
             <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-cyan-400">
-              R$ {user.balance ? user.balance.toFixed(2) : "0.00"}
+              R$ {user?.balance ? user.balance.toFixed(2) : "0.00"}
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label>Escolha um valor</Label>
+            <Label className="text-slate-300">Escolha um valor</Label>
             <div className="grid grid-cols-3 gap-2">
               {depositOptions.map((opt) => (
                 <Button
@@ -113,35 +135,49 @@ const Deposit = () => {
                   }
                   onClick={() => setSelectedOption(opt)}
                   className={`transition-all ${
-                    selectedOption.priceId === opt.priceId ? "bg-cyan-500" : ""
+                    selectedOption.priceId === opt.priceId
+                      ? "bg-cyan-500 hover:bg-cyan-600"
+                      : ""
                   }`}
                   disabled={isLoading}
                 >
-                  R$ {opt.amount}
+                  R$ {opt.amount.toFixed(2)}
                 </Button>
               ))}
             </div>
+            {depositOptions.length === 1 && (
+              <p className="text-xs text-slate-500 text-center mt-2">
+                Mais opções de valores em breve!
+              </p>
+            )}
+          </div>
+
+          <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <p className="text-xs text-blue-300">
+              💳 Pagamento processado de forma segura via Stripe
+            </p>
           </div>
 
           <div className="space-y-4 pt-4 border-t border-slate-700">
-            <h3 className="font-semibold text-center text-slate-300">
-              Escolha a forma de pagamento
-            </h3>
             <Button
               onClick={handlePayment}
               disabled={isLoading}
-              className="w-full text-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
+              className="w-full text-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600"
             >
               {isLoading ? (
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Processando...
+                </>
               ) : (
-                <CreditCard className="w-5 h-5 mr-2" />
+                <>
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  Pagar R$ {selectedOption.amount.toFixed(2)}
+                </>
               )}
-              Pagar R$ {selectedOption.amount.toFixed(2)}
             </Button>
             <p className="text-xs text-slate-500 text-center">
-              Você será redirecionado para um ambiente de pagamento seguro do
-              Stripe.
+              Você será redirecionado para uma página segura de pagamento
             </p>
           </div>
         </CardContent>
