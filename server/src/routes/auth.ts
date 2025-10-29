@@ -148,6 +148,9 @@ export async function authRoutes(fastify: FastifyInstance) {
             name: true,
             email: true,
             role: true,
+            balance: true,
+            stripeCustomerId: true,
+            stripeSubscriptionId: true,
             createdAt: true,
             updatedAt: true,
           },
@@ -159,7 +162,7 @@ export async function authRoutes(fastify: FastifyInstance) {
           });
         }
 
-        return reply.send({ user });
+        return reply.send(user);
       } catch (error) {
         fastify.log.error(error);
         return reply.status(500).send({
