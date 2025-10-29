@@ -17,30 +17,54 @@ import {
 } from "lucide-react";
 import { UserContext } from "../contexts/UserContext";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
 const Wallet = () => {
   const { user, setUser } = useContext(UserContext);
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Atualiza o saldo quando voltar do pagamento
   useEffect(() => {
+    const refreshUser = async () => {
+      try {
+        const token = localStorage.getItem("auth_token");
+        if (!token) return;
+
+        const response = await fetch(`${API_URL}/auth/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+          console.log("[WALLET] Saldo atualizado:", userData.balance);
+        }
+      } catch (error) {
+        console.error("[WALLET] Erro ao atualizar saldo:", error);
+      }
+    };
+
+    // Atualiza o saldo ao carregar a página
+    refreshUser();
+
+    // Se vier de um pagamento bem-sucedido
     const query = new URLSearchParams(location.search);
-    if (query.get("deposit_success")) {
-      const amount = parseFloat(query.get("amount"));
-      if (!isNaN(amount)) {
-        setUser((prevUser) => ({
-          ...prevUser,
-          balance: (prevUser.balance || 0) + amount,
-        }));
+    if (query.get("deposit_success") || query.get("session_id")) {
+      // Aguarda 2 segundos para dar tempo do webhook processar
+      setTimeout(() => {
+        refreshUser();
         toast({
-          title: "Depósito bem-sucedido!",
-          description: `R$ ${amount.toFixed(
-            2
-          )} foram adicionados à sua carteira.`,
-          variant: "success",
+          title: "Depósito Confirmado!",
+          description: "Seu saldo foi atualizado com sucesso.",
+          variant: "default",
           duration: 5000,
         });
+        // Remove os parâmetros da URL
         navigate("/wallet", { replace: true });
-      }
+      }, 2000);
     }
 
     if (location.state?.error) {
@@ -51,7 +75,7 @@ const Wallet = () => {
       });
       navigate("/wallet", { replace: true, state: {} });
     }
-  }, [location, setUser, navigate, toast]);
+  }, [location, setUser, navigate]);
 
   const handleDeposit = () => {
     navigate("/deposit");
@@ -87,10 +111,9 @@ const Wallet = () => {
           <div className="p-4 bg-slate-900/50 rounded-lg text-center">
             <p className="text-sm text-slate-400">SALDO ATUAL</p>
             <p className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-cyan-400">
-              R$ {user.balance ? user.balance.toFixed(2) : "0.00"}
+              R$ {user?.balance ? user.balance.toFixed(2) : "0.00"}
             </p>
           </div>
-
           <div className="space-y-4">
             <h3 className="font-semibold text-slate-200">Ações</h3>
             <Button
