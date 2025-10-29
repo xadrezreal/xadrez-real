@@ -33,18 +33,18 @@ enum MatchStatus {
 }
 
 enum TransactionType {
-  DEPOSIT           // Depósito via Stripe
-  WITHDRAWAL        // Saque/retirada
-  TOURNAMENT_ENTRY  // Taxa de entrada em torneio
-  TOURNAMENT_PRIZE  // Prêmio de torneio
-  REFUND            // Reembolso
+  DEPOSIT
+  WITHDRAWAL
+  TOURNAMENT_ENTRY
+  TOURNAMENT_PRIZE
+  REFUND
 }
 
 enum TransactionStatus {
-  PENDING    // Aguardando confirmação
-  COMPLETED  // Concluído
-  FAILED     // Falhou
-  CANCELLED  // Cancelado
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 model User {
@@ -75,21 +75,21 @@ model User {
 }
 
 model Tournament {
-  id                   String            @id @default(cuid())
-  name                 String
-  password             String?
-  entryFee             Float             @default(0.0)
-  playerCount          Int
-  prizeDistribution    PrizeDistribution @default(SPLIT_TOP_2)
-  status               TournamentStatus  @default(WAITING)
-  startTime            DateTime
-  currentRound         Int               @default(0)
-  totalRounds          Int               @default(0)
-  winnerId             String?
-  nextRoundStartTime   DateTime?
+  id                    String            @id @default(cuid())
+  name                  String
+  password              String?
+  entryFee              Float             @default(0.0)
+  playerCount           Int
+  prizeDistribution     PrizeDistribution @default(SPLIT_TOP_2)
+  status                TournamentStatus  @default(WAITING)
+  startTime             DateTime
+  currentRound          Int               @default(0)
+  totalRounds           Int               @default(0)
+  winnerId              String?
+  nextRoundStartTime    DateTime?
   currentRoundStartTime DateTime?
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
   creatorId String
   creator   User   @relation("TournamentCreator", fields: [creatorId], references: [id])
@@ -106,6 +106,7 @@ model TournamentParticipant {
   id           String   @id @default(cuid())
   tournamentId String
   userId       String
+  paidEntry    Boolean  @default(true)
   joinedAt     DateTime @default(now())
 
   tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
@@ -178,10 +179,10 @@ model GameState {
 }
 
 model StripeEvent {
-     id          String   @id @default(cuid())
-     eventId     String   @unique
-     type        String
-     processedAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  eventId     String   @unique
+  type        String
+  processedAt DateTime @default(now())
 }
 
 model Transaction {
@@ -192,7 +193,7 @@ model Transaction {
   status          TransactionStatus @default(PENDING)
   stripeSessionId String?           @unique
   description     String?
-  metadata        Json?             // Para guardar dados extras
+  metadata        Json?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 

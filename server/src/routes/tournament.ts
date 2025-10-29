@@ -79,6 +79,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             data: {
               tournamentId: tournament.id,
               userId: userId,
+              paidEntry: false,
             },
           });
 
@@ -134,6 +135,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           participants: {
             select: {
               userId: true,
+              paidEntry: true,
               user: {
                 select: {
                   id: true,
@@ -155,16 +157,22 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         take: parseInt(limit),
       });
 
-      const tournamentsWithPasswordFlag = tournaments.map((t) => ({
-        ...t,
-        hasPassword: !!t.password,
-        password: undefined,
-      }));
+      const tournamentsWithPrizePool = tournaments.map((t) => {
+        const paidParticipants = t.participants.filter(
+          (p) => p.paidEntry
+        ).length;
+        return {
+          ...t,
+          hasPassword: !!t.password,
+          password: undefined,
+          prizePool: t.entryFee * paidParticipants,
+        };
+      });
 
       const total = await fastify.prisma.tournament.count({ where });
 
       return reply.send({
-        tournaments: tournamentsWithPasswordFlag,
+        tournaments: tournamentsWithPrizePool,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -214,6 +222,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           participants: {
             select: {
               userId: true,
+              paidEntry: true,
               joinedAt: true,
               user: {
                 select: {
@@ -241,7 +250,10 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const prizePool = tournament.entryFee * tournament._count.participants;
+      const paidParticipants = tournament.participants.filter(
+        (p) => p.paidEntry
+      ).length;
+      const prizePool = tournament.entryFee * paidParticipants;
 
       const isCreator = userId && tournament.creatorId === userId;
 
@@ -400,6 +412,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             data: {
               tournamentId,
               userId,
+              paidEntry: !isPremium,
             },
           });
 
@@ -494,18 +507,17 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           });
         }
 
-        const userTransaction = await fastify.prisma.transaction.findFirst({
-          where: {
-            userId,
-            type: "TOURNAMENT_ENTRY",
-            metadata: {
-              path: ["tournamentId"],
-              equals: tournamentId,
+        const participant =
+          await fastify.prisma.tournamentParticipant.findUnique({
+            where: {
+              tournamentId_userId: {
+                tournamentId,
+                userId,
+              },
             },
-          },
-        });
+          });
 
-        const paidEntry = !!userTransaction;
+        const paidEntry = participant?.paidEntry || false;
 
         await fastify.prisma.$transaction(async (prisma) => {
           await prisma.tournamentParticipant.delete({
@@ -568,7 +580,12 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         const tournament = await fastify.prisma.tournament.findUnique({
           where: { id: tournamentId },
           include: {
-            participants: true,
+            participants: {
+              select: {
+                userId: true,
+                paidEntry: true,
+              },
+            },
           },
         });
 
@@ -593,18 +610,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         await fastify.prisma.$transaction(async (prisma) => {
           if (tournament.entryFee > 0) {
             for (const participant of tournament.participants) {
-              const userTransaction = await prisma.transaction.findFirst({
-                where: {
-                  userId: participant.userId,
-                  type: "TOURNAMENT_ENTRY",
-                  metadata: {
-                    path: ["tournamentId"],
-                    equals: tournamentId,
-                  },
-                },
-              });
-
-              if (userTransaction) {
+              if (participant.paidEntry) {
                 await prisma.user.update({
                   where: { id: participant.userId },
                   data: {
