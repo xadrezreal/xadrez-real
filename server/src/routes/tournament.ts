@@ -53,15 +53,6 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           });
         }
 
-        if (
-          tournamentData.entryFee > 0 &&
-          user.balance < tournamentData.entryFee
-        ) {
-          return reply.status(400).send({
-            error: "Saldo insuficiente para criar e participar do torneio",
-          });
-        }
-
         const result = await fastify.prisma.$transaction(async (prisma) => {
           const tournament = await prisma.tournament.create({
             data: {
@@ -90,31 +81,6 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
               userId: userId,
             },
           });
-
-          if (tournamentData.entryFee > 0) {
-            await prisma.user.update({
-              where: { id: userId },
-              data: {
-                balance: {
-                  decrement: tournamentData.entryFee,
-                },
-              },
-            });
-
-            await prisma.transaction.create({
-              data: {
-                userId,
-                amount: -tournamentData.entryFee,
-                type: "TOURNAMENT_ENTRY",
-                status: "COMPLETED",
-                description: `Entrada no torneio: ${tournament.name}`,
-                metadata: {
-                  tournamentId: tournament.id,
-                  tournamentName: tournament.name,
-                },
-              },
-            });
-          }
 
           return tournament;
         });
@@ -253,6 +219,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
                 select: {
                   id: true,
                   name: true,
+                  role: true,
                 },
               },
             },
@@ -413,12 +380,14 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           });
         }
 
-        if (tournament.entryFee > 0) {
-          const user = await fastify.prisma.user.findUnique({
-            where: { id: userId },
-            select: { balance: true },
-          });
+        const user = await fastify.prisma.user.findUnique({
+          where: { id: userId },
+          select: { balance: true, role: true },
+        });
 
+        const isPremium = user?.role === "PREMIUM";
+
+        if (tournament.entryFee > 0 && !isPremium) {
           if (!user || user.balance < tournament.entryFee) {
             return reply.status(400).send({
               error: "Saldo insuficiente para participar do torneio",
@@ -434,7 +403,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             },
           });
 
-          if (tournament.entryFee > 0) {
+          if (tournament.entryFee > 0 && !isPremium) {
             await prisma.user.update({
               where: { id: userId },
               data: {
@@ -475,8 +444,12 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           return updatedUser;
         });
 
+        const message = isPremium
+          ? "Inscrição confirmada! Como Premium, você participa gratuitamente e concorre aos prêmios! 🎁"
+          : "Participação confirmada com sucesso!";
+
         return reply.send({
-          message: "Participação confirmada com sucesso",
+          message,
           updatedUser: result,
         });
       } catch (error) {
@@ -521,6 +494,19 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           });
         }
 
+        const userTransaction = await fastify.prisma.transaction.findFirst({
+          where: {
+            userId,
+            type: "TOURNAMENT_ENTRY",
+            metadata: {
+              path: ["tournamentId"],
+              equals: tournamentId,
+            },
+          },
+        });
+
+        const paidEntry = !!userTransaction;
+
         await fastify.prisma.$transaction(async (prisma) => {
           await prisma.tournamentParticipant.delete({
             where: {
@@ -531,7 +517,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             },
           });
 
-          if (tournament.entryFee > 0) {
+          if (tournament.entryFee > 0 && paidEntry) {
             await prisma.user.update({
               where: { id: userId },
               data: {
@@ -607,28 +593,41 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         await fastify.prisma.$transaction(async (prisma) => {
           if (tournament.entryFee > 0) {
             for (const participant of tournament.participants) {
-              await prisma.user.update({
-                where: { id: participant.userId },
-                data: {
-                  balance: {
-                    increment: tournament.entryFee,
+              const userTransaction = await prisma.transaction.findFirst({
+                where: {
+                  userId: participant.userId,
+                  type: "TOURNAMENT_ENTRY",
+                  metadata: {
+                    path: ["tournamentId"],
+                    equals: tournamentId,
                   },
                 },
               });
 
-              await prisma.transaction.create({
-                data: {
-                  userId: participant.userId,
-                  amount: tournament.entryFee,
-                  type: "REFUND",
-                  status: "COMPLETED",
-                  description: `Reembolso - Torneio cancelado: ${tournament.name}`,
-                  metadata: {
-                    tournamentId,
-                    tournamentName: tournament.name,
+              if (userTransaction) {
+                await prisma.user.update({
+                  where: { id: participant.userId },
+                  data: {
+                    balance: {
+                      increment: tournament.entryFee,
+                    },
                   },
-                },
-              });
+                });
+
+                await prisma.transaction.create({
+                  data: {
+                    userId: participant.userId,
+                    amount: tournament.entryFee,
+                    type: "REFUND",
+                    status: "COMPLETED",
+                    description: `Reembolso - Torneio cancelado: ${tournament.name}`,
+                    metadata: {
+                      tournamentId,
+                      tournamentName: tournament.name,
+                    },
+                  },
+                });
+              }
             }
           }
 
@@ -659,18 +658,8 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         const { matchId } = request.params;
         const userId = request.user.id;
 
-        console.log("[ROUTE] Start match request:", { matchId, userId });
-
         const match = await fastify.prisma.tournamentMatch.findUnique({
           where: { id: matchId },
-        });
-
-        console.log("[ROUTE] Match found:", {
-          id: match?.id,
-          status: match?.status,
-          gameId: match?.gameId,
-          player1Id: match?.player1Id,
-          player2Id: match?.player2Id,
         });
 
         if (!match) {
@@ -680,13 +669,10 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         }
 
         if (match.player1Id !== userId && match.player2Id !== userId) {
-          console.log("[ROUTE] User not in match");
           return reply.status(403).send({
             error: "Você não participa desta partida",
           });
         }
-
-        console.log("[ROUTE] Creating orchestrator...");
 
         const orchestrator = new TournamentOrchestrator(
           fastify.prisma,
@@ -694,11 +680,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           fastify.log
         );
 
-        console.log("[ROUTE] Calling startMatch...");
-
         await orchestrator.startMatch(matchId);
-
-        console.log("[ROUTE] Match started successfully");
 
         const updatedMatch = await fastify.prisma.tournamentMatch.findUnique({
           where: { id: matchId },
@@ -713,7 +695,6 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           match: updatedMatch,
         });
       } catch (error) {
-        console.error("[ROUTE] Error starting match:", error);
         fastify.log.error(error);
         return reply.status(500).send({
           error: "Erro interno do servidor",
