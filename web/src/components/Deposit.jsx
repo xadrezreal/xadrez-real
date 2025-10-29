@@ -20,7 +20,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 const depositOptions = [
   {
     amount: 1,
-    priceId: "price_1SMqB9BOcWVXza8Xb7xIl8mE",
+    priceId: "price_1SNcg0BOcWVXza8XshopeAH0",
   },
   // Adicione mais conforme criar no Stripe:
   // {
