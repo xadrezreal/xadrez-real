@@ -197,10 +197,10 @@ const AppContent = () => {
               <Crown className="w-5 h-5" />
               <span className="text-xs">{t("nav.champions")}</span>
             </NavLink> */}
-                {/* <NavLink to="/wallet" className={navLinkClasses}>
-              <WalletIcon className="w-5 h-5" />
-              <span className="text-xs">{t("nav.wallet")}</span>
-            </NavLink> */}
+                <NavLink to="/wallet" className={navLinkClasses}>
+                  <WalletIcon className="w-5 h-5" />
+                  <span className="text-xs">{t("nav.wallet")}</span>
+                </NavLink>
               </div>
               <div className="flex items-center ml-auto pl-4">
                 <LanguageSwitcher />
