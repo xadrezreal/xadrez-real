@@ -5,22 +5,27 @@ import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import bcrypt from "bcryptjs";
 import rawBody from "fastify-raw-body";
-import { authRoutes } from "./routes/auth.js";
-import { userRoutes } from "./routes/user.js";
-import { tournamentRoutes } from "./routes/tournament.js";
-import { subscriptionRoutes } from "./routes/subscription.js";
+import { authRoutes } from "./routes/auth";
+import { userRoutes } from "./routes/user";
+import { tournamentRoutes } from "./routes/tournament";
+import { subscriptionRoutes } from "./routes/subscription";
+import { paymentRoutes } from "./routes/payment"; // ← NOVA ROTA
 import { websocketRoutes } from "./websocket/webSocketRoutes";
 import { TournamentUpdater } from "./routes/tournamentUpdater";
-import { gameRoutes } from "./routes/game.js";
+import { gameRoutes } from "./routes/game";
 import { startQueueWorker } from "./routes/startQueueWorker";
 
 const prisma = new PrismaClient();
 const fastify = Fastify({ logger: { level: "info" } });
 
+// Configuração de rawBody para webhooks
 fastify.register(rawBody, {
   field: "rawBody",
   global: false,
-  routes: ["/subscription/webhook"],
+  routes: [
+    "/subscription/webhook",
+    "/payments/webhook", // ← ADICIONA webhook de pagamentos
+  ],
 });
 
 fastify.addHook("preHandler", async (request, reply) => {
@@ -115,10 +120,12 @@ const start = async () => {
 
     console.log("[SERVER] wsManager registered:", !!fastify.wsManager);
 
+    // Registra todas as rotas
     await fastify.register(authRoutes, { prefix: "/auth" });
     await fastify.register(userRoutes, { prefix: "/users" });
     await fastify.register(tournamentRoutes, { prefix: "/tournaments" });
     await fastify.register(subscriptionRoutes, { prefix: "/subscription" });
+    await fastify.register(paymentRoutes, { prefix: "/payments" }); // ← NOVA ROTA
     await fastify.register(gameRoutes);
 
     fastify.get("/health", async () => {
@@ -148,6 +155,8 @@ const start = async () => {
     await fastify.listen({ port, host: "0.0.0.0" });
     console.log(`🚀 Server is running on http://localhost:${port}`);
     console.log(`🔌 WebSocket available on ws://localhost:${port}/ws/`);
+    console.log(`💰 Payment routes available on /payments/*`);
+    console.log(`📊 Subscription routes available on /subscription/*`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

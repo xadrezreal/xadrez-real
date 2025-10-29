@@ -32,6 +32,21 @@ enum MatchStatus {
   BYE
 }
 
+enum TransactionType {
+  DEPOSIT           // Depósito via Stripe
+  WITHDRAWAL        // Saque/retirada
+  TOURNAMENT_ENTRY  // Taxa de entrada em torneio
+  TOURNAMENT_PRIZE  // Prêmio de torneio
+  REFUND            // Reembolso
+}
+
+enum TransactionStatus {
+  PENDING    // Aguardando confirmação
+  COMPLETED  // Concluído
+  FAILED     // Falhou
+  CANCELLED  // Cancelado
+}
+
 model User {
   id                   String   @id @default(cuid())
   email                String   @unique
@@ -54,6 +69,7 @@ model User {
   matchesAsPlayer1         TournamentMatch[]       @relation("MatchPlayer1")
   matchesAsPlayer2         TournamentMatch[]       @relation("MatchPlayer2")
   matchesWon               TournamentMatch[]       @relation("MatchWinner")
+  transactions             Transaction[]
 
   @@map("users")
 }
@@ -166,4 +182,25 @@ model StripeEvent {
      eventId     String   @unique
      type        String
      processedAt DateTime @default(now())
+}
+
+model Transaction {
+  id              String            @id @default(cuid())
+  userId          String
+  amount          Float
+  type            TransactionType
+  status          TransactionStatus @default(PENDING)
+  stripeSessionId String?           @unique
+  description     String?
+  metadata        Json?             // Para guardar dados extras
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([stripeSessionId])
+  @@index([type])
+  @@index([status])
+  @@map("transactions")
 }
