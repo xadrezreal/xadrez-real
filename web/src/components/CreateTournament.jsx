@@ -123,18 +123,6 @@ const CreateTournament = () => {
       return;
     }
 
-    const fee = parseFloat(entryFee);
-    if (fee > 0 && user.balance < fee) {
-      toast({
-        title: "Saldo Insuficiente",
-        description: `Você precisa de R$ ${fee.toFixed(
-          2
-        )} para criar e entrar neste torneio.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsLoading(true);
 
     try {
@@ -149,6 +137,8 @@ const CreateTournament = () => {
         setIsLoading(false);
         return;
       }
+
+      const fee = parseFloat(entryFee);
 
       const response = await fetch(
         `${
@@ -201,13 +191,6 @@ const CreateTournament = () => {
         );
       }
 
-      if (fee > 0) {
-        setUser((prev) => ({
-          ...prev,
-          balance: prev.balance - fee,
-        }));
-      }
-
       toast({
         title: "Torneio Criado com Sucesso!",
         description: `Início: ${startDateTime.toLocaleString("pt-BR")}`,
@@ -237,7 +220,7 @@ const CreateTournament = () => {
     visible: { y: 0, opacity: 1 },
   };
 
-  const prizePool = (parseFloat(entryFee) * playerCount * 0.8).toFixed(2);
+  const prizePool = (parseFloat(entryFee) * playerCount).toFixed(2);
 
   const previewDateTime = () => {
     if (!startDate || !startTime) return null;
@@ -294,7 +277,7 @@ const CreateTournament = () => {
                     </li>
                     <li className="flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-cyan-400" />
-                      Configure valores de entrada personalizados
+                      Participe GRÁTIS dos seus torneios e concorra aos prêmios
                     </li>
                   </ul>
                 </div>
@@ -348,6 +331,12 @@ const CreateTournament = () => {
           <CardDescription className="text-slate-400">
             Personalize as regras e convide seus amigos para a disputa!
           </CardDescription>
+          <div className="mt-2 text-xs bg-green-500/20 border border-green-500/30 rounded-lg p-2">
+            <Crown className="inline w-4 h-4 text-yellow-400 mr-1" />
+            <span className="text-green-400 font-bold">
+              Como Premium, você participa GRÁTIS e concorre aos prêmios!
+            </span>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreateTournament} className="space-y-6">
@@ -449,7 +438,7 @@ const CreateTournament = () => {
             <motion.div variants={itemVariants} className="space-y-2">
               <Label>
                 <DollarSign className="inline-block w-4 h-4 mr-1" />
-                Valor da Entrada (por jogador)
+                Valor da Entrada (para jogadores Freemium)
               </Label>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {entryFees.map((fee) => (
@@ -467,6 +456,10 @@ const CreateTournament = () => {
                   </Button>
                 ))}
               </div>
+              <p className="text-xs text-slate-400 mt-2">
+                <Crown className="inline w-3 h-3 text-yellow-400 mr-1" />
+                Como Premium, você entra grátis independente do valor
+              </p>
             </motion.div>
 
             <motion.div variants={itemVariants} className="space-y-2">
@@ -509,11 +502,11 @@ const CreateTournament = () => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="SPLIT_TOP_2" id="r2" />
-                  <Label htmlFor="r2">60% / 40% (Top 2)</Label>
+                  <Label htmlFor="r2">60% / 30% / 10% (Top 3)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="SPLIT_TOP_4" id="r3" />
-                  <Label htmlFor="r3">40% / 30% / 20% / 10% (Top 4)</Label>
+                  <Label htmlFor="r3">50% / 25% / 15% / 6% / 4% (Top 5)</Label>
                 </div>
               </RadioGroup>
               <div className="mt-2 text-sm text-slate-400 p-3 bg-slate-900/30 rounded-md">
@@ -521,8 +514,7 @@ const CreateTournament = () => {
                 Prêmio total estimado:{" "}
                 <span className="font-bold text-yellow-400">
                   R$ {prizePool}
-                </span>{" "}
-                (após taxa de 20%)
+                </span>
               </div>
             </motion.div>
 
