@@ -100,6 +100,20 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
                 },
               },
             });
+
+            await prisma.transaction.create({
+              data: {
+                userId,
+                amount: -tournamentData.entryFee,
+                type: "TOURNAMENT_ENTRY",
+                status: "COMPLETED",
+                description: `Entrada no torneio: ${tournament.name}`,
+                metadata: {
+                  tournamentId: tournament.id,
+                  tournamentName: tournament.name,
+                },
+              },
+            });
           }
 
           return tournament;
@@ -260,8 +274,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const prizePool =
-        tournament.entryFee * tournament._count.participants * 0.8;
+      const prizePool = tournament.entryFee * tournament._count.participants;
 
       const isCreator = userId && tournament.creatorId === userId;
 
@@ -413,7 +426,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           }
         }
 
-        await fastify.prisma.$transaction(async (prisma) => {
+        const result = await fastify.prisma.$transaction(async (prisma) => {
           await prisma.tournamentParticipant.create({
             data: {
               tournamentId,
@@ -430,11 +443,41 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
                 },
               },
             });
+
+            await prisma.transaction.create({
+              data: {
+                userId,
+                amount: -tournament.entryFee,
+                type: "TOURNAMENT_ENTRY",
+                status: "COMPLETED",
+                description: `Entrada no torneio: ${tournament.name}`,
+                metadata: {
+                  tournamentId,
+                  tournamentName: tournament.name,
+                },
+              },
+            });
           }
+
+          const updatedUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              balance: true,
+              stripeCustomerId: true,
+              stripeSubscriptionId: true,
+            },
+          });
+
+          return updatedUser;
         });
 
         return reply.send({
           message: "Participação confirmada com sucesso",
+          updatedUser: result,
         });
       } catch (error) {
         fastify.log.error(error);
@@ -497,6 +540,20 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
                 },
               },
             });
+
+            await prisma.transaction.create({
+              data: {
+                userId,
+                amount: tournament.entryFee,
+                type: "REFUND",
+                status: "COMPLETED",
+                description: `Reembolso de saída do torneio: ${tournament.name}`,
+                metadata: {
+                  tournamentId,
+                  tournamentName: tournament.name,
+                },
+              },
+            });
           }
         });
 
@@ -555,6 +612,20 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
                 data: {
                   balance: {
                     increment: tournament.entryFee,
+                  },
+                },
+              });
+
+              await prisma.transaction.create({
+                data: {
+                  userId: participant.userId,
+                  amount: tournament.entryFee,
+                  type: "REFUND",
+                  status: "COMPLETED",
+                  description: `Reembolso - Torneio cancelado: ${tournament.name}`,
+                  metadata: {
+                    tournamentId,
+                    tournamentName: tournament.name,
                   },
                 },
               });
