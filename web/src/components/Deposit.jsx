@@ -8,85 +8,70 @@ import {
   CardDescription,
 } from "./ui/card";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useToast } from "./ui/use-toast";
-import { Wallet, DollarSign, CreditCard, Loader2 } from "lucide-react";
-import { loadStripe } from "@stripe/stripe-js";
+import { Wallet, CreditCard, Loader2 } from "lucide-react";
 import { UserContext } from "../contexts/UserContext";
 
-const depositOptions = [10, 20, 50, 100, 200, 500];
-const STRIPE_PUBLISHABLE_KEY =
-  "pk_test_51RtHls2XMJs3OkwIAqlBmCIWeOSrot4G6KZXfOjhGVxoYeZj6BgpPUEuIPyXdlxdCvxSQLEpZQeicbGf2YQz7uAa00EVPUfCj7";
-const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+const depositOptions = [
+  {
+    amount: 1,
+    priceId: "price_1SMqB9BOcWVXza8Xb7xIl8mE", // Seu Price ID de R$ 1,00
+  },
+  // Adicione mais quando tiver os outros Price IDs
+  // { amount: 10, priceId: "price_xxx" },
+  // { amount: 20, priceId: "price_xxx" },
+  // { amount: 50, priceId: "price_xxx" },
+];
 
 const Deposit = () => {
   const { toast } = useToast();
-  const { user, setUser } = useContext(UserContext);
-  const [amount, setAmount] = useState(10);
-  const [customAmount, setCustomAmount] = useState("");
+  const { user } = useContext(UserContext);
+  const [selectedOption, setSelectedOption] = useState(depositOptions[0]);
   const [isLoading, setIsLoading] = useState(false);
 
   const handlePayment = async () => {
     setIsLoading(true);
-    const depositValue = customAmount ? parseFloat(customAmount) : amount;
-
-    if (isNaN(depositValue) || depositValue < 10) {
-      toast({
-        title: "Valor Inválido",
-        description: "O valor mínimo para depósito é de R$ 10,00.",
-        variant: "destructive",
-      });
-      setIsLoading(false);
-      return;
-    }
 
     try {
-      const stripe = await stripePromise;
+      const token = localStorage.getItem("auth_token");
 
-      const response = await fetch("https://api.stripe.com/v1/payment_links", {
+      const response = await fetch(`${API_URL}/payments/create-checkout`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer sk_test_51RtHls2XMJs3OkwI238kMk6sVib5nzzaBBk8ALOllP70mUViE2S0fE2Sq14FOHwa385RswJhpSq07Oax7tUO9UL3001UylpS2w`,
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: new URLSearchParams({
-          "line_items[0][price_data][currency]": "brl",
-          "line_items[0][price_data][product_data][name]": `Depósito de Créditos`,
-          "line_items[0][price_data][unit_amount]": Math.round(
-            depositValue * 100
-          ),
-          "line_items[0][quantity]": 1,
-          "payment_method_types[]": "card",
-          "after_completion[type]": "redirect",
-          "after_completion[redirect][url]": `${window.location.origin}/wallet?deposit_success=true&amount=${depositValue}`,
+        body: JSON.stringify({
+          priceId: selectedOption.priceId,
+          amount: selectedOption.amount,
         }),
       });
 
-      const paymentLink = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erro ao criar sessão de pagamento");
+      }
 
-      if (paymentLink.url) {
-        window.location.href = paymentLink.url;
+      const data = await response.json();
+
+      if (data.url) {
+        window.location.href = data.url;
       } else {
-        throw new Error("Falha ao criar o link de pagamento.");
+        throw new Error("URL de checkout não foi retornada");
       }
     } catch (error) {
       console.error("Stripe Error:", error);
       toast({
         title: "Erro no Pagamento",
         description:
+          error.message ||
           "Não foi possível iniciar o pagamento. Por favor, tente novamente.",
         variant: "destructive",
       });
       setIsLoading(false);
-    }
-  };
-
-  const handleCustomAmountChange = (e) => {
-    const value = e.target.value;
-    setCustomAmount(value);
-    if (value && !isNaN(parseFloat(value))) {
-      setAmount(0);
     }
   };
 
@@ -108,45 +93,33 @@ const Deposit = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label>Escolha um valor ou digite abaixo</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {depositOptions.map((opt) => (
-                <Button
-                  key={opt}
-                  variant={
-                    amount === opt && !customAmount ? "default" : "secondary"
-                  }
-                  onClick={() => {
-                    setAmount(opt);
-                    setCustomAmount("");
-                  }}
-                  className={`transition-all ${
-                    amount === opt && !customAmount ? "bg-cyan-500" : ""
-                  }`}
-                >
-                  R$ {opt}
-                </Button>
-              ))}
-            </div>
+          <div className="p-4 bg-slate-900/50 rounded-lg text-center">
+            <p className="text-sm text-slate-400">SALDO ATUAL</p>
+            <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-cyan-400">
+              R$ {user.balance ? user.balance.toFixed(2) : "0.00"}
+            </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="customAmount">
-              Ou insira um valor (mín. R$ 10,00)
-            </Label>
-            <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-              <Input
-                id="customAmount"
-                type="number"
-                placeholder="0.00"
-                min="10"
-                step="0.01"
-                value={customAmount}
-                onChange={handleCustomAmountChange}
-                className="pl-10"
-              />
+            <Label>Escolha um valor</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {depositOptions.map((opt) => (
+                <Button
+                  key={opt.priceId}
+                  variant={
+                    selectedOption.priceId === opt.priceId
+                      ? "default"
+                      : "secondary"
+                  }
+                  onClick={() => setSelectedOption(opt)}
+                  className={`transition-all ${
+                    selectedOption.priceId === opt.priceId ? "bg-cyan-500" : ""
+                  }`}
+                  disabled={isLoading}
+                >
+                  R$ {opt.amount}
+                </Button>
+              ))}
             </div>
           </div>
 
@@ -164,7 +137,7 @@ const Deposit = () => {
               ) : (
                 <CreditCard className="w-5 h-5 mr-2" />
               )}
-              Pagar com Cartão / PIX
+              Pagar R$ {selectedOption.amount.toFixed(2)}
             </Button>
             <p className="text-xs text-slate-500 text-center">
               Você será redirecionado para um ambiente de pagamento seguro do
