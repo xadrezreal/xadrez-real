@@ -369,9 +369,7 @@ const CustomTournamentRegistration = () => {
 
   const startTime = new Date(tournament.startTime);
 
-  const totalPrizePool = (
-    parseFloat(tournament.entryFee || 0) * participantCount
-  ).toFixed(2);
+  const totalPrizePool = tournament.prizePool?.toFixed(2) || "0.00";
 
   return (
     <motion.div
