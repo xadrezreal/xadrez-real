@@ -37,7 +37,7 @@ const SubscriptionManager = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedPlan, setSelectedPlan] = (useState < string) | (null > null);
+  const [selectedPlan, setSelectedPlan] = useState(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
