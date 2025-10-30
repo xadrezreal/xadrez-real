@@ -37,7 +37,7 @@ const SubscriptionManager = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [selectedPlan, setSelectedPlan] = (useState < string) | (null > null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -72,7 +72,7 @@ const SubscriptionManager = () => {
         "Acesso total por 30 dias",
         "Todos os recursos Premium",
         "Cancele quando quiser",
-        "Após o período: R$ 14,99/mês",
+        "Após o período: R$ 15/mês",
       ],
       popular: false,
       icon: <Zap className="w-8 h-8 text-cyan-400" />,
@@ -81,7 +81,7 @@ const SubscriptionManager = () => {
     {
       id: "monthly",
       name: "Plano Mensal",
-      price: 14.99,
+      price: 15.0,
       period: "mês",
       description: "Flexibilidade total, cancele quando quiser",
       features: [
@@ -97,15 +97,15 @@ const SubscriptionManager = () => {
     {
       id: "yearly",
       name: "Plano Anual",
-      price: 144.0,
+      price: 140.0,
       originalPrice: 180.0,
       period: "ano",
       description: "Economize 20% com o plano anual",
       features: [
         "Todos os recursos Premium",
-        "Economia de R$ 36/ano",
+        "Economia de R$ 40/ano",
         "Melhor custo-benefício",
-        "Apenas R$ 12/mês",
+        "Apenas R$ 11,67/mês",
       ],
       popular: false,
       discount: "20% OFF",

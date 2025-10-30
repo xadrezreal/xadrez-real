@@ -15,7 +15,6 @@ interface CreateCheckoutBody {
 }
 
 export async function paymentRoutes(fastify: FastifyInstance) {
-  // ==================== CRIAR CHECKOUT PARA DEPÓSITO ====================
   fastify.post(
     "/create-checkout",
     { preHandler: [fastify.authenticate] },
@@ -24,7 +23,6 @@ export async function paymentRoutes(fastify: FastifyInstance) {
         const { priceId, amount } = request.body as CreateCheckoutBody;
         const userId = request.user.id;
 
-        // Validações
         if (!priceId) {
           return reply.code(400).send({
             error: "Price ID é obrigatório",
@@ -37,7 +35,6 @@ export async function paymentRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Busca usuário
         const user = await fastify.prisma.user.findUnique({
           where: { id: userId },
           select: { id: true, email: true, name: true },
@@ -51,7 +48,6 @@ export async function paymentRoutes(fastify: FastifyInstance) {
 
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
 
-        // Cria sessão do Stripe (mode: payment)
         const session = await stripe.checkout.sessions.create({
           payment_method_types: ["card"],
           line_items: [
@@ -60,7 +56,7 @@ export async function paymentRoutes(fastify: FastifyInstance) {
               quantity: 1,
             },
           ],
-          mode: "payment", // Pagamento único (não recorrente)
+          mode: "payment",
           success_url: `${frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${frontendUrl}/wallet?deposit_cancelled=true`,
           metadata: {
@@ -93,7 +89,6 @@ export async function paymentRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // ==================== WEBHOOK ====================
   fastify.post(
     "/webhook",
     {
@@ -141,7 +136,6 @@ export async function paymentRoutes(fastify: FastifyInstance) {
         eventId: event.id,
       });
 
-      // ==================== PROCESSAR CHECKOUT COMPLETO ====================
       if (event.type === "checkout.session.completed") {
         const session = event.data.object as any;
 
@@ -151,7 +145,6 @@ export async function paymentRoutes(fastify: FastifyInstance) {
           metadata: session.metadata,
         });
 
-        // Verifica se é depósito (não assinatura)
         if (session.metadata?.type === "deposit") {
           try {
             const userId = session.metadata.userId;
@@ -162,7 +155,6 @@ export async function paymentRoutes(fastify: FastifyInstance) {
               return reply.code(400).send({ error: "Metadata inválido" });
             }
 
-            // Atualiza saldo do usuário
             await fastify.prisma.user.update({
               where: { id: userId },
               data: {
@@ -172,7 +164,6 @@ export async function paymentRoutes(fastify: FastifyInstance) {
               },
             });
 
-            // Cria registro de transação
             await fastify.prisma.transaction.create({
               data: {
                 userId: userId,
@@ -209,7 +200,6 @@ export async function paymentRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // ==================== VERIFICAR SESSÃO ====================
   fastify.get(
     "/verify-session/:sessionId",
     { preHandler: [fastify.authenticate] },
@@ -250,7 +240,6 @@ export async function paymentRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // ==================== LISTAR TRANSAÇÕES DO USUÁRIO ====================
   fastify.get(
     "/transactions",
     { preHandler: [fastify.authenticate] },

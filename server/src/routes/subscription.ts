@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { stripe } from "../config/stripe";
+import { SUBSCRIPTION_PLANS, SubscriptionPlanId } from "../config/stripe-plans";
 
 interface AuthenticatedRequest extends FastifyRequest {
   user: {
@@ -9,14 +10,22 @@ interface AuthenticatedRequest extends FastifyRequest {
   };
 }
 
+interface CheckoutBody {
+  planId: SubscriptionPlanId;
+}
+
 export async function subscriptionRoutes(fastify: FastifyInstance) {
-  // ==================== CHECKOUT ====================
   fastify.post(
     "/checkout",
     { preHandler: [fastify.authenticate] },
     async (request: AuthenticatedRequest, reply: FastifyReply) => {
       try {
+        const { planId } = request.body as CheckoutBody;
         const userId = request.user.id;
+
+        if (!planId || !SUBSCRIPTION_PLANS[planId]) {
+          return reply.code(400).send({ error: "Plano inválido" });
+        }
 
         const user = await fastify.prisma.user.findUnique({
           where: { id: userId },
@@ -30,7 +39,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
           return reply.code(400).send({ error: "Usuário já é premium" });
         }
 
-        // Verifica se já tem assinatura ativa
         if (user.stripeCustomerId && user.stripeSubscriptionId) {
           try {
             const subscription = await stripe.subscriptions.retrieve(
@@ -44,23 +52,32 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
           }
         }
 
-        // Cria sessão de checkout
+        const plan = SUBSCRIPTION_PLANS[planId];
+
         const session = await stripe.checkout.sessions.create({
-          customer: user.stripeCustomerId || undefined, // ✅ Reutiliza customer se existir
-          customer_email: user.stripeCustomerId ? undefined : user.email, // ✅ Email só para novos
+          customer: user.stripeCustomerId || undefined,
+          customer_email: user.stripeCustomerId ? undefined : user.email,
           mode: "subscription",
           line_items: [
             {
-              price: process.env.STRIPE_PRICE_ID!,
+              price: plan.priceId,
               quantity: 1,
             },
           ],
-          success_url: `${process.env.FRONTEND_URL}/profile?upgraded=true`,
-          cancel_url: `${process.env.FRONTEND_URL}/profile?cancelled=true`,
-          allow_promotion_codes: true, // ✅ Permite cupons de desconto
+          success_url: `${process.env.FRONTEND_URL}/subscription?upgraded=true`,
+          cancel_url: `${process.env.FRONTEND_URL}/subscription?cancelled=true`,
+          allow_promotion_codes: true,
           metadata: {
             userId: userId,
+            planId: planId,
           },
+        });
+
+        fastify.log.info({
+          message: "[SUBSCRIPTION] Checkout session created",
+          userId,
+          planId,
+          sessionId: session.id,
         });
 
         return reply.send({ url: session.url });
@@ -74,7 +91,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // ==================== PORTAL ====================
   fastify.post(
     "/portal",
     { preHandler: [fastify.authenticate] },
@@ -96,7 +112,7 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
 
         const session = await stripe.billingPortal.sessions.create({
           customer: user.stripeCustomerId,
-          return_url: `${process.env.FRONTEND_URL}/profile`,
+          return_url: `${process.env.FRONTEND_URL}/subscription`,
         });
 
         return reply.send({ url: session.url });
@@ -110,7 +126,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // ==================== CANCELAR ====================
   fastify.post(
     "/cancel",
     { preHandler: [fastify.authenticate] },
@@ -159,7 +174,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // ==================== WEBHOOK ====================
   fastify.post(
     "/webhook",
     {
@@ -192,7 +206,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
           return reply.code(400).send(`Webhook Error: ${err.message}`);
         }
 
-        // ✅ IDEMPOTÊNCIA - Verifica se evento já foi processado
         const existingEvent = await fastify.prisma.stripeEvent.findUnique({
           where: { eventId: event.id },
         });
@@ -209,9 +222,7 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
           timestamp: new Date().toISOString(),
         });
 
-        // ==================== PROCESSAR EVENTOS ====================
         switch (event.type) {
-          // ✅ Salva o customer ID quando checkout completa
           case "checkout.session.completed": {
             const session = event.data.object as any;
 
@@ -220,7 +231,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
                 where: { id: session.metadata.userId },
                 data: {
                   stripeCustomerId: session.customer as string,
-                  // ⚠️ NÃO torna PREMIUM aqui - espera customer.subscription.created
                 },
               });
 
@@ -231,7 +241,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
             break;
           }
 
-          // ✅ Torna PREMIUM apenas quando assinatura é criada E está ativa
           case "customer.subscription.created": {
             const subscription = event.data.object as any;
 
@@ -257,7 +266,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
             break;
           }
 
-          // ✅ Remove PREMIUM quando assinatura é deletada
           case "customer.subscription.deleted": {
             const subscription = event.data.object as any;
 
@@ -283,7 +291,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
             break;
           }
 
-          // ✅ Atualiza status da assinatura
           case "customer.subscription.updated": {
             const subscription = event.data.object as any;
 
@@ -292,7 +299,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
             });
 
             if (user) {
-              // Log de cancelamento agendado
               if (subscription.cancel_at_period_end) {
                 fastify.log.info({
                   message: "Assinatura agendada para cancelamento",
@@ -303,7 +309,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
                 });
               }
 
-              // Remove premium se status mudou para canceled/unpaid
               if (
                 subscription.status === "canceled" ||
                 subscription.status === "unpaid" ||
@@ -323,7 +328,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
                 });
               }
 
-              // Reativa se voltou a ficar ativo
               if (subscription.status === "active" && user.role !== "PREMIUM") {
                 await fastify.prisma.user.update({
                   where: { id: user.id },
@@ -342,7 +346,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
             break;
           }
 
-          // ✅ Trata falha de pagamento
           case "invoice.payment_failed": {
             const invoice = event.data.object as any;
 
@@ -359,9 +362,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
                   ? new Date(invoice.next_payment_attempt * 1000).toISOString()
                   : null,
               });
-
-              // Aqui você pode enviar email ao usuário notificando
-              // Stripe tentará cobrar automaticamente
             }
             break;
           }
@@ -370,7 +370,6 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
             fastify.log.info(`Evento não tratado: ${event.type}`);
         }
 
-        // ✅ Marca evento como processado
         await fastify.prisma.stripeEvent.create({
           data: {
             eventId: event.id,
