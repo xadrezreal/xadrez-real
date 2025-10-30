@@ -34,6 +34,8 @@ export const useGameEffects = ({
   const lastSavedTimeRef = useRef({ white: null, black: null });
   const saveTimeIntervalRef = useRef(null);
   const currentGameIdRef = useRef(null);
+  const timerRef = useRef(null);
+  const timeoutHandledRef = useRef(false);
 
   const getBotMove = useCallback(() => {
     const move = getAdvancedBotMove(game.fen(), game.turn(), botLevel);
@@ -85,10 +87,16 @@ export const useGameEffects = ({
     if (currentGameIdRef.current !== gameId) {
       gameInitialized.current = false;
       lastSavedTimeRef.current = { white: null, black: null };
+      timeoutHandledRef.current = false;
 
       if (saveTimeIntervalRef.current) {
         clearInterval(saveTimeIntervalRef.current);
         saveTimeIntervalRef.current = null;
+      }
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
       }
 
       currentGameIdRef.current = gameId;
@@ -199,6 +207,7 @@ export const useGameEffects = ({
   useEffect(() => {
     return () => {
       gameInitialized.current = false;
+      timeoutHandledRef.current = false;
     };
   }, [gameId]);
 
@@ -224,7 +233,13 @@ export const useGameEffects = ({
   }, [isGameActive, gameType, gameId, whiteTime, blackTime, saveGameTime]);
 
   useEffect(() => {
-    if (!isGameActive || whiteTime === null || blackTime === null) return;
+    if (!isGameActive || whiteTime === null || blackTime === null) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
 
     if (!gameData || !gameData.white_player_id || !gameData.black_player_id) {
       return;
@@ -238,17 +253,24 @@ export const useGameEffects = ({
       return;
     }
 
-    let timeoutCalled = false;
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
 
-    const timer = setInterval(() => {
+    if (isGameActive && gameStatus === "playing") {
+      timeoutHandledRef.current = false;
+    }
+
+    timerRef.current = setInterval(() => {
       if (currentPlayer === "white") {
         setWhiteTime((t) => {
-          if (t !== null && t <= 0 && !timeoutCalled) {
-            timeoutCalled = true;
+          if (t !== null && t <= 0 && !timeoutHandledRef.current) {
+            timeoutHandledRef.current = true;
             const loserName = gameData.white_player_name;
             const winnerName = gameData.black_player_name;
 
-            clearInterval(timer);
+            clearInterval(timerRef.current);
+            timerRef.current = null;
 
             const isUserTheLoser = gameData.white_player_id === user.id;
 
@@ -274,12 +296,13 @@ export const useGameEffects = ({
         });
       } else {
         setBlackTime((t) => {
-          if (t !== null && t <= 0 && !timeoutCalled) {
-            timeoutCalled = true;
+          if (t !== null && t <= 0 && !timeoutHandledRef.current) {
+            timeoutHandledRef.current = true;
             const loserName = gameData.black_player_name;
             const winnerName = gameData.white_player_name;
 
-            clearInterval(timer);
+            clearInterval(timerRef.current);
+            timerRef.current = null;
 
             const isUserTheLoser = gameData.black_player_id === user.id;
 
@@ -307,7 +330,10 @@ export const useGameEffects = ({
     }, 1000);
 
     return () => {
-      clearInterval(timer);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
   }, [
     isGameActive,
@@ -320,5 +346,6 @@ export const useGameEffects = ({
     handleResign,
     setWhiteTime,
     setBlackTime,
+    gameStatus,
   ]);
 };

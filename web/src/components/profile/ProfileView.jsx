@@ -326,12 +326,11 @@ const ProfileView = () => {
                 type="button"
                 variant="outline"
                 className="w-full"
-                onClick={() => setShowSettings(!showSettings)}
+                onClick={() => navigate("/subscription")}
               >
                 <Settings className="w-4 h-4 mr-2" />
-                {showSettings ? "Ocultar" : "Gerenciar"} Assinatura
+                Gerenciar Assinatura
               </Button>
-
               <Button
                 onClick={handleSignOut}
                 disabled={authLoading}

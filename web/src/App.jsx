@@ -49,6 +49,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CartProvider, useCart } from "./hooks/useCart";
 import { Button } from "./components/ui/button";
 import { useTranslation } from "react-i18next";
+import SubscriptionManager from "./components/SubscriptionManager";
 
 const LoadingScreen = () => (
   <div className="flex items-center justify-center h-screen w-screen bg-slate-900 text-white">
@@ -264,6 +265,7 @@ const AppContent = () => {
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/deposit" element={<Deposit />} />
             <Route path="/premium" element={<Premium />} />
+            <Route path="/subscription" element={<SubscriptionManager />} />
             <Route path="/hall-of-fame" element={<HallOfFame />} />
           </Routes>
         </main>
