@@ -64,7 +64,7 @@ const Home = () => {
     checkRegistration(() => navigate("/create-tournament"));
   const handleTournament = () =>
     checkRegistration(() => navigate("/tournament"));
-  const handlePremium = () => navigate("/premium");
+  const handlePremium = () => navigate("/subscription");
 
   const timeOptions = [
     { label: "10 min", value: 600 },
