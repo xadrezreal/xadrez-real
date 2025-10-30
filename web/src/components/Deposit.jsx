@@ -22,27 +22,26 @@ const depositOptions = [
     amount: 1,
     priceId: "price_1SNcg0BOcWVXza8XshopeAH0",
   },
-  // Adicione mais conforme criar no Stripe:
-  // {
-  //   amount: 10,
-  //   priceId: "price_XXXXX",
-  // },
-  // {
-  //   amount: 20,
-  //   priceId: "price_YYYYY",
-  // },
-  // {
-  //   amount: 50,
-  //   priceId: "price_ZZZZZ",
-  // },
-  // {
-  //   amount: 100,
-  //   priceId: "price_WWWWW",
-  // },
-  // {
-  //   amount: 200,
-  //   priceId: "price_QQQQQ",
-  // },
+  {
+    amount: 10,
+    priceId: "price_1SO2k9BOcWVXza8XerIqIiNW",
+  },
+  {
+    amount: 20,
+    priceId: "price_1SO2kzBOcWVXza8XGZbtrKj3",
+  },
+  {
+    amount: 50,
+    priceId: "price_1SO2lBBOcWVXza8XKEKKHLuu",
+  },
+  {
+    amount: 100,
+    priceId: "price_1SO2lIBOcWVXza8XpANjmt2K",
+  },
+  {
+    amount: 200,
+    priceId: "price_1SO2lQBOcWVXza8X4i7a2QWP",
+  },
 ];
 
 const Deposit = () => {
