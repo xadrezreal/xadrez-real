@@ -50,11 +50,11 @@ const ProfileView = () => {
   } = useAuth();
   const { user, setUser } = useContext(UserContext);
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [showSettings, setShowSettings] = useState(false);
-  const { navigate } = useNavigate();
 
   useEffect(() => {
     if (authUser) {
@@ -63,7 +63,6 @@ const ProfileView = () => {
     }
   }, [authUser]);
 
-  // ✅ Tratamento de parâmetros da URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
@@ -141,7 +140,6 @@ const ProfileView = () => {
         throw new Error("URL de checkout não recebida");
       }
 
-      // Redireciona para o Stripe
       window.location.href = data.url;
     } catch (error) {
       toast({
@@ -333,6 +331,7 @@ const ProfileView = () => {
                 <Settings className="w-4 h-4 mr-2" />
                 Gerenciar Assinatura
               </Button>
+
               <Button
                 onClick={handleSignOut}
                 disabled={authLoading}
@@ -345,146 +344,6 @@ const ProfileView = () => {
           </form>
         </CardContent>
       </Card>
-
-      {showSettings && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
-        >
-          <Card className="bg-slate-800/50 border-slate-700 text-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <CreditCard className="w-6 h-6 text-cyan-400" />
-                Gerenciar Assinatura
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h3 className="font-bold text-lg flex items-center gap-2">
-                    <Crown className="w-5 h-5 text-yellow-400" />
-                    Premium
-                  </h3>
-                  <ul className="space-y-2">
-                    {premiumFeatures.map((feature, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm">
-                        <Check className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                        <span className="text-slate-300">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  {!isPremium && (
-                    <Button
-                      onClick={handleUpgrade}
-                      disabled={loading}
-                      className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
-                    >
-                      <Crown className="w-4 h-4 mr-2" />
-                      {loading
-                        ? "Processando..."
-                        : "Fazer Upgrade - R$ 19,90/mês"}
-                    </Button>
-                  )}
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="font-bold text-lg flex items-center gap-2">
-                    Freemium
-                  </h3>
-                  <ul className="space-y-2">
-                    {freemiumLimitations.map((limitation, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm">
-                        <X className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
-                        <span className="text-slate-400">{limitation}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              {isPremium && (
-                <div className="border-t border-slate-700 pt-6 space-y-4">
-                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <Crown className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-1" />
-                      <div>
-                        <h4 className="font-bold text-yellow-400 mb-1">
-                          Você é Premium!
-                        </h4>
-                        <p className="text-sm text-slate-300">
-                          Aproveite todos os benefícios exclusivos. Sua
-                          assinatura renova automaticamente.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={handleManageSubscription}
-                      disabled={loading}
-                      variant="outline"
-                      className="flex-1"
-                    >
-                      {loading ? "Carregando..." : "Gerenciar no Stripe"}
-                    </Button>
-
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="destructive"
-                          disabled={loading}
-                          className="flex-1"
-                        >
-                          <AlertTriangle className="w-4 h-4 mr-2" />
-                          Cancelar Assinatura
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="bg-slate-800 border-slate-700">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="text-white flex items-center gap-2">
-                            <AlertTriangle className="w-6 h-6 text-red-400" />
-                            Tem certeza?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription className="text-slate-300">
-                            Ao cancelar sua assinatura Premium:
-                            <ul className="list-disc list-inside mt-3 space-y-1 text-sm">
-                              <li>Você perderá acesso aos recursos Premium</li>
-                              <li>Voltará para a conta Freemium</li>
-                              <li>
-                                Manterá os benefícios até o fim do período pago
-                              </li>
-                              <li>
-                                Poderá fazer upgrade novamente a qualquer
-                                momento
-                              </li>
-                            </ul>
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel className="bg-slate-700">
-                            Manter Premium
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={handleCancelSubscription}
-                            disabled={loading}
-                            className="bg-red-500 hover:bg-red-600"
-                          >
-                            {loading
-                              ? "Cancelando..."
-                              : "Confirmar Cancelamento"}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
     </motion.div>
   );
 };
