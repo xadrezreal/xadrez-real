@@ -33,6 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../ui/alert-dialog";
+import { useNavigate } from "react-router-dom";
 
 const itemVariants = {
   hidden: { opacity: 0, x: -20 },
@@ -53,6 +54,7 @@ const ProfileView = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const { navigate } = useNavigate();
 
   useEffect(() => {
     if (authUser) {
