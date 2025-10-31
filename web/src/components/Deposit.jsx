@@ -16,7 +16,6 @@ import { UserContext } from "../contexts/UserContext";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-// Configure aqui seus Price IDs do Stripe
 const depositOptions = [
   {
     amount: 1,
@@ -145,7 +144,6 @@ const Deposit = () => {
             </p>
           </div>
 
-          {/* Opções de Valores */}
           <div className="space-y-2">
             <Label className="text-slate-300">Escolha um valor</Label>
             <div className="grid grid-cols-3 gap-2">
@@ -169,11 +167,6 @@ const Deposit = () => {
                 </Button>
               ))}
             </div>
-            {depositOptions.length === 1 && (
-              <p className="text-xs text-slate-500 text-center mt-2">
-                💡 Mais opções de valores em breve!
-              </p>
-            )}
           </div>
 
           {/* Benefícios */}

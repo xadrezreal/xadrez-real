@@ -23,9 +23,11 @@ class ApiClient {
     try {
       const response = await fetch(url, config);
       const data = await response.json();
+
       if (!response.ok) {
         throw new Error(data.error || "Erro na requisição");
       }
+
       return { data, error: null };
     } catch (error) {
       console.error("API Error:", error);
@@ -38,9 +40,11 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify(userData),
     });
+
     if (data?.token) {
       this.setToken(data.token);
     }
+
     return { data, error };
   }
 
@@ -49,14 +53,22 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
+
     if (data?.token) {
       this.setToken(data.token);
     }
+
     return { data, error };
   }
 
   async getMe() {
-    return await this.request("/auth/me");
+    const { data, error } = await this.request("/auth/me");
+
+    if (data && !data.user) {
+      return { data: { user: data }, error };
+    }
+
+    return { data, error };
   }
 
   async updateUser(userId, userData) {
