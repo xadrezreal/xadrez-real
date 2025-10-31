@@ -40,7 +40,7 @@ const CreateTournament = () => {
   const [tournamentName, setTournamentName] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [entryFee, setEntryFee] = useState("1");
+  const [entryFee, setEntryFee] = useState("0");
   const [playerCount, setPlayerCount] = useState(8);
   const [prizeDistribution, setPrizeDistribution] = useState("SPLIT_TOP_2");
   const [startDate, setStartDate] = useState("");
@@ -52,6 +52,7 @@ const CreateTournament = () => {
   const { user: authUser } = useAuth();
 
   const isPremium = authUser?.role === "PREMIUM";
+  const userBalance = authUser?.balance || 0;
 
   const getDefaultDateTime = () => {
     const now = new Date();
@@ -99,6 +100,21 @@ const CreateTournament = () => {
       return;
     }
 
+    const fee = parseFloat(entryFee);
+
+    if (fee > 0 && userBalance < fee) {
+      toast({
+        title: "Saldo insuficiente",
+        description: `Você precisa de R$ ${fee.toFixed(
+          2
+        )} para criar e participar deste torneio. Seu saldo atual: R$ ${userBalance.toFixed(
+          2
+        )}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const startDateTime = new Date(`${startDate}T${startTime}`);
     const now = new Date();
     const minStartTime = new Date(now.getTime() + 5 * 60 * 1000);
@@ -138,8 +154,6 @@ const CreateTournament = () => {
         return;
       }
 
-      const fee = parseFloat(entryFee);
-
       const response = await fetch(
         `${
           import.meta.env.VITE_API_URL || "http://localhost:3000"
@@ -176,6 +190,20 @@ const CreateTournament = () => {
           navigate("/premium");
           return;
         }
+
+        if (
+          response.status === 400 &&
+          data.error?.includes("Saldo insuficiente")
+        ) {
+          toast({
+            title: "Saldo insuficiente",
+            description: data.error,
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
         throw new Error(data.error || "Erro ao criar torneio");
       }
 
@@ -277,7 +305,7 @@ const CreateTournament = () => {
                     </li>
                     <li className="flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-cyan-400" />
-                      Participe GRÁTIS dos seus torneios e concorra aos prêmios
+                      Organize torneios com ou sem taxa de entrada
                     </li>
                   </ul>
                 </div>
@@ -331,10 +359,10 @@ const CreateTournament = () => {
           <CardDescription className="text-slate-400">
             Personalize as regras e convide seus amigos para a disputa!
           </CardDescription>
-          <div className="mt-2 text-xs bg-green-500/20 border border-green-500/30 rounded-lg p-2">
-            <Crown className="inline w-4 h-4 text-yellow-400 mr-1" />
-            <span className="text-green-400 font-bold">
-              Como Premium, você participa GRÁTIS e concorre aos prêmios!
+          <div className="mt-2 text-xs bg-blue-500/20 border border-blue-500/30 rounded-lg p-2">
+            <Info className="inline w-4 h-4 text-blue-400 mr-1" />
+            <span className="text-blue-300">
+              Seu saldo atual: <strong>R$ {userBalance.toFixed(2)}</strong>
             </span>
           </div>
         </CardHeader>
@@ -438,7 +466,7 @@ const CreateTournament = () => {
             <motion.div variants={itemVariants} className="space-y-2">
               <Label>
                 <DollarSign className="inline-block w-4 h-4 mr-1" />
-                Valor da Entrada (para jogadores Freemium)
+                Taxa de Entrada
               </Label>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {entryFees.map((fee) => (
@@ -449,17 +477,21 @@ const CreateTournament = () => {
                     onClick={() => setEntryFee(String(fee))}
                     className={`transition-all ${
                       entryFee === String(fee) ? "bg-cyan-500" : "bg-slate-700"
-                    }`}
+                    } ${fee > 0 && userBalance < fee ? "opacity-50" : ""}`}
                     disabled={isLoading}
                   >
                     {fee === 0 ? "Grátis" : `R$ ${fee.toLocaleString("pt-BR")}`}
                   </Button>
                 ))}
               </div>
-              <p className="text-xs text-slate-400 mt-2">
-                <Crown className="inline w-3 h-3 text-yellow-400 mr-1" />
-                Como Premium, você entra grátis independente do valor
-              </p>
+
+              {parseFloat(entryFee) > 0 &&
+                userBalance < parseFloat(entryFee) && (
+                  <p className="text-xs text-red-400 mt-2">
+                    <AlertTriangle className="inline w-3 h-3 mr-1" />
+                    Saldo insuficiente para esta taxa de entrada
+                  </p>
+                )}
             </motion.div>
 
             <motion.div variants={itemVariants} className="space-y-2">
@@ -522,7 +554,11 @@ const CreateTournament = () => {
               <Button
                 type="submit"
                 className="w-full text-lg bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 shadow-lg"
-                disabled={isLoading}
+                disabled={
+                  isLoading ||
+                  (parseFloat(entryFee) > 0 &&
+                    userBalance < parseFloat(entryFee))
+                }
               >
                 {isLoading ? "Criando..." : "Criar Torneio"}
               </Button>

@@ -53,6 +53,17 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           });
         }
 
+        if (
+          tournamentData.entryFee > 0 &&
+          user.balance < tournamentData.entryFee
+        ) {
+          return reply.status(400).send({
+            error: "Saldo insuficiente para criar e participar do torneio",
+            requiredAmount: tournamentData.entryFee,
+            currentBalance: user.balance,
+          });
+        }
+
         const result = await fastify.prisma.$transaction(async (prisma) => {
           const tournament = await prisma.tournament.create({
             data: {
@@ -79,9 +90,34 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             data: {
               tournamentId: tournament.id,
               userId: userId,
-              paidEntry: false,
+              paidEntry: tournamentData.entryFee > 0,
             },
           });
+
+          if (tournamentData.entryFee > 0) {
+            await prisma.user.update({
+              where: { id: userId },
+              data: {
+                balance: {
+                  decrement: tournamentData.entryFee,
+                },
+              },
+            });
+
+            await prisma.transaction.create({
+              data: {
+                userId,
+                amount: -tournamentData.entryFee,
+                type: "TOURNAMENT_ENTRY",
+                status: "COMPLETED",
+                description: `Entrada no torneio: ${tournamentData.name}`,
+                metadata: {
+                  tournamentId: tournament.id,
+                  tournamentName: tournamentData.name,
+                },
+              },
+            });
+          }
 
           return tournament;
         });
@@ -397,12 +433,12 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           select: { balance: true, role: true },
         });
 
-        const isPremium = user?.role === "PREMIUM";
-
-        if (tournament.entryFee > 0 && !isPremium) {
+        if (tournament.entryFee > 0) {
           if (!user || user.balance < tournament.entryFee) {
             return reply.status(400).send({
               error: "Saldo insuficiente para participar do torneio",
+              requiredAmount: tournament.entryFee,
+              currentBalance: user?.balance || 0,
             });
           }
         }
@@ -412,11 +448,11 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             data: {
               tournamentId,
               userId,
-              paidEntry: !isPremium,
+              paidEntry: tournament.entryFee > 0,
             },
           });
 
-          if (tournament.entryFee > 0 && !isPremium) {
+          if (tournament.entryFee > 0) {
             await prisma.user.update({
               where: { id: userId },
               data: {
@@ -457,12 +493,8 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           return updatedUser;
         });
 
-        const message = isPremium
-          ? "Inscrição confirmada! Como Premium, você participa gratuitamente e concorre aos prêmios! 🎁"
-          : "Participação confirmada com sucesso!";
-
         return reply.send({
-          message,
+          message: "Participação confirmada com sucesso!",
           updatedUser: result,
         });
       } catch (error) {
