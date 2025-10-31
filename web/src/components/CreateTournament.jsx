@@ -351,7 +351,6 @@ const CreateTournament = () => {
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Trophy className="h-12 w-12 text-cyan-400" />
-            <Crown className="h-6 w-6 text-yellow-400" />
           </div>
           <CardTitle className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
             Criar seu Torneio
