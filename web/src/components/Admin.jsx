@@ -20,9 +20,9 @@ import {
   Trash2,
   UserCog,
 } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "../ui/use-toast";
+import { useToast } from "../components/ui/use-toast";
 
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
