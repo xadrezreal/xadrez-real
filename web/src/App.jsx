@@ -50,6 +50,7 @@ import { CartProvider, useCart } from "./hooks/useCart";
 import { Button } from "./components/ui/button";
 import { useTranslation } from "react-i18next";
 import SubscriptionManager from "./components/SubscriptionManager";
+import { Admin } from "./components/Admin";
 
 const LoadingScreen = () => (
   <div className="flex items-center justify-center h-screen w-screen bg-slate-900 text-white">
@@ -267,6 +268,7 @@ const AppContent = () => {
             <Route path="/premium" element={<Premium />} />
             <Route path="/subscription" element={<SubscriptionManager />} />
             <Route path="/hall-of-fame" element={<HallOfFame />} />
+            <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>
         <ShoppingCart isCartOpen={isCartOpen} setIsCartOpen={setIsCartOpen} />

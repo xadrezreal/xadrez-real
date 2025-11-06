@@ -132,7 +132,7 @@ const ProfileView = () => {
           <CardTitle className="flex items-center gap-3 text-2xl text-cyan-300">
             <UserCheck className="w-8 h-8" />
             Bem-vindo, {authUser?.name}
-            {isAdmin && <Shield className="w-6 h-6 text-red-400 ml-2" />}
+            {isAdmin && <Shield className="w-6 h-6 text-green-400 ml-2" />}
             {!isAdmin && isPremium && (
               <Crown className="w-6 h-6 text-yellow-400 ml-2" />
             )}
@@ -140,7 +140,7 @@ const ProfileView = () => {
           <CardDescription className="text-slate-400 pt-2">
             Gerencie suas informações de perfil aqui.
             {isAdmin && (
-              <span className="block text-red-400 font-medium mt-1">
+              <span className="block text-green-400 font-medium mt-1">
                 🛡️ Administrador do Sistema
               </span>
             )}
@@ -215,7 +215,7 @@ const ProfileView = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full border-red-500 text-red-400 hover:bg-red-500/10"
+                  className="w-full border-green-500 text-green-400 hover:bg-red-500/10"
                   onClick={() => navigate("/admin")}
                 >
                   <Shield className="w-4 h-4 mr-2" />
