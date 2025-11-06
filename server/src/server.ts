@@ -14,6 +14,7 @@ import { websocketRoutes } from "./websocket/webSocketRoutes";
 import { TournamentUpdater } from "./routes/tournamentUpdater";
 import { gameRoutes } from "./routes/game";
 import { startQueueWorker } from "./routes/startQueueWorker";
+import { adminRoutes } from "./routes/admin";
 
 const prisma = new PrismaClient();
 const fastify = Fastify({ logger: { level: "info" } });
@@ -125,7 +126,8 @@ const start = async () => {
     await fastify.register(userRoutes, { prefix: "/users" });
     await fastify.register(tournamentRoutes, { prefix: "/tournaments" });
     await fastify.register(subscriptionRoutes, { prefix: "/subscription" });
-    await fastify.register(paymentRoutes, { prefix: "/payments" }); // ← NOVA ROTA
+    await fastify.register(paymentRoutes, { prefix: "/payments" });
+    await fastify.register(adminRoutes, { prefix: "/admin" });
     await fastify.register(gameRoutes);
 
     fastify.get("/health", async () => {
