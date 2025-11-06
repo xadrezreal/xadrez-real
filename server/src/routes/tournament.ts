@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { TournamentOrchestrator } from "./tournamentOrchestrator";
 import "../types/fastify";
+import { isPremiumOrAdmin } from "../utils/roleHelper";
 
 const createTournamentSchema = z.object({
   name: z.string().min(3).max(100),
@@ -38,7 +39,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           });
         }
 
-        if (user.role !== "PREMIUM") {
+        if (!isPremiumOrAdmin(user.role)) {
           return reply.status(403).send({
             error: "Acesso negado",
             message:

@@ -11,28 +11,9 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "../ui/use-toast";
-import {
-  UserCheck,
-  Crown,
-  Settings,
-  CreditCard,
-  AlertTriangle,
-  Check,
-  X,
-} from "lucide-react";
+import { UserCheck, Crown, Settings, Shield } from "lucide-react";
 import { UserContext } from "../../contexts/UserContext";
 import { useAuth } from "../../contexts/AuthContext";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "../ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 
 const itemVariants = {
@@ -54,7 +35,8 @@ const ProfileView = () => {
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
+
+  const isAdmin = authUser?.role === "ADMIN";
 
   useEffect(() => {
     if (authUser) {
@@ -106,145 +88,37 @@ const ProfileView = () => {
     setLoading(false);
   };
 
-  const handleUpgrade = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("auth_token");
-
-      if (!token) {
-        toast({
-          title: "Erro",
-          description: "Você precisa estar logado",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/subscription/checkout`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `Erro ${response.status}`);
-      }
-
-      if (!data.url) {
-        throw new Error("URL de checkout não recebida");
-      }
-
-      window.location.href = data.url;
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível processar o upgrade",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleManageSubscription = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/subscription/portal`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Erro ao acessar portal");
-      }
-
-      const { url } = await response.json();
-
-      if (!url) {
-        throw new Error("URL do portal não recebida");
-      }
-
-      window.location.href = url;
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível acessar o portal",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCancelSubscription = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/subscription/cancel`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Erro ao cancelar assinatura");
-      }
-
-      toast({
-        title: "✅ Assinatura cancelada",
-        description:
-          "Sua assinatura foi cancelada com sucesso. Você manterá os benefícios até o fim do período pago.",
-      });
-
-      setTimeout(() => window.location.reload(), 2000);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSignOut = async () => {
     await signOut();
   };
 
-  const premiumFeatures = [
-    "Sem anúncios",
-    "Acesso a todos os níveis de bot",
-    "Análise de partidas com IA",
-    "Criar torneios privados",
-    "Customização avançada do tabuleiro",
-    "Suporte prioritário",
-  ];
+  const getRoleDisplay = () => {
+    if (isAdmin) {
+      return {
+        text: "Administrador",
+        color: "text-red-400",
+        bgColor: "bg-red-400/20",
+        icon: Shield,
+      };
+    }
+    if (isPremium) {
+      return {
+        text: "Premium",
+        color: "text-yellow-400",
+        bgColor: "bg-yellow-400/20",
+        icon: Crown,
+      };
+    }
+    return {
+      text: "Freemium",
+      color: "text-slate-400",
+      bgColor: "bg-slate-400/20",
+      icon: null,
+    };
+  };
 
-  const freemiumLimitations = [
-    "Anúncios entre partidas",
-    "Bot limitado a nível 3",
-    "Sem análise de IA",
-    "Apenas torneios públicos",
-    "Temas de tabuleiro limitados",
-  ];
+  const roleDisplay = getRoleDisplay();
+  const RoleIcon = roleDisplay.icon;
 
   return (
     <motion.div
@@ -258,11 +132,19 @@ const ProfileView = () => {
           <CardTitle className="flex items-center gap-3 text-2xl text-cyan-300">
             <UserCheck className="w-8 h-8" />
             Bem-vindo, {authUser?.name}
-            {isPremium && <Crown className="w-6 h-6 text-yellow-400 ml-2" />}
+            {isAdmin && <Shield className="w-6 h-6 text-red-400 ml-2" />}
+            {!isAdmin && isPremium && (
+              <Crown className="w-6 h-6 text-yellow-400 ml-2" />
+            )}
           </CardTitle>
           <CardDescription className="text-slate-400 pt-2">
             Gerencie suas informações de perfil aqui.
-            {isPremium && (
+            {isAdmin && (
+              <span className="block text-red-400 font-medium mt-1">
+                🛡️ Administrador do Sistema
+              </span>
+            )}
+            {!isAdmin && isPremium && (
               <span className="block text-yellow-400 font-medium mt-1">
                 ✨ Usuário Premium
               </span>
@@ -299,16 +181,23 @@ const ProfileView = () => {
 
             <motion.div className="space-y-2" variants={itemVariants}>
               <Label>Status da Conta</Label>
-              <div className="flex items-center gap-2 p-2 bg-slate-700/30 rounded-md">
+              <div
+                className={`flex items-center gap-2 p-3 ${roleDisplay.bgColor} rounded-md`}
+              >
                 <div
                   className={`w-3 h-3 rounded-full ${
-                    isPremium ? "bg-yellow-400" : "bg-slate-400"
+                    isAdmin
+                      ? "bg-red-400"
+                      : isPremium
+                      ? "bg-yellow-400"
+                      : "bg-slate-400"
                   }`}
                 ></div>
-                <span
-                  className={isPremium ? "text-yellow-400" : "text-slate-400"}
-                >
-                  {isPremium ? "Premium" : "Freemium"}
+                {RoleIcon && (
+                  <RoleIcon className={`w-5 h-5 ${roleDisplay.color}`} />
+                )}
+                <span className={`font-medium ${roleDisplay.color}`}>
+                  {roleDisplay.text}
                 </span>
               </div>
             </motion.div>
@@ -322,15 +211,29 @@ const ProfileView = () => {
                 {loading ? "Salvando..." : "Salvar Alterações"}
               </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => navigate("/subscription")}
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Gerenciar Assinatura
-              </Button>
+              {isAdmin && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-red-500 text-red-400 hover:bg-red-500/10"
+                  onClick={() => navigate("/admin")}
+                >
+                  <Shield className="w-4 h-4 mr-2" />
+                  Painel de Administração
+                </Button>
+              )}
+
+              {!isAdmin && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate("/subscription")}
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Gerenciar Assinatura
+                </Button>
+              )}
 
               <Button
                 onClick={handleSignOut}
