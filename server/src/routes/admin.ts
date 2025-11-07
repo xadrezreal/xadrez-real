@@ -12,27 +12,25 @@ const updateRoleSchema = z.object({
 });
 
 export async function adminRoutes(fastify: FastifyInstance) {
-  const requireAdmin = async (request: any, reply: any) => {
-    const user = await fastify.prisma.user.findUnique({
-      where: { id: request.user.id },
-      select: { role: true },
-    });
-
-    if (!user || !isAdmin(user.role)) {
-      return reply.status(403).send({
-        error: "Acesso negado",
-        message: "Apenas administradores podem acessar esta rota",
-      });
-    }
-  };
-
   fastify.post(
     "/promote-admin",
     {
-      preHandler: [fastify.authenticate, requireAdmin],
+      preHandler: [fastify.authenticate],
     },
     async (request: any, reply: any) => {
       try {
+        const currentUser = await fastify.prisma.user.findUnique({
+          where: { id: request.user.id },
+          select: { role: true },
+        });
+
+        if (!currentUser || !isAdmin(currentUser.role)) {
+          return reply.status(403).send({
+            error: "Acesso negado",
+            message: "Apenas administradores podem acessar esta rota",
+          });
+        }
+
         const { userId } = promoteToAdminSchema.parse(request.body);
 
         const updatedUser = await fastify.prisma.user.update({
@@ -62,10 +60,22 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.get(
     "/users",
     {
-      preHandler: [fastify.authenticate, requireAdmin],
+      preHandler: [fastify.authenticate],
     },
     async (request: any, reply: any) => {
       try {
+        const currentUser = await fastify.prisma.user.findUnique({
+          where: { id: request.user.id },
+          select: { role: true },
+        });
+
+        if (!currentUser || !isAdmin(currentUser.role)) {
+          return reply.status(403).send({
+            error: "Acesso negado",
+            message: "Apenas administradores podem acessar esta rota",
+          });
+        }
+
         const users = await fastify.prisma.user.findMany({
           select: {
             id: true,
@@ -95,10 +105,22 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.patch(
     "/users/:id/role",
     {
-      preHandler: [fastify.authenticate, requireAdmin],
+      preHandler: [fastify.authenticate],
     },
     async (request: any, reply: any) => {
       try {
+        const currentUser = await fastify.prisma.user.findUnique({
+          where: { id: request.user.id },
+          select: { role: true },
+        });
+
+        if (!currentUser || !isAdmin(currentUser.role)) {
+          return reply.status(403).send({
+            error: "Acesso negado",
+            message: "Apenas administradores podem acessar esta rota",
+          });
+        }
+
         const { id } = request.params;
         const { role } = updateRoleSchema.parse(request.body);
 
@@ -129,10 +151,22 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.delete(
     "/users/:id",
     {
-      preHandler: [fastify.authenticate, requireAdmin],
+      preHandler: [fastify.authenticate],
     },
     async (request: any, reply: any) => {
       try {
+        const currentUser = await fastify.prisma.user.findUnique({
+          where: { id: request.user.id },
+          select: { role: true },
+        });
+
+        if (!currentUser || !isAdmin(currentUser.role)) {
+          return reply.status(403).send({
+            error: "Acesso negado",
+            message: "Apenas administradores podem acessar esta rota",
+          });
+        }
+
         const { id } = request.params;
 
         if (request.user.id === id) {
