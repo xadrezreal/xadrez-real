@@ -66,31 +66,24 @@ export function Admin() {
 
       if (usersRes.ok) {
         const rawText = await usersRes.text();
-        console.log("📄 RAW USERS RESPONSE:", rawText);
 
         try {
           const usersData = JSON.parse(rawText);
           console.log("✅ Users data:", usersData);
           setUsers(usersData.users || []);
-        } catch (e) {
-          console.error("❌ Erro ao parsear users:", e);
-        }
+        } catch (e) {}
       }
 
       if (tournamentsRes.ok) {
         const rawText = await tournamentsRes.text();
-        console.log("📄 RAW TOURNAMENTS RESPONSE:", rawText);
 
         try {
           const tournamentsData = JSON.parse(rawText);
           console.log("✅ Tournaments data:", tournamentsData);
           setTournaments(tournamentsData.tournaments || []);
-        } catch (e) {
-          console.error("❌ Erro ao parsear tournaments:", e);
-        }
+        } catch (e) {}
       }
     } catch (error) {
-      console.error("❌ ERRO COMPLETO:", error);
       toast({
         title: "Erro",
         description: "Não foi possível carregar os dados",
@@ -143,7 +136,7 @@ export function Admin() {
 
   return (
     <motion.div
-      className="max-w-7xl mx-auto space-y-6 p-4"
+      className="max-w-6xl mx-auto space-y-6 p-4"
       initial="hidden"
       animate="visible"
       variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
@@ -232,9 +225,9 @@ export function Admin() {
         <motion.div variants={itemVariants}>
           <Card className="bg-slate-800/50 border-slate-700 text-white">
             <CardHeader>
-              <CardTitle className="flex items-center gap-3">
+              <CardTitle className="flex items-center gap-3 mb-4">
                 <Users className="w-6 h-6 text-cyan-400" />
-                Gerenciar Usuários
+                Usuários
               </CardTitle>
               <div className="relative mt-4">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -279,13 +272,6 @@ export function Admin() {
                           Saldo: R$ {u.balance?.toFixed(2) || "0.00"}
                         </p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-slate-400 hover:text-white"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
                     </div>
                   ))
                 )}
@@ -297,7 +283,7 @@ export function Admin() {
         <motion.div variants={itemVariants}>
           <Card className="bg-slate-800/50 border-slate-700 text-white">
             <CardHeader>
-              <CardTitle className="flex items-center gap-3">
+              <CardTitle className="flex items-center gap-3 mb-4">
                 <Trophy className="w-6 h-6 text-yellow-400" />
                 Torneios Criados por Admins
               </CardTitle>
@@ -354,13 +340,6 @@ export function Admin() {
                             Por: {t.creator?.name}
                           </p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-slate-400 hover:text-white"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
                       </div>
                     </div>
                   ))
