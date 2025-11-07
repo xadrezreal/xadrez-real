@@ -56,6 +56,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
 
         if (
           tournamentData.entryFee > 0 &&
+          user.role !== "ADMIN" &&
           user.balance < tournamentData.entryFee
         ) {
           return reply.status(400).send({
@@ -91,11 +92,11 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             data: {
               tournamentId: tournament.id,
               userId: userId,
-              paidEntry: tournamentData.entryFee > 0,
+              paidEntry: tournamentData.entryFee > 0 && user.role !== "ADMIN",
             },
           });
 
-          if (tournamentData.entryFee > 0) {
+          if (tournamentData.entryFee > 0 && user.role !== "ADMIN") {
             await prisma.user.update({
               where: { id: userId },
               data: {
@@ -167,6 +168,7 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             select: {
               id: true,
               name: true,
+              role: true,
             },
           },
           participants: {

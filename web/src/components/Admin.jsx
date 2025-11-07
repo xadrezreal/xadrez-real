@@ -6,10 +6,10 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-} from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Badge } from "../components/ui/badge";
+} from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Badge } from "./ui/badge";
 import {
   Shield,
   Users,
@@ -17,12 +17,10 @@ import {
   Crown,
   Search,
   MoreVertical,
-  Trash2,
-  UserCog,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "../components/ui/use-toast";
+import { useToast } from "./ui/use-toast";
 
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -102,7 +100,12 @@ export function Admin() {
       u.email.toLowerCase().includes(searchUser.toLowerCase())
   );
 
-  const filteredTournaments = tournaments.filter((t) =>
+  const adminTournaments = tournaments.filter((t) => {
+    const creatorRole = t.creator?.role;
+    return creatorRole === "ADMIN";
+  });
+
+  const filteredAdminTournaments = adminTournaments.filter((t) =>
     t.name.toLowerCase().includes(searchTournament.toLowerCase())
   );
 
@@ -274,7 +277,7 @@ export function Admin() {
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
                 <Trophy className="w-6 h-6 text-yellow-400" />
-                Torneios Especiais
+                Torneios Criados por Admins
               </CardTitle>
               <div className="relative mt-4">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -292,12 +295,12 @@ export function Admin() {
                   <p className="text-slate-400 text-center py-4">
                     Carregando...
                   </p>
-                ) : filteredTournaments.length === 0 ? (
+                ) : filteredAdminTournaments.length === 0 ? (
                   <p className="text-slate-400 text-center py-4">
                     Nenhum torneio encontrado
                   </p>
                 ) : (
-                  filteredTournaments.map((t) => (
+                  filteredAdminTournaments.map((t) => (
                     <div
                       key={t.id}
                       className="p-3 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors"

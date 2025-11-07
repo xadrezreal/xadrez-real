@@ -51,7 +51,8 @@ const CreateTournament = () => {
   const { user, setUser } = useContext(UserContext);
   const { user: authUser } = useAuth();
 
-  const isPremium = authUser?.role === "PREMIUM";
+  const isPremium = authUser?.role === "PREMIUM" || authUser?.role === "ADMIN";
+  const isAdmin = authUser?.role === "ADMIN";
   const userBalance = authUser?.balance || 0;
 
   const getDefaultDateTime = () => {
@@ -102,7 +103,7 @@ const CreateTournament = () => {
 
     const fee = parseFloat(entryFee);
 
-    if (fee > 0 && userBalance < fee) {
+    if (fee > 0 && !isAdmin && userBalance < fee) {
       toast({
         title: "Saldo insuficiente",
         description: `Você precisa de R$ ${fee.toFixed(
@@ -476,7 +477,11 @@ const CreateTournament = () => {
                     onClick={() => setEntryFee(String(fee))}
                     className={`transition-all ${
                       entryFee === String(fee) ? "bg-cyan-500" : "bg-slate-700"
-                    } ${fee > 0 && userBalance < fee ? "opacity-50" : ""}`}
+                    } ${
+                      fee > 0 && !isAdmin && userBalance < fee
+                        ? "opacity-50"
+                        : ""
+                    }`}
                     disabled={isLoading}
                   >
                     {fee === 0 ? "Grátis" : `R$ ${fee.toLocaleString("pt-BR")}`}
@@ -485,6 +490,7 @@ const CreateTournament = () => {
               </div>
 
               {parseFloat(entryFee) > 0 &&
+                !isAdmin &&
                 userBalance < parseFloat(entryFee) && (
                   <p className="text-xs text-red-400 mt-2">
                     <AlertTriangle className="inline w-3 h-3 mr-1" />
@@ -555,7 +561,8 @@ const CreateTournament = () => {
                 className="w-full text-lg bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 shadow-lg"
                 disabled={
                   isLoading ||
-                  (parseFloat(entryFee) > 0 &&
+                  (!isAdmin &&
+                    parseFloat(entryFee) > 0 &&
                     userBalance < parseFloat(entryFee))
                 }
               >
