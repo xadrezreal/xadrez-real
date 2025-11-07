@@ -50,14 +50,8 @@ export function Admin() {
       setLoading(true);
       const token = localStorage.getItem("auth_token");
 
-      console.log("🔍 TOKEN:", token);
-      console.log("🔍 API URL:", import.meta.env.VITE_API_URL);
-
       const usersUrl = `${import.meta.env.VITE_API_URL}/admin/users`;
       const tournamentsUrl = `${import.meta.env.VITE_API_URL}/tournaments`;
-
-      console.log("🔍 Chamando:", usersUrl);
-      console.log("🔍 Chamando:", tournamentsUrl);
 
       const [usersRes, tournamentsRes] = await Promise.all([
         fetch(usersUrl, {
@@ -70,25 +64,30 @@ export function Admin() {
         }),
       ]);
 
-      console.log("✅ usersRes status:", usersRes.status);
-      console.log("✅ tournamentsRes status:", tournamentsRes.status);
-
       if (usersRes.ok) {
-        const usersData = await usersRes.json();
-        console.log("✅ Users data:", usersData);
-        setUsers(usersData.users || []);
-      } else {
-        const errorData = await usersRes.json();
-        console.error("❌ Users error:", errorData);
+        const rawText = await usersRes.text();
+        console.log("📄 RAW USERS RESPONSE:", rawText);
+
+        try {
+          const usersData = JSON.parse(rawText);
+          console.log("✅ Users data:", usersData);
+          setUsers(usersData.users || []);
+        } catch (e) {
+          console.error("❌ Erro ao parsear users:", e);
+        }
       }
 
       if (tournamentsRes.ok) {
-        const tournamentsData = await tournamentsRes.json();
-        console.log("✅ Tournaments data:", tournamentsData);
-        setTournaments(tournamentsData.tournaments || []);
-      } else {
-        const errorData = await tournamentsRes.json();
-        console.error("❌ Tournaments error:", errorData);
+        const rawText = await tournamentsRes.text();
+        console.log("📄 RAW TOURNAMENTS RESPONSE:", rawText);
+
+        try {
+          const tournamentsData = JSON.parse(rawText);
+          console.log("✅ Tournaments data:", tournamentsData);
+          setTournaments(tournamentsData.tournaments || []);
+        } catch (e) {
+          console.error("❌ Erro ao parsear tournaments:", e);
+        }
       }
     } catch (error) {
       console.error("❌ ERRO COMPLETO:", error);
