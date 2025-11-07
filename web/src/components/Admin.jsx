@@ -50,25 +50,48 @@ export function Admin() {
       setLoading(true);
       const token = localStorage.getItem("auth_token");
 
+      console.log("🔍 TOKEN:", token);
+      console.log("🔍 API URL:", import.meta.env.VITE_API_URL);
+
+      const usersUrl = `${import.meta.env.VITE_API_URL}/admin/users`;
+      const tournamentsUrl = `${import.meta.env.VITE_API_URL}/tournaments`;
+
+      console.log("🔍 Chamando:", usersUrl);
+      console.log("🔍 Chamando:", tournamentsUrl);
+
       const [usersRes, tournamentsRes] = await Promise.all([
-        fetch(`${import.meta.env.VITE_API_URL}/admin/users`, {
+        fetch(usersUrl, {
           headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
         }),
-        fetch(`${import.meta.env.VITE_API_URL}/tournaments`, {
+        fetch(tournamentsUrl, {
           headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
         }),
       ]);
 
+      console.log("✅ usersRes status:", usersRes.status);
+      console.log("✅ tournamentsRes status:", tournamentsRes.status);
+
       if (usersRes.ok) {
         const usersData = await usersRes.json();
+        console.log("✅ Users data:", usersData);
         setUsers(usersData.users || []);
+      } else {
+        const errorData = await usersRes.json();
+        console.error("❌ Users error:", errorData);
       }
 
       if (tournamentsRes.ok) {
         const tournamentsData = await tournamentsRes.json();
+        console.log("✅ Tournaments data:", tournamentsData);
         setTournaments(tournamentsData.tournaments || []);
+      } else {
+        const errorData = await tournamentsRes.json();
+        console.error("❌ Tournaments error:", errorData);
       }
     } catch (error) {
+      console.error("❌ ERRO COMPLETO:", error);
       toast({
         title: "Erro",
         description: "Não foi possível carregar os dados",
