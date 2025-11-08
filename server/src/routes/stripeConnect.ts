@@ -8,12 +8,6 @@ export async function stripeConnectRoutes(fastify: FastifyInstance) {
     "/connect/account",
     {
       preHandler: [fastify.authenticate],
-      schema: {
-        body: {
-          type: "object",
-          properties: {},
-        },
-      },
     },
     async (request: any, reply: any) => {
       try {
