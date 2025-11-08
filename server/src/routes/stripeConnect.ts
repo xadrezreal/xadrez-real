@@ -1,10 +1,7 @@
 import { FastifyInstance } from "fastify";
 import Stripe from "stripe";
 import "../types/fastify";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-11-20.acacia",
-});
+import { stripe } from "../config/stripe";
 
 export async function stripeConnectRoutes(fastify: FastifyInstance) {
   fastify.post(
