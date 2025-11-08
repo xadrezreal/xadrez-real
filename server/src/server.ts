@@ -15,6 +15,7 @@ import { TournamentUpdater } from "./routes/tournamentUpdater";
 import { gameRoutes } from "./routes/game";
 import { startQueueWorker } from "./routes/startQueueWorker";
 import { adminRoutes } from "./routes/admin";
+import { stripeConnectRoutes } from "./routes/stripeConnect";
 
 const prisma = new PrismaClient();
 const fastify = Fastify({ logger: { level: "info" } });
@@ -128,6 +129,7 @@ const start = async () => {
     await fastify.register(subscriptionRoutes, { prefix: "/subscription" });
     await fastify.register(paymentRoutes, { prefix: "/payments" });
     await fastify.register(adminRoutes, { prefix: "/admin" });
+    await fastify.register(stripeConnectRoutes, { prefix: "/stripe" });
     await fastify.register(gameRoutes);
 
     fastify.get("/health", async () => {

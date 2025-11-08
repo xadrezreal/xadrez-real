@@ -59,6 +59,8 @@ model User {
   tournamentPoints     Int      @default(0)
   stripeCustomerId     String?  @unique
   stripeSubscriptionId String?  @unique
+  stripeAccountId      String?  @unique
+  stripeAccountStatus  String?  @default("not_connected")
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
