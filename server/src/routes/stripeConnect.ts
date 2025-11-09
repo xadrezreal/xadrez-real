@@ -214,4 +214,95 @@ export async function stripeConnectRoutes(fastify: FastifyInstance) {
       }
     }
   );
+
+  fastify.post(
+    "/webhook",
+    {
+      config: {
+        rawBody: true,
+      },
+    },
+    async (request: any, reply: any) => {
+      const sig = request.headers["stripe-signature"];
+      let event;
+
+      try {
+        event = stripe.webhooks.constructEvent(
+          request.rawBody,
+          sig,
+          process.env.STRIPE_WEBHOOK_SECRET_CONNECT!
+        );
+      } catch (err: any) {
+        fastify.log.error(
+          `Webhook signature verification failed: ${err.message}`
+        );
+        return reply.status(400).send(`Webhook Error: ${err.message}`);
+      }
+
+      try {
+        switch (event.type) {
+          case "account.updated":
+            const account = event.data.object as Stripe.Account;
+
+            await fastify.prisma.user.updateMany({
+              where: { stripeAccountId: account.id },
+              data: {
+                stripeAccountStatus:
+                  account.charges_enabled && account.payouts_enabled
+                    ? "active"
+                    : "pending",
+              },
+            });
+
+            fastify.log.info(
+              `Account ${account.id} updated to status: ${
+                account.charges_enabled && account.payouts_enabled
+                  ? "active"
+                  : "pending"
+              }`
+            );
+            break;
+
+          case "account.external_account.created":
+            fastify.log.info(
+              `External account created for ${event.data.object.id}`
+            );
+            break;
+
+          case "account.external_account.updated":
+            fastify.log.info(
+              `External account updated for ${event.data.object.id}`
+            );
+            break;
+
+          case "payout.paid":
+            fastify.log.info(`Payout ${event.data.object.id} was paid`);
+            break;
+
+          case "payout.failed":
+            const payout = event.data.object as Stripe.Payout;
+            fastify.log.error(
+              `Payout ${payout.id} failed: ${payout.failure_message}`
+            );
+            break;
+
+          case "transfer.created":
+            fastify.log.info(`Transfer ${event.data.object.id} created`);
+            break;
+
+          case "transfer.updated":
+            fastify.log.info(`Transfer ${event.data.object.id} updated`);
+            break;
+
+          default:
+            fastify.log.info(`Unhandled event type ${event.type}`);
+        }
+
+        return reply.send({ received: true });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({ error: "Webhook processing failed" });
+      }
+    }
+  );
 }
