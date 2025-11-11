@@ -268,6 +268,26 @@ const Wallet = () => {
                 Sua conta está sendo verificada pelo Stripe. Isso pode levar
                 alguns minutos.
               </p>
+              {!connectStatus.detailsSubmitted && (
+                <Button
+                  onClick={handleConnectAccount}
+                  disabled={loadingConnect}
+                  className="mt-3 bg-orange-500 hover:bg-orange-600 text-white"
+                  size="sm"
+                >
+                  {loadingConnect ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Carregando...
+                    </>
+                  ) : (
+                    <>
+                      <LinkIcon className="w-4 h-4 mr-2" />
+                      Completar Verificação
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </div>
