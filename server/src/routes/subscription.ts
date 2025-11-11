@@ -58,6 +58,7 @@ export async function subscriptionRoutes(fastify: FastifyInstance) {
           customer: user.stripeCustomerId || undefined,
           customer_email: user.stripeCustomerId ? undefined : user.email,
           mode: "subscription",
+          payment_method_types: ["card"],
           line_items: [
             {
               price: plan.priceId,

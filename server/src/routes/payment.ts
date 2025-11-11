@@ -49,7 +49,7 @@ export async function paymentRoutes(fastify: FastifyInstance) {
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
 
         const session = await stripe.checkout.sessions.create({
-          payment_method_types: ["card"],
+          payment_method_types: ["card", "boleto"],
           line_items: [
             {
               price: priceId,
