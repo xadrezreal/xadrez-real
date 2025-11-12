@@ -438,12 +438,26 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           select: { balance: true, role: true },
         });
 
+        if (!user) {
+          return reply.status(404).send({
+            error: "Usuário não encontrado",
+          });
+        }
+
+        if (user.role === "ADMIN") {
+          return reply.status(403).send({
+            error: "Administradores não podem participar de torneios",
+            message:
+              "Admins podem apenas criar e gerenciar torneios, mas não participar como jogadores.",
+          });
+        }
+
         if (tournament.entryFee > 0) {
-          if (!user || user.balance < tournament.entryFee) {
+          if (user.balance < tournament.entryFee) {
             return reply.status(400).send({
               error: "Saldo insuficiente para participar do torneio",
               requiredAmount: tournament.entryFee,
-              currentBalance: user?.balance || 0,
+              currentBalance: user.balance,
             });
           }
         }
