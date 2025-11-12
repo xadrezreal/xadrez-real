@@ -265,8 +265,8 @@ const Wallet = () => {
                 Verificação pendente
               </p>
               <p className="text-sm text-slate-400 mt-1">
-                Sua conta está sendo verificada pelo Stripe. Isso pode levar
-                alguns minutos.
+                Sua conta está sendo verificada pelo Stripe. Pode levar algumas
+                horas ou até 1 dia.
               </p>
               {!connectStatus.detailsSubmitted && (
                 <Button
