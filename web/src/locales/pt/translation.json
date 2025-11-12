@@ -10,7 +10,8 @@
     "store": "Loja",
     "cart": "Carrinho",
     "create_tournament": "Criar Torneio",
-    "wager": "Aposta"
+    "wager": "Aposta",
+    "admin": "Painel Administrativo"
   },
   "home": {
     "welcome": "Bem-vindo ao Xadrez Real",
