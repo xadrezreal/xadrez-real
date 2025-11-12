@@ -42,6 +42,7 @@ import {
   PlusCircle,
   Swords,
   User as UserIcon,
+  Shield,
 } from "lucide-react";
 import { BoardThemeContext } from "./contexts/BoardThemeContext";
 import { UserContext } from "./contexts/UserContext";
@@ -202,6 +203,10 @@ const AppContent = () => {
                 <NavLink to="/wallet" className={navLinkClasses}>
                   <WalletIcon className="w-5 h-5" />
                   <span className="text-xs">{t("nav.wallet")}</span>
+                </NavLink>
+                <NavLink to="/admin" className={navLinkClasses}>
+                  <Shield className="w-5 h-5" />
+                  <span className="text-xs">{t("nav.admin")}</span>
                 </NavLink>
               </div>
               <div className="flex items-center ml-auto pl-4">
