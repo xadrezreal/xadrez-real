@@ -98,6 +98,7 @@ const AppContent = () => {
   const { user: authUser, initialLoading, isAuthenticated } = useAuth();
   const { user, setUser: setUserContext } = useContext(UserContext);
   const { t } = useTranslation();
+  const isAdmin = authUser?.role === "ADMIN";
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -204,10 +205,12 @@ const AppContent = () => {
                   <WalletIcon className="w-5 h-5" />
                   <span className="text-xs">{t("nav.wallet")}</span>
                 </NavLink>
-                <NavLink to="/admin" className={navLinkClasses}>
-                  <Shield className="w-auto h-5" />
-                  <span className="text-xs">{t("nav.admin")}</span>
-                </NavLink>
+                {isAdmin && (
+                  <NavLink to="/admin" className={navLinkClasses}>
+                    <Shield className="w-auto h-5 pl-5 pr-5" />
+                    <span className="text-xs">{t("nav.admin")}</span>
+                  </NavLink>
+                )}
               </div>
               <div className="flex items-center ml-auto pl-4">
                 <LanguageSwitcher />
