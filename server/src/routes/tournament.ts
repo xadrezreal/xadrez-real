@@ -88,37 +88,39 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             },
           });
 
-          await prisma.tournamentParticipant.create({
-            data: {
-              tournamentId: tournament.id,
-              userId: userId,
-              paidEntry: tournamentData.entryFee > 0 && user.role !== "ADMIN",
-            },
-          });
-
-          if (tournamentData.entryFee > 0 && user.role !== "ADMIN") {
-            await prisma.user.update({
-              where: { id: userId },
+          if (user.role !== "ADMIN") {
+            await prisma.tournamentParticipant.create({
               data: {
-                balance: {
-                  decrement: tournamentData.entryFee,
-                },
+                tournamentId: tournament.id,
+                userId: userId,
+                paidEntry: tournamentData.entryFee > 0,
               },
             });
 
-            await prisma.transaction.create({
-              data: {
-                userId,
-                amount: -tournamentData.entryFee,
-                type: "TOURNAMENT_ENTRY",
-                status: "COMPLETED",
-                description: `Entrada no torneio: ${tournamentData.name}`,
-                metadata: {
-                  tournamentId: tournament.id,
-                  tournamentName: tournamentData.name,
+            if (tournamentData.entryFee > 0) {
+              await prisma.user.update({
+                where: { id: userId },
+                data: {
+                  balance: {
+                    decrement: tournamentData.entryFee,
+                  },
                 },
-              },
-            });
+              });
+
+              await prisma.transaction.create({
+                data: {
+                  userId,
+                  amount: -tournamentData.entryFee,
+                  type: "TOURNAMENT_ENTRY",
+                  status: "COMPLETED",
+                  description: `Entrada no torneio: ${tournamentData.name}`,
+                  metadata: {
+                    tournamentId: tournament.id,
+                    tournamentName: tournamentData.name,
+                  },
+                },
+              });
+            }
           }
 
           return tournament;

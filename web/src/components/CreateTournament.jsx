@@ -25,6 +25,7 @@ import {
   EyeOff,
   Crown,
   AlertTriangle,
+  Shield,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../contexts/UserContext";
@@ -220,9 +221,15 @@ const CreateTournament = () => {
         );
       }
 
+      const successMessage = isAdmin
+        ? "Torneio criado com sucesso! (Admin não participa automaticamente)"
+        : "Torneio criado e você foi inscrito automaticamente!";
+
       toast({
-        title: "Torneio Criado com Sucesso!",
-        description: `Início: ${startDateTime.toLocaleString("pt-BR")}`,
+        title: "Torneio Criado!",
+        description: `${successMessage} Início: ${startDateTime.toLocaleString(
+          "pt-BR"
+        )}`,
         variant: "success",
       });
 
@@ -352,6 +359,9 @@ const CreateTournament = () => {
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Trophy className="h-12 w-12 text-cyan-400" />
+            {isAdmin && (
+              <Shield className="h-8 w-8 text-purple-400 animate-pulse" />
+            )}
           </div>
           <CardTitle className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
             Criar seu Torneio
@@ -359,12 +369,22 @@ const CreateTournament = () => {
           <CardDescription className="text-slate-400">
             Personalize as regras e convide seus amigos para a disputa!
           </CardDescription>
-          <div className="mt-2 text-xs bg-blue-500/20 border border-blue-500/30 rounded-lg p-2">
-            <Info className="inline w-4 h-4 text-blue-400 mr-1" />
-            <span className="text-blue-300">
-              Seu saldo atual: <strong>R$ {userBalance.toFixed(2)}</strong>
-            </span>
-          </div>
+          {isAdmin ? (
+            <div className="mt-2 text-xs bg-purple-500/20 border border-purple-500/30 rounded-lg p-2">
+              <Shield className="inline w-4 h-4 text-purple-400 mr-1" />
+              <span className="text-purple-300">
+                <strong>Modo Admin:</strong> Você não participará
+                automaticamente nem será cobrado taxa de entrada
+              </span>
+            </div>
+          ) : (
+            <div className="mt-2 text-xs bg-blue-500/20 border border-blue-500/30 rounded-lg p-2">
+              <Info className="inline w-4 h-4 text-blue-400 mr-1" />
+              <span className="text-blue-300">
+                Seu saldo atual: <strong>R$ {userBalance.toFixed(2)}</strong>
+              </span>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreateTournament} className="space-y-6">
@@ -497,6 +517,13 @@ const CreateTournament = () => {
                     Saldo insuficiente para esta taxa de entrada
                   </p>
                 )}
+
+              {parseFloat(entryFee) > 0 && isAdmin && (
+                <p className="text-xs text-purple-400 mt-2">
+                  <Shield className="inline w-3 h-3 mr-1" />
+                  Como admin, você não será cobrado pela taxa de entrada
+                </p>
+              )}
             </motion.div>
 
             <motion.div variants={itemVariants} className="space-y-2">

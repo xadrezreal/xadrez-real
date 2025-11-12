@@ -207,7 +207,7 @@ const AppContent = () => {
                 </NavLink>
                 {isAdmin && (
                   <NavLink to="/admin" className={navLinkClasses}>
-                    <Shield className="w-auto h-5 pl-5 pr-5" />
+                    <Shield className="w-auto h-5" />
                     <span className="text-xs">{t("nav.admin")}</span>
                   </NavLink>
                 )}
