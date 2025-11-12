@@ -27,6 +27,28 @@ const itemVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
+const translateStatus = (status) => {
+  const translations = {
+    WAITING: "Aguardando",
+    IN_PROGRESS: "Em Andamento",
+    FINISHED: "Finalizado",
+    CANCELLED: "Cancelado",
+    ERROR: "Erro",
+  };
+  return translations[status] || status;
+};
+
+const getStatusColor = (status) => {
+  const colors = {
+    WAITING: "bg-blue-500/20 text-blue-400 border-blue-500",
+    IN_PROGRESS: "bg-green-500/20 text-green-400 border-green-500",
+    FINISHED: "bg-purple-500/20 text-purple-400 border-purple-500",
+    CANCELLED: "bg-red-500/20 text-red-400 border-red-500",
+    ERROR: "bg-orange-500/20 text-orange-400 border-orange-500",
+  };
+  return colors[status] || "bg-slate-500/20 text-slate-400 border-slate-500";
+};
+
 export function Admin() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -311,33 +333,32 @@ export function Admin() {
                   filteredAdminTournaments.map((t) => (
                     <div
                       key={t.id}
-                      className="p-3 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors"
+                      className="p-3 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/tournament/${t.id}`)}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <p className="font-medium">{t.name}</p>
                             <Badge
-                              className={`text-xs ${
-                                t.status === "WAITING"
-                                  ? "bg-blue-500/20 text-blue-400"
-                                  : t.status === "IN_PROGRESS"
-                                  ? "bg-green-500/20 text-green-400"
-                                  : "bg-slate-500/20 text-slate-400"
-                              }`}
+                              className={`text-xs ${getStatusColor(t.status)}`}
                             >
-                              {t.status}
+                              {translateStatus(t.status)}
                             </Badge>
                           </div>
                           <div className="flex gap-4 mt-2 text-sm text-slate-400">
                             <span>
                               👥 {t._count?.participants || 0}/{t.playerCount}
                             </span>
-                            <span>💰 R$ {t.entryFee}</span>
-                            <span>🏆 R$ {t.prizePool || 0}</span>
+                            <span>
+                              💰 R$ {t.entryFee?.toFixed(2) || "0.00"}
+                            </span>
+                            <span>
+                              🏆 R$ {t.prizePool?.toFixed(2) || "0.00"}
+                            </span>
                           </div>
                           <p className="text-xs text-slate-500 mt-1">
-                            Por: {t.creator?.name}
+                            Por: {t.creator?.name || "Desconhecido"}
                           </p>
                         </div>
                       </div>
