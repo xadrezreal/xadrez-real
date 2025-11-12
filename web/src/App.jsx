@@ -205,7 +205,7 @@ const AppContent = () => {
                   <span className="text-xs">{t("nav.wallet")}</span>
                 </NavLink>
                 <NavLink to="/admin" className={navLinkClasses}>
-                  <Shield className="w-5 h-5" />
+                  <Shield className="w-auto h-5" />
                   <span className="text-xs">{t("nav.admin")}</span>
                 </NavLink>
               </div>
