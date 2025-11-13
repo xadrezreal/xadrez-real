@@ -185,17 +185,24 @@ const Wallet = () => {
 
       if (response.ok) {
         toast({
-          title: "Saque realizado com sucesso!",
+          title: "Saque solicitado com sucesso!",
           description: `R$ ${amount.toFixed(
             2
-          )} será depositado em sua conta em 2-7 dias úteis.`,
+          )} será depositado em sua conta em 2 dias úteis.`,
         });
         setWithdrawAmount("");
         setUser({ ...user, balance: data.newBalance });
       } else {
+        const errorMessage = data.error || "Tente novamente mais tarde.";
+        const isBalanceError = errorMessage.includes("insuficiente");
+
         toast({
-          title: "Erro ao processar saque",
-          description: data.error || "Tente novamente mais tarde.",
+          title: isBalanceError
+            ? "Saldo em processamento"
+            : "Erro ao processar saque",
+          description: isBalanceError
+            ? "Seu depósito ainda está sendo processado. Aguarde até 7 dias após o depósito para poder sacar."
+            : errorMessage,
           variant: "destructive",
         });
       }
@@ -304,7 +311,8 @@ const Wallet = () => {
                 Conta bancária conectada
               </p>
               <p className="text-sm text-slate-400 mt-1">
-                Você pode retirar dinheiro a qualquer momento.
+                Saques são processados em até 2 dias úteis após o depósito ser
+                liberado.
               </p>
             </div>
           </div>
@@ -358,6 +366,10 @@ const Wallet = () => {
                 <Label htmlFor="withdrawAmount" className="text-slate-300">
                   Valor para saque (mínimo R$ 5,00)
                 </Label>
+                <p className="text-xs text-slate-500 -mt-1">
+                  ⏱️ Depósitos recentes levam até 7 dias para ficarem
+                  disponíveis para saque
+                </p>
                 <Input
                   id="withdrawAmount"
                   type="number"
@@ -382,7 +394,7 @@ const Wallet = () => {
                   ) : (
                     <>
                       <ArrowUpFromLine className="w-5 h-5 mr-2" />
-                      Retirar Dinheiro
+                      Solicitar Saque (2 dias úteis)
                     </>
                   )}
                 </Button>
