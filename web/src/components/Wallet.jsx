@@ -356,12 +356,12 @@ const Wallet = () => {
             {canWithdraw && (
               <div className="space-y-3">
                 <Label htmlFor="withdrawAmount" className="text-slate-300">
-                  Valor para saque (mínimo R$ 10,00)
+                  Valor para saque (mínimo R$ 5,00)
                 </Label>
                 <Input
                   id="withdrawAmount"
                   type="number"
-                  min="10"
+                  min="5"
                   step="0.01"
                   placeholder="0.00"
                   value={withdrawAmount}

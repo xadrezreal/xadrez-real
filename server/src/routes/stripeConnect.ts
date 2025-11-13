@@ -137,6 +137,12 @@ export async function stripeConnectRoutes(fastify: FastifyInstance) {
           return reply.status(400).send({ error: "Valor inválido" });
         }
 
+        if (amount < 5) {
+          return reply.status(400).send({
+            error: "O valor mínimo para saque é R$ 5,00",
+          });
+        }
+
         const user = await fastify.prisma.user.findUnique({
           where: { id: userId },
         });
@@ -167,12 +173,17 @@ export async function stripeConnectRoutes(fastify: FastifyInstance) {
           });
         }
 
-        const transfer = await stripe.transfers.create({
-          amount: Math.round(amount * 100),
-          currency: "brl",
-          destination: user.stripeAccountId,
-          description: `Saque da plataforma Xadrez Real`,
-        });
+        const payout = await stripe.payouts.create(
+          {
+            amount: Math.round(amount * 100),
+            currency: "brl",
+            description: `Saque da plataforma Xadrez Real`,
+            statement_descriptor: "XADREZ REAL",
+          },
+          {
+            stripeAccount: user.stripeAccountId,
+          }
+        );
 
         await fastify.prisma.$transaction(async (prisma) => {
           await prisma.user.update({
@@ -192,7 +203,7 @@ export async function stripeConnectRoutes(fastify: FastifyInstance) {
               status: "COMPLETED",
               description: `Saque para conta bancária`,
               metadata: {
-                stripeTransferId: transfer.id,
+                stripePayoutId: payout.id,
                 stripeAccountId: user.stripeAccountId,
               },
             },
@@ -201,7 +212,7 @@ export async function stripeConnectRoutes(fastify: FastifyInstance) {
 
         return reply.send({
           message: "Saque realizado com sucesso",
-          transferId: transfer.id,
+          payoutId: payout.id,
           amount,
           newBalance: user.balance - amount,
         });
