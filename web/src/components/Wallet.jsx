@@ -160,10 +160,10 @@ const Wallet = () => {
       return;
     }
 
-    if (amount < 10) {
+    if (amount < 5) {
       toast({
         title: "Valor mínimo",
-        description: "O valor mínimo para saque é R$ 10,00.",
+        description: "O valor mínimo para saque é R$ 5,00.",
         variant: "destructive",
       });
       return;
