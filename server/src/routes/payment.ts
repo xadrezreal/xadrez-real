@@ -37,7 +37,12 @@ export async function paymentRoutes(fastify: FastifyInstance) {
 
         const user = await fastify.prisma.user.findUnique({
           where: { id: userId },
-          select: { id: true, email: true, name: true },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            stripeAccountId: true,
+          },
         });
 
         if (!user) {
@@ -46,8 +51,35 @@ export async function paymentRoutes(fastify: FastifyInstance) {
           });
         }
 
+        // Se o usuário não tem conta Connect, cria uma agora
+        let stripeAccountId = user.stripeAccountId;
+
+        if (!stripeAccountId) {
+          const account = await stripe.accounts.create({
+            type: "express",
+            country: "BR",
+            email: user.email,
+            capabilities: {
+              transfers: { requested: true },
+            },
+            business_type: "individual",
+          });
+
+          stripeAccountId = account.id;
+
+          await fastify.prisma.user.update({
+            where: { id: userId },
+            data: {
+              stripeAccountId: account.id,
+              stripeAccountStatus: "pending",
+            },
+          });
+        }
+
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
 
+        // Criar sessão de checkout com DESTINATION CHARGE
+        // O dinheiro vai direto para a conta Connect do usuário
         const session = await stripe.checkout.sessions.create({
           payment_method_types: ["card", "boleto"],
           line_items: [
@@ -59,20 +91,28 @@ export async function paymentRoutes(fastify: FastifyInstance) {
           mode: "payment",
           success_url: `${frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${frontendUrl}/wallet?deposit_cancelled=true`,
+          payment_intent_data: {
+            application_fee_amount: 0, // Você pode cobrar uma taxa aqui, ex: Math.round(amount * 100 * 0.05) para 5%
+            transfer_data: {
+              destination: stripeAccountId, // Dinheiro vai DIRETO para a conta do usuário
+            },
+          },
           metadata: {
             userId: userId,
             amount: amount.toString(),
             type: "deposit",
+            stripeAccountId: stripeAccountId,
           },
           customer_email: user.email,
         });
 
         fastify.log.info({
-          message: "[PAYMENT] Checkout session created",
+          message: "[PAYMENT] Checkout session created with destination charge",
           sessionId: session.id,
           userId,
           amount,
           priceId,
+          destination: stripeAccountId,
         });
 
         return reply.send({
@@ -155,6 +195,7 @@ export async function paymentRoutes(fastify: FastifyInstance) {
               return reply.code(400).send({ error: "Metadata inválido" });
             }
 
+            // Atualizar o saldo interno para controle (mesmo que o dinheiro esteja no Stripe)
             await fastify.prisma.user.update({
               where: { id: userId },
               data: {
@@ -164,6 +205,7 @@ export async function paymentRoutes(fastify: FastifyInstance) {
               },
             });
 
+            // Registrar a transação
             await fastify.prisma.transaction.create({
               data: {
                 userId: userId,
@@ -172,6 +214,10 @@ export async function paymentRoutes(fastify: FastifyInstance) {
                 status: "COMPLETED",
                 stripeSessionId: session.id,
                 description: `Depósito via Stripe - R$ ${amount.toFixed(2)}`,
+                metadata: {
+                  stripeAccountId: session.metadata.stripeAccountId,
+                  destinationCharge: true,
+                },
               },
             });
 
