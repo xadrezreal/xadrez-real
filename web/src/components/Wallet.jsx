@@ -442,10 +442,15 @@ const Wallet = () => {
                   disabled={isWithdrawing || !withdrawAmount}
                   className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white"
                 >
-                  {isWithdrawing && (
+                  {isWithdrawing ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                       Processando...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowUpFromLine className="w-5 h-5 mr-2" />
+                      Solicitar Saque
                     </>
                   )}
                 </Button>
