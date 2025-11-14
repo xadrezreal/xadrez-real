@@ -242,6 +242,68 @@ export async function paymentRoutes(fastify: FastifyInstance) {
         }
       }
 
+      if (event.type === "charge.refunded") {
+        const charge = event.data.object as any;
+
+        fastify.log.info({
+          message: "[WEBHOOK] Charge refunded",
+          chargeId: charge.id,
+          amount: charge.amount_refunded,
+        });
+
+        try {
+          const paymentIntent = charge.payment_intent;
+
+          const sessions = await stripe.checkout.sessions.list({
+            payment_intent: paymentIntent,
+            limit: 1,
+          });
+
+          if (sessions.data.length > 0) {
+            const session = sessions.data[0];
+            const userId = session.metadata?.userId;
+            const refundedAmount = charge.amount_refunded / 100;
+
+            if (userId) {
+              await fastify.prisma.$transaction(async (prisma) => {
+                await prisma.user.update({
+                  where: { id: userId },
+                  data: {
+                    balance: {
+                      decrement: refundedAmount,
+                    },
+                  },
+                });
+
+                await prisma.transaction.create({
+                  data: {
+                    userId: userId,
+                    amount: -refundedAmount,
+                    type: "REFUND",
+                    status: "COMPLETED",
+                    description: `Estorno de depósito - R$ ${refundedAmount.toFixed(
+                      2
+                    )}`,
+                    metadata: {
+                      chargeId: charge.id,
+                      paymentIntent: paymentIntent,
+                    },
+                  },
+                });
+              });
+
+              fastify.log.info({
+                message: "[WEBHOOK] Refund processed successfully",
+                userId,
+                refundedAmount,
+              });
+            }
+          }
+        } catch (error: any) {
+          fastify.log.error("[WEBHOOK] Error processing refund:", error);
+        }
+      }
+
       return reply.send({ received: true });
     }
   );
