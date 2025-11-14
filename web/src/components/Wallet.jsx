@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   Loader2,
   Link as LinkIcon,
+  Clock,
 } from "lucide-react";
 import { UserContext } from "../contexts/UserContext";
 
@@ -33,6 +34,8 @@ const Wallet = () => {
   const [loadingConnect, setLoadingConnect] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [stripeBalance, setStripeBalance] = useState(null);
+  const [loadingBalance, setLoadingBalance] = useState(true);
 
   useEffect(() => {
     const refreshUser = async () => {
@@ -61,6 +64,7 @@ const Wallet = () => {
     if (query.get("deposit_success") || query.get("session_id")) {
       setTimeout(() => {
         refreshUser();
+        fetchStripeBalance();
         toast({
           title: "Depósito Confirmado!",
           description: "Seu saldo foi atualizado com sucesso.",
@@ -83,7 +87,29 @@ const Wallet = () => {
 
   useEffect(() => {
     checkConnectStatus();
+    fetchStripeBalance();
   }, []);
+
+  const fetchStripeBalance = async () => {
+    try {
+      setLoadingBalance(true);
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch(`${API_URL}/stripe/connect/balance`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setStripeBalance(data);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar saldo do Stripe:", error);
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
 
   const checkConnectStatus = async () => {
     try {
@@ -151,10 +177,12 @@ const Wallet = () => {
       return;
     }
 
-    if (amount > user?.balance) {
+    if (stripeBalance && amount > stripeBalance.available) {
       toast({
         title: "Saldo insuficiente",
-        description: `Você só tem R$ ${user?.balance.toFixed(2)} disponível.`,
+        description: `Você só tem R$ ${stripeBalance.available.toFixed(
+          2
+        )} disponível para saque.`,
         variant: "destructive",
       });
       return;
@@ -191,7 +219,7 @@ const Wallet = () => {
           )} será depositado em sua conta em 2 dias úteis.`,
         });
         setWithdrawAmount("");
-        setUser({ ...user, balance: data.newBalance });
+        fetchStripeBalance();
       } else {
         const errorMessage = data.error || "Tente novamente mais tarde.";
         const isBalanceError = errorMessage.includes("insuficiente");
@@ -310,10 +338,6 @@ const Wallet = () => {
               <p className="font-semibold text-green-400">
                 Conta bancária conectada
               </p>
-              <p className="text-sm text-slate-400 mt-1">
-                Saques são processados em até 2 dias úteis após o depósito ser
-                liberado.
-              </p>
             </div>
           </div>
         </div>
@@ -322,6 +346,10 @@ const Wallet = () => {
   };
 
   const canWithdraw = connectStatus?.accountStatus === "active";
+
+  const displayBalance = stripeBalance?.hasAccount
+    ? stripeBalance.total
+    : user?.balance || 0;
 
   return (
     <motion.div
@@ -342,10 +370,38 @@ const Wallet = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="p-4 bg-slate-900/50 rounded-lg text-center">
-            <p className="text-sm text-slate-400">SALDO ATUAL</p>
-            <p className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-cyan-400">
-              R$ {user?.balance ? user.balance.toFixed(2) : "0.00"}
-            </p>
+            <p className="text-sm text-slate-400">SALDO TOTAL</p>
+            {loadingBalance ? (
+              <Loader2 className="w-8 h-8 mx-auto my-4 animate-spin text-cyan-400" />
+            ) : (
+              <>
+                <p className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-cyan-400">
+                  R$ {displayBalance.toFixed(2)}
+                </p>
+                {stripeBalance?.hasAccount && stripeBalance.pending > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-700">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-4 h-4 text-green-400" />
+                        Disponível
+                      </span>
+                      <span className="text-green-400 font-semibold">
+                        R$ {stripeBalance.available.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm mt-2">
+                      <span className="text-slate-400 flex items-center gap-1">
+                        <Clock className="w-4 h-4 text-yellow-400" />
+                        Em processamento
+                      </span>
+                      <span className="text-yellow-400 font-semibold">
+                        R$ {stripeBalance.pending.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {renderConnectStatus()}
@@ -394,7 +450,7 @@ const Wallet = () => {
                   ) : (
                     <>
                       <ArrowUpFromLine className="w-5 h-5 mr-2" />
-                      Solicitar Saque
+                      Solicitar Saque (2 dias úteis)
                     </>
                   )}
                 </Button>
