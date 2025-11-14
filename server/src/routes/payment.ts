@@ -51,7 +51,6 @@ export async function paymentRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Se o usuário não tem conta Connect, cria uma agora
         let stripeAccountId = user.stripeAccountId;
 
         if (!stripeAccountId) {
@@ -78,8 +77,6 @@ export async function paymentRoutes(fastify: FastifyInstance) {
 
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
 
-        // Criar sessão de checkout com DESTINATION CHARGE
-        // O dinheiro vai direto para a conta Connect do usuário
         const session = await stripe.checkout.sessions.create({
           payment_method_types: ["card", "boleto"],
           line_items: [
@@ -92,9 +89,9 @@ export async function paymentRoutes(fastify: FastifyInstance) {
           success_url: `${frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${frontendUrl}/wallet?deposit_cancelled=true`,
           payment_intent_data: {
-            application_fee_amount: 0, // Você pode cobrar uma taxa aqui, ex: Math.round(amount * 100 * 0.05) para 5%
+            application_fee_amount: 0,
             transfer_data: {
-              destination: stripeAccountId, // Dinheiro vai DIRETO para a conta do usuário
+              destination: stripeAccountId,
             },
           },
           metadata: {
@@ -189,23 +186,29 @@ export async function paymentRoutes(fastify: FastifyInstance) {
           try {
             const userId = session.metadata.userId;
             const amount = parseFloat(session.metadata.amount);
+            const stripeAccountId = session.metadata.stripeAccountId;
 
             if (!userId || !amount) {
               fastify.log.error("[WEBHOOK] Invalid metadata", session.metadata);
               return reply.code(400).send({ error: "Metadata inválido" });
             }
 
-            // Atualizar o saldo interno para controle (mesmo que o dinheiro esteja no Stripe)
+            const balance = await stripe.balance.retrieve({
+              stripeAccount: stripeAccountId,
+            });
+
+            const realBalance =
+              balance.available.reduce((sum, item) => sum + item.amount, 0) /
+                100 +
+              balance.pending.reduce((sum, item) => sum + item.amount, 0) / 100;
+
             await fastify.prisma.user.update({
               where: { id: userId },
               data: {
-                balance: {
-                  increment: amount,
-                },
+                balance: realBalance,
               },
             });
 
-            // Registrar a transação
             await fastify.prisma.transaction.create({
               data: {
                 userId: userId,
@@ -215,8 +218,10 @@ export async function paymentRoutes(fastify: FastifyInstance) {
                 stripeSessionId: session.id,
                 description: `Depósito via Stripe - R$ ${amount.toFixed(2)}`,
                 metadata: {
-                  stripeAccountId: session.metadata.stripeAccountId,
+                  stripeAccountId: stripeAccountId,
                   destinationCharge: true,
+                  grossAmount: amount,
+                  netBalance: realBalance,
                 },
               },
             });
@@ -224,13 +229,8 @@ export async function paymentRoutes(fastify: FastifyInstance) {
             fastify.log.info({
               message: "[WEBHOOK] Balance updated successfully",
               userId,
-              amount,
-              newBalance: (
-                await fastify.prisma.user.findUnique({
-                  where: { id: userId },
-                  select: { balance: true },
-                })
-              )?.balance,
+              grossAmount: amount,
+              netBalance: realBalance,
             });
           } catch (error: any) {
             fastify.log.error("[WEBHOOK] Error updating balance:", error);
@@ -263,15 +263,24 @@ export async function paymentRoutes(fastify: FastifyInstance) {
             const session = sessions.data[0];
             const userId = session.metadata?.userId;
             const refundedAmount = charge.amount_refunded / 100;
+            const stripeAccountId = session.metadata?.stripeAccountId;
 
-            if (userId) {
+            if (userId && stripeAccountId) {
+              const balance = await stripe.balance.retrieve({
+                stripeAccount: stripeAccountId,
+              });
+
+              const realBalance =
+                balance.available.reduce((sum, item) => sum + item.amount, 0) /
+                  100 +
+                balance.pending.reduce((sum, item) => sum + item.amount, 0) /
+                  100;
+
               await fastify.prisma.$transaction(async (prisma) => {
                 await prisma.user.update({
                   where: { id: userId },
                   data: {
-                    balance: {
-                      decrement: refundedAmount,
-                    },
+                    balance: realBalance,
                   },
                 });
 
@@ -287,6 +296,7 @@ export async function paymentRoutes(fastify: FastifyInstance) {
                     metadata: {
                       chargeId: charge.id,
                       paymentIntent: paymentIntent,
+                      netBalance: realBalance,
                     },
                   },
                 });
@@ -296,6 +306,7 @@ export async function paymentRoutes(fastify: FastifyInstance) {
                 message: "[WEBHOOK] Refund processed successfully",
                 userId,
                 refundedAmount,
+                netBalance: realBalance,
               });
             }
           }
