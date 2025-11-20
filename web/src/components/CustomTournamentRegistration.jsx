@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import { UserContext } from "../contexts/UserContext";
 import { tournamentService } from "../lib/tournamentService";
-import { useWebSocket } from "../hooks/useWebSocket";
+import { useSocketIO } from "../hooks/useSocketIO";
 
 const CustomTournamentRegistration = () => {
   const { id } = useParams();
@@ -102,56 +102,65 @@ const CustomTournamentRegistration = () => {
     }
   }, [tournament?.status, id]);
 
-  const { lastMessage, sendMessage, isConnected } = useWebSocket(
-    id ? `ws://localhost:3000/ws/tournament/${id}` : null,
-    {
-      onMessage: (message) => {
-        console.log("WebSocket message received:", message);
-        switch (message.type) {
-          case "TOURNAMENT_STATUS_CHANGED":
-          case "tournament_started":
-            if (message.data.status === "IN_PROGRESS") {
-              toast({
-                title: "Torneio iniciado!",
-                description: "Redirecionando para o chaveamento...",
-              });
-
-              setTimeout(() => {
-                navigate(`/tournament/${id}/bracket`);
-              }, 2000);
-            }
-
-            if (message.data.tournament) {
-              setTournament(message.data.tournament);
-            } else {
-              setTournament((prev) =>
-                prev ? { ...prev, status: message.data.status } : null
-              );
-            }
-            break;
-
-          case "participant_joined":
+  const socketIO = useSocketIO(null, {
+    onMessage: (message) => {
+      console.log("WebSocket message received:", message);
+      switch (message.type) {
+        case "TOURNAMENT_STATUS_CHANGED":
+        case "tournament_started":
+          if (message.data.status === "IN_PROGRESS") {
             toast({
-              title: "Novo participante!",
-              description: "Alguém se inscreveu no torneio",
+              title: "Torneio iniciado!",
+              description: "Redirecionando para o chaveamento...",
             });
-            setTimeout(() => fetchTournament(), 1000);
-            break;
 
-          case "participant_left":
-            toast({
-              title: "Participante saiu",
-              description: "Alguém saiu do torneio",
-            });
-            setTimeout(() => fetchTournament(), 1000);
-            break;
+            setTimeout(() => {
+              navigate(`/tournament/${id}/bracket`);
+            }, 2000);
+          }
 
-          default:
-            console.log("Unknown WebSocket message type:", message.type);
-        }
-      },
+          if (message.data.tournament) {
+            setTournament(message.data.tournament);
+          } else {
+            setTournament((prev) =>
+              prev ? { ...prev, status: message.data.status } : null
+            );
+          }
+          break;
+
+        case "participant_joined":
+          toast({
+            title: "Novo participante!",
+            description: "Alguém se inscreveu no torneio",
+          });
+          setTimeout(() => fetchTournament(), 1000);
+          break;
+
+        case "participant_left":
+          toast({
+            title: "Participante saiu",
+            description: "Alguém saiu do torneio",
+          });
+          setTimeout(() => fetchTournament(), 1000);
+          break;
+
+        default:
+          console.log("Unknown WebSocket message type:", message.type);
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (id && socketIO.isConnected) {
+      socketIO.joinTournament(id);
     }
-  );
+
+    return () => {
+      if (id && socketIO.isConnected) {
+        socketIO.leaveTournament(id);
+      }
+    };
+  }, [id, socketIO.isConnected]);
 
   useEffect(() => {
     fetchTournament();
@@ -171,10 +180,10 @@ const CustomTournamentRegistration = () => {
   }, [tournament?.status, prevStatus]);
 
   useEffect(() => {
-    if (lastMessage) {
-      console.log("WebSocket message received:", lastMessage);
+    if (socketIO.lastMessage) {
+      console.log("WebSocket message received:", socketIO.lastMessage);
     }
-  }, [lastMessage]);
+  }, [socketIO.lastMessage]);
 
   const fetchTournament = async () => {
     try {
@@ -231,7 +240,7 @@ const CustomTournamentRegistration = () => {
     try {
       const result = await tournamentService.joinTournament(id, password);
 
-      sendMessage({
+      socketIO.sendMessage({
         type: "join_tournament",
         participant: { user: { id: user.id, name: user.name } },
       });
@@ -265,7 +274,7 @@ const CustomTournamentRegistration = () => {
     try {
       await tournamentService.leaveTournament(id);
 
-      sendMessage({
+      socketIO.sendMessage({
         type: "leave_tournament",
         participant: { user: { id: user.id, name: user.name } },
       });

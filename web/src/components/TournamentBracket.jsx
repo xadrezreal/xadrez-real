@@ -18,14 +18,7 @@ import {
   Timer,
 } from "lucide-react";
 import { tournamentService } from "../lib/tournamentService";
-import { useWebSocket } from "../hooks/useWebSocket";
-
-const getWebSocketURL = () => {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host = window.location.hostname;
-  const port = protocol === "wss:" ? "" : ":3000";
-  return `${protocol}//${host}${port}`;
-};
+import { useSocketIO } from "../hooks/useSocketIO";
 
 const TournamentBracket = () => {
   const { id: tournamentId } = useParams();
@@ -41,21 +34,31 @@ const TournamentBracket = () => {
   const hasReloadedRef = useRef(false);
   const previousStatusRef = useRef(null);
 
-  const { connectionStatus } = useWebSocket(
-    `${getWebSocketURL()}/ws/tournament/${tournamentId}`,
-    {
-      onMessage: (message) => {
-        handleWebSocketMessage(message);
-      },
-      onOpen: () => {
-        toast({
-          title: "Conectado ao torneio",
-          description: "Você receberá atualizações em tempo real",
-        });
-      },
-      onClose: () => {},
+  const socketIO = useSocketIO(null, {
+    onMessage: (message) => {
+      handleWebSocketMessage(message);
+    },
+    onConnect: () => {
+      toast({
+        title: "Conectado ao torneio",
+        description: "Você receberá atualizações em tempo real",
+      });
+    },
+  });
+
+  useEffect(() => {
+    if (tournamentId && socketIO.isConnected) {
+      socketIO.joinTournament(tournamentId);
     }
-  );
+
+    return () => {
+      if (tournamentId && socketIO.isConnected) {
+        socketIO.leaveTournament(tournamentId);
+      }
+    };
+  }, [tournamentId, socketIO.isConnected]);
+
+  const { connectionStatus } = socketIO;
 
   const handleWebSocketMessage = (message) => {
     switch (message.type) {

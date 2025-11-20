@@ -17,7 +17,7 @@ import { useGameEffects } from "../hooks/useGameEffects";
 
 import { useToast } from "../components/ui/use-toast";
 
-import { useWebSocket } from "../hooks/useWebSocket";
+import { useSocketIO } from "../hooks/useSocketIO";
 
 import { useBeforeUnload } from "../hooks/useBeforeUnload";
 
@@ -75,16 +75,6 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     : initialGameType || "online";
 
   const { botLevel, playerColor: initialPlayerColor } = location.state || {};
-
-  const getWebSocketURL = () => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-
-    const host = window.location.hostname;
-
-    const port = protocol === "wss:" ? "" : ":3000";
-
-    return `${protocol}//${host}${port}`;
-  };
 
   const playerColor = useMemo(() => {
     if (!gameData || !user?.id) return initialPlayerColor || "white";
@@ -562,19 +552,25 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     ]
   );
 
-  const { connectionStatus, sendMessage, isConnected } = useWebSocket(
-    gameId && gameType !== "bot"
-      ? `${getWebSocketURL()}/ws/game/${gameId}`
-      : null,
+  const socketIO = useSocketIO(null, {
+    onMessage: handleWebSocketMessage,
+    onConnect: () => console.log("Conectado ao WebSocket"),
+    onDisconnect: () => console.log("Desconectado do WebSocket"),
+  });
 
-    {
-      onMessage: handleWebSocketMessage,
-
-      onOpen: () => console.log("Conectado ao WebSocket"),
-
-      onClose: () => console.log("Desconectado do WebSocket"),
+  useEffect(() => {
+    if (gameId && gameType !== "bot" && socketIO.isConnected) {
+      socketIO.joinGame(gameId);
     }
-  );
+
+    return () => {
+      if (gameId && gameType !== "bot" && socketIO.isConnected) {
+        socketIO.leaveGame(gameId);
+      }
+    };
+  }, [gameId, gameType, socketIO.isConnected]);
+
+  const { connectionStatus, isConnected } = socketIO;
 
   const makeMove = useCallback(
     async (move) => {
@@ -635,17 +631,11 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
           );
 
           if (gameId && gameType !== "bot" && isConnected) {
-            sendMessage({
-              type: "move",
-
+            socketIO.sendGameMessage(gameId, "move", {
               from: moveResult.from,
-
               to: moveResult.to,
-
               promotion: moveResult.promotion,
-
               playerId: user.id,
-
               fen: newFen,
             });
           }
@@ -674,7 +664,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
       isConnected,
 
-      sendMessage,
+      socketIO,
 
       updateStatus,
 
@@ -860,11 +850,8 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
         setWinner(winnerInfo);
 
         if (isConnected) {
-          sendMessage({
-            type: "resign",
-
+          socketIO.sendGameMessage(gameId, "resign", {
             playerId: user.id,
-
             winner: winnerInfo,
           });
         }
@@ -888,7 +875,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
       isConnected,
 
-      sendMessage,
+      socketIO,
 
       toast,
 
@@ -1068,7 +1055,9 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
   const handleDrawOffer = () => {
     if (gameId && gameType !== "bot" && isConnected) {
-      sendMessage({ type: "draw_offer", playerId: user.id });
+      socketIO.sendGameMessage(gameId, "draw_offer", {
+        playerId: user.id,
+      });
     }
 
     toast({ title: "Oferta de empate enviada" });

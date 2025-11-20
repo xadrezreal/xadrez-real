@@ -1,363 +1,190 @@
+import { Server, Socket } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { createClient } from "redis";
+
 export class WebSocketManager {
-  private tournamentRooms: Map<string, Set<any>>;
-  private gameRooms: Map<string, Set<any>>;
-  private connections: Map<any, { userId?: string; rooms: Set<string> }>;
+  private io: Server;
+  private pubClient: ReturnType<typeof createClient>;
+  private subClient: ReturnType<typeof createClient>;
 
-  constructor() {
-    this.tournamentRooms = new Map();
-    this.gameRooms = new Map();
-    this.connections = new Map();
-  }
-
-  private cleanupDeadConnections(room: Set<any>): void {
-    const toRemove: any[] = [];
-    room.forEach((socket) => {
-      if (!socket || socket.readyState !== 1) {
-        toRemove.push(socket);
-      }
+  constructor(httpServer: any) {
+    this.io = new Server(httpServer, {
+      cors: {
+        origin: [
+          "http://localhost:5173",
+          "http://localhost:3000",
+          "https://xadrezreal.com",
+          "https://www.xadrezreal.com",
+        ],
+        credentials: true,
+      },
+      transports: ["websocket", "polling"],
     });
 
-    toRemove.forEach((socket) => {
-      room.delete(socket);
-      if (socket) {
-        this.connections.delete(socket);
-      }
+    this.pubClient = createClient({
+      url: `redis://${process.env.REDIS_HOST || "127.0.0.1"}:${
+        process.env.REDIS_PORT || "6379"
+      }`,
     });
+
+    this.subClient = this.pubClient.duplicate();
+
+    this.setupRedisAdapter();
+    this.setupEventHandlers();
   }
 
-  addToTournamentRoom(
-    tournamentId: string,
-    socket: any,
-    userId?: string
-  ): void {
-    if (!this.tournamentRooms.has(tournamentId)) {
-      this.tournamentRooms.set(tournamentId, new Set());
-    }
+  private async setupRedisAdapter() {
+    try {
+      await this.pubClient.connect();
+      await this.subClient.connect();
 
-    const room = this.tournamentRooms.get(tournamentId)!;
-    room.add(socket);
+      this.io.adapter(createAdapter(this.pubClient, this.subClient));
 
-    if (!this.connections.has(socket)) {
-      this.connections.set(socket, { userId, rooms: new Set() });
-    }
-    this.connections.get(socket)!.rooms.add(`tournament:${tournamentId}`);
-  }
-
-  removeFromTournamentRoom(tournamentId: string, socket: any): void {
-    const room = this.tournamentRooms.get(tournamentId);
-    if (room) {
-      room.delete(socket);
-      if (room.size === 0) {
-        this.tournamentRooms.delete(tournamentId);
-      }
-    }
-
-    const connectionInfo = this.connections.get(socket);
-    if (connectionInfo) {
-      connectionInfo.rooms.delete(`tournament:${tournamentId}`);
-      if (connectionInfo.rooms.size === 0) {
-        this.connections.delete(socket);
-      }
+      console.log("✅ [WEBSOCKET] Socket.IO Redis adapter connected");
+    } catch (error) {
+      console.error("❌ [WEBSOCKET] Redis adapter connection failed:", error);
     }
   }
 
-  addToGameRoom(gameId: string, socket: any, userId?: string): void {
-    if (!this.gameRooms.has(gameId)) {
-      this.gameRooms.set(gameId, new Set());
-    }
+  private setupEventHandlers() {
+    this.io.on("connection", (socket: Socket) => {
+      console.log(`[WS] Client connected: ${socket.id}`);
 
-    const room = this.gameRooms.get(gameId)!;
-    room.add(socket);
+      socket.on(
+        "join_tournament",
+        (data: { tournamentId: string; userId?: string }) => {
+          const roomId = `tournament:${data.tournamentId}`;
+          socket.join(roomId);
+          console.log(
+            `[WS] Socket ${socket.id} joined tournament ${data.tournamentId}`
+          );
 
-    if (!this.connections.has(socket)) {
-      this.connections.set(socket, { userId, rooms: new Set() });
-    }
-    this.connections.get(socket)!.rooms.add(`game:${gameId}`);
-  }
+          socket.emit("connection_confirmed", {
+            tournamentId: data.tournamentId,
+            userId: data.userId,
+            timestamp: Date.now(),
+          });
+        }
+      );
 
-  removeFromGameRoom(gameId: string, socket: any): void {
-    const room = this.gameRooms.get(gameId);
-    if (room) {
-      room.delete(socket);
-      if (room.size === 0) {
-        this.gameRooms.delete(gameId);
-      }
-    }
+      socket.on("leave_tournament", (data: { tournamentId: string }) => {
+        const roomId = `tournament:${data.tournamentId}`;
+        socket.leave(roomId);
+        console.log(
+          `[WS] Socket ${socket.id} left tournament ${data.tournamentId}`
+        );
+      });
 
-    const connectionInfo = this.connections.get(socket);
-    if (connectionInfo) {
-      connectionInfo.rooms.delete(`game:${gameId}`);
-      if (connectionInfo.rooms.size === 0) {
-        this.connections.delete(socket);
-      }
-    }
+      socket.on("join_game", (data: { gameId: string; userId?: string }) => {
+        const roomId = `game:${data.gameId}`;
+        socket.join(roomId);
+        console.log(`[WS] Socket ${socket.id} joined game ${data.gameId}`);
+
+        socket.emit("connection_confirmed", {
+          gameId: data.gameId,
+          userId: data.userId,
+          timestamp: Date.now(),
+        });
+      });
+
+      socket.on("leave_game", (data: { gameId: string }) => {
+        const roomId = `game:${data.gameId}`;
+        socket.leave(roomId);
+        console.log(`[WS] Socket ${socket.id} left game ${data.gameId}`);
+      });
+
+      socket.on("game_message", (data: any) => {
+        const gameId = data.gameId;
+        if (!gameId) return;
+
+        console.log(`[WS] Game message from ${socket.id}:`, data.type);
+
+        switch (data.type) {
+          case "move":
+            this.io
+              .to(`game:${gameId}`)
+              .except(socket.id)
+              .emit("game_message", {
+                type: "move",
+                data: data.data,
+              });
+            break;
+
+          case "resign":
+            this.io.to(`game:${gameId}`).emit("game_message", {
+              type: "resign",
+              data: data.data,
+            });
+            break;
+
+          case "draw_offer":
+            this.io
+              .to(`game:${gameId}`)
+              .except(socket.id)
+              .emit("game_message", {
+                type: "draw_offer",
+                data: data.data,
+              });
+            break;
+
+          case "draw_accept":
+            this.io.to(`game:${gameId}`).emit("game_message", {
+              type: "game_end",
+              data: data.data,
+            });
+            break;
+
+          case "chat_message":
+            this.io.to(`game:${gameId}`).emit("game_message", {
+              type: "chat_message",
+              data: data.data,
+            });
+            break;
+
+          default:
+            console.warn(`[WS] Unknown game message type: ${data.type}`);
+        }
+      });
+
+      socket.on("disconnect", () => {
+        console.log(`[WS] Client disconnected: ${socket.id}`);
+      });
+    });
   }
 
   broadcastToTournament(tournamentId: string, message: any): void {
-    const room = this.tournamentRooms.get(tournamentId);
-    if (room) {
-      this.cleanupDeadConnections(room);
-
-      const messageString = JSON.stringify(message);
-      const failedConnections: any[] = [];
-
-      room.forEach((socket) => {
-        try {
-          if (socket && socket.readyState === 1) {
-            socket.send(messageString);
-          } else {
-            failedConnections.push(socket);
-          }
-        } catch (error) {
-          console.error("Falha ao enviar mensagem para socket:", error);
-          failedConnections.push(socket);
-        }
-      });
-
-      failedConnections.forEach((socket) => {
-        this.removeFromTournamentRoom(tournamentId, socket);
-      });
-    }
+    this.io.to(`tournament:${tournamentId}`).emit("message", message);
+    console.log(`[WS] Broadcast to tournament ${tournamentId}:`, message.type);
   }
 
   broadcastToGame(gameId: string, message: any): void {
-    const room = this.gameRooms.get(gameId);
-    if (room) {
-      this.cleanupDeadConnections(room);
-
-      const messageString = JSON.stringify(message);
-      const failedConnections: any[] = [];
-
-      room.forEach((socket) => {
-        try {
-          if (socket && socket.readyState === 1) {
-            socket.send(messageString);
-          } else {
-            failedConnections.push(socket);
-          }
-        } catch (error) {
-          console.error("Falha ao enviar mensagem para socket:", error);
-          failedConnections.push(socket);
-        }
-      });
-
-      failedConnections.forEach((socket) => {
-        this.removeFromGameRoom(gameId, socket);
-      });
-    }
+    this.io.to(`game:${gameId}`).emit("message", message);
+    console.log(`[WS] Broadcast to game ${gameId}:`, message.type);
   }
 
   startHeartbeat(): void {
-    setInterval(() => {
-      this.connections.forEach((connectionInfo, socket) => {
-        if (socket && socket.readyState === 1) {
-          try {
-            if (typeof socket.ping === "function") {
-              socket.ping();
-            }
-          } catch (error) {
-            console.error("Ping falhou:", error);
-            this.cleanupConnection(socket);
-          }
-        } else if (socket && socket.readyState !== 1) {
-          this.cleanupConnection(socket);
-        } else if (!socket) {
-          this.connections.delete(socket);
-        }
-      });
-    }, 30000);
-  }
-
-  private cleanupConnection(socket: any): void {
-    const connectionInfo = this.connections.get(socket);
-    if (connectionInfo) {
-      connectionInfo.rooms.forEach((roomId) => {
-        if (roomId.startsWith("tournament:")) {
-          const tournamentId = roomId.replace("tournament:", "");
-          this.removeFromTournamentRoom(tournamentId, socket);
-        } else if (roomId.startsWith("game:")) {
-          const gameId = roomId.replace("game:", "");
-          this.removeFromGameRoom(gameId, socket);
-        }
-      });
-    }
-  }
-
-  handleTournamentMessage(tournamentId: string, data: any, socket: any): void {
-    switch (data.type) {
-      case "join_tournament":
-        this.broadcastToTournament(tournamentId, {
-          type: "participant_joined",
-          data: data.participant,
-        });
-        break;
-    }
-  }
-
-  handleGameMessage(gameId: string, data: any, senderSocket: any): void {
-    console.log(`[WS_MANAGER] === HANDLE GAME MESSAGE ===`);
-    console.log(`[WS_MANAGER] GameId: ${gameId}`);
-    console.log(`[WS_MANAGER] Message: ${data.type}`);
-    console.log(`[WS_MANAGER] Sender: ${senderSocket._playerId || "UNKNOWN"}`);
-
-    switch (data.type) {
-      case "move":
-        const room = this.gameRooms.get(gameId);
-        if (!room) {
-          console.warn(`[WS_MANAGER] Room ${gameId} not found`);
-          return;
-        }
-
-        console.log(`[WS_MANAGER] Room has ${room.size} connections`);
-
-        const moveMessage = {
-          type: "move",
-          data: {
-            from: data.from,
-            to: data.to,
-            promotion: data.promotion,
-            playerId: data.playerId,
-            fen: data.fen,
-            timestamp: data.timestamp || Date.now(),
-          },
-        };
-
-        let sent = 0;
-        let skipped = 0;
-
-        const isTournamentGame = gameId.includes("tournament-");
-        const isSinglePlayerTest = room.size === 1;
-
-        room.forEach((connection) => {
-          const isCurrentSender = connection === senderSocket;
-          const isSamePlayer = connection._playerId === data.playerId;
-
-          console.log(
-            `[WS_MANAGER] Checking connection: ${
-              connection._playerId || "NO_ID"
-            }`
-          );
-          console.log(`[WS_MANAGER] - Is sender socket: ${isCurrentSender}`);
-          console.log(`[WS_MANAGER] - Is same player: ${isSamePlayer}`);
-
-          if (isTournamentGame && isSinglePlayerTest) {
-            console.log(
-              `[WS_MANAGER] TOURNAMENT TEST MODE - allowing self-receive`
-            );
-            if (connection && connection.readyState === 1) {
-              try {
-                connection.send(JSON.stringify(moveMessage));
-                sent++;
-                console.log(
-                  `[WS_MANAGER] ✅ SENT to ${connection._playerId} (TOURNAMENT TEST)`
-                );
-              } catch (error) {
-                console.error(`[WS_MANAGER] Send failed:`, error);
-                this.removeFromGameRoom(gameId, connection);
-              }
-            }
-            return;
-          }
-
-          if (isCurrentSender || isSamePlayer) {
-            skipped++;
-            console.log(`[WS_MANAGER] SKIPPING - same sender/player`);
-            return;
-          }
-
-          if (connection && connection.readyState === 1) {
-            try {
-              connection.send(JSON.stringify(moveMessage));
-              sent++;
-              console.log(`[WS_MANAGER] ✅ SENT to ${connection._playerId}`);
-            } catch (error) {
-              console.error(`[WS_MANAGER] Send failed:`, error);
-              this.removeFromGameRoom(gameId, connection);
-            }
-          } else {
-            console.log(`[WS_MANAGER] Connection not ready`);
-          }
-        });
-
-        console.log(`[WS_MANAGER] RESULT: ${sent} sent, ${skipped} skipped`);
-
-        if (isTournamentGame && isSinglePlayerTest && sent === 1) {
-          console.log(`[WS_MANAGER] ✅ Tournament test mode - sent to self`);
-        } else if (sent === 0 && skipped === 1) {
-          console.log(
-            `[WS_MANAGER] ✅ Correctly sent to 0 (no opponents connected)`
-          );
-        } else if (sent === 1 && skipped === 1) {
-          console.log(
-            `[WS_MANAGER] ✅ Perfect - sent to 1 opponent, skipped sender`
-          );
-        } else {
-          console.warn(`[WS_MANAGER] ⚠️ Unexpected result - check logic`);
-        }
-        break;
-
-      case "resign":
-        console.log(`[WS_MANAGER] Player resigned: ${data.playerId}`);
-        this.broadcastToGame(gameId, {
-          type: "resign",
-          data: {
-            playerId: data.playerId,
-            winner: data.winner,
-            timestamp: Date.now(),
-          },
-        });
-        break;
-
-      case "draw_offer":
-        console.log(`[WS_MANAGER] Draw offer from: ${data.playerId}`);
-        this.broadcastToGame(gameId, {
-          type: "draw_offer",
-          data: {
-            from: data.playerId,
-            timestamp: Date.now(),
-          },
-        });
-        break;
-
-      case "draw_accept":
-        console.log(`[WS_MANAGER] Draw accepted by: ${data.playerId}`);
-        this.broadcastToGame(gameId, {
-          type: "game_end",
-          data: {
-            reason: "draw_agreement",
-            acceptedBy: data.playerId,
-            timestamp: Date.now(),
-          },
-        });
-        break;
-
-      case "chat_message":
-        console.log(`[WS_MANAGER] Chat from: ${data.playerId}`);
-        this.broadcastToGame(gameId, {
-          type: "chat_message",
-          data: {
-            playerId: data.playerId,
-            playerName: data.playerName,
-            message: data.message,
-            timestamp: Date.now(),
-          },
-        });
-        break;
-
-      default:
-        console.warn(`[WS_MANAGER] Unknown message type: ${data.type}`);
-    }
+    console.log(
+      "[WS] Heartbeat started (Socket.IO handles this automatically)"
+    );
   }
 
   getTournamentRoomCount(): number {
-    return this.tournamentRooms.size;
+    let count = 0;
+    this.io.of("/").adapter.rooms.forEach((_, key) => {
+      if (key.startsWith("tournament:")) count++;
+    });
+    return count;
   }
 
   getGameRoomCount(): number {
-    return this.gameRooms.size;
+    let count = 0;
+    this.io.of("/").adapter.rooms.forEach((_, key) => {
+      if (key.startsWith("game:")) count++;
+    });
+    return count;
   }
 
   getActiveConnections(): number {
-    return this.connections.size;
+    return this.io.of("/").sockets.size;
   }
 }
