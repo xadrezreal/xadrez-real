@@ -9,7 +9,7 @@ import { authRoutes } from "./routes/auth";
 import { userRoutes } from "./routes/user";
 import { tournamentRoutes } from "./routes/tournament";
 import { subscriptionRoutes } from "./routes/subscription";
-import { paymentRoutes } from "./routes/payment"; // ← NOVA ROTA
+import { paymentRoutes } from "./routes/payment";
 import { websocketRoutes } from "./websocket/webSocketRoutes";
 import { TournamentUpdater } from "./routes/tournamentUpdater";
 import { gameRoutes } from "./routes/game";
@@ -20,14 +20,10 @@ import { stripeConnectRoutes } from "./routes/stripeConnect";
 const prisma = new PrismaClient();
 const fastify = Fastify({ logger: { level: "info" } });
 
-// Configuração de rawBody para webhooks
 fastify.register(rawBody, {
   field: "rawBody",
   global: false,
-  routes: [
-    "/subscription/webhook",
-    "/payments/webhook", // ← ADICIONA webhook de pagamentos
-  ],
+  routes: ["/subscription/webhook", "/payments/webhook"],
 });
 
 fastify.addHook("preHandler", async (request, reply) => {
@@ -122,7 +118,6 @@ const start = async () => {
 
     console.log("[SERVER] wsManager registered:", !!fastify.wsManager);
 
-    // Registra todas as rotas
     await fastify.register(authRoutes, { prefix: "/auth" });
     await fastify.register(userRoutes, { prefix: "/users" });
     await fastify.register(tournamentRoutes, { prefix: "/tournaments" });
@@ -141,19 +136,31 @@ const start = async () => {
       !!fastify.wsManager
     );
 
-    const tournamentUpdater = new TournamentUpdater(
-      prisma,
-      fastify.wsManager,
-      fastify.log
-    );
-    tournamentUpdater.start(10000);
+    const isMainWorker = !process.env.pm_id || process.env.pm_id === "0";
 
-    fastify.addHook("onClose", async () => {
-      tournamentUpdater.stop();
-      await prisma.$disconnect();
-    });
+    if (isMainWorker) {
+      console.log("🎯 [MAIN WORKER] Starting background services");
 
-    startQueueWorker(fastify.wsManager, fastify.log);
+      const tournamentUpdater = new TournamentUpdater(
+        prisma,
+        fastify.wsManager,
+        fastify.log
+      );
+      tournamentUpdater.start(10000);
+
+      startQueueWorker(fastify.wsManager, fastify.log);
+
+      fastify.addHook("onClose", async () => {
+        tournamentUpdater.stop();
+        await prisma.$disconnect();
+      });
+    } else {
+      console.log(`⚙️ [WORKER ${process.env.pm_id}] API mode only`);
+
+      fastify.addHook("onClose", async () => {
+        await prisma.$disconnect();
+      });
+    }
 
     const port = parseInt(process.env.PORT || "3000");
     await fastify.listen({ port, host: "0.0.0.0" });
