@@ -2,7 +2,6 @@ import Fastify from "fastify";
 import { PrismaClient } from "@prisma/client";
 import jwt from "@fastify/jwt";
 import cors from "@fastify/cors";
-import websocket from "@fastify/websocket";
 import bcrypt from "bcryptjs";
 import rawBody from "fastify-raw-body";
 import { authRoutes } from "./routes/auth";
@@ -73,8 +72,6 @@ const start = async () => {
       credentials: true,
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     });
-
-    await fastify.register(websocket);
 
     await fastify.register(jwt, {
       secret: process.env.JWT_SECRET || "fallback-secret-key",

@@ -4,6 +4,7 @@ import fastifyPlugin from "fastify-plugin";
 
 async function websocketRoutesPlugin(fastify: FastifyInstance) {
   const wsManager = new WebSocketManager(fastify.server);
+
   fastify.decorate("wsManager", wsManager);
 
   console.log("[WS] Socket.IO WebSocketManager initialized");
@@ -18,6 +19,12 @@ async function websocketRoutesPlugin(fastify: FastifyInstance) {
         total: wsManager.getActiveConnections(),
       },
     };
+  });
+
+  fastify.addHook("onRequest", async (request, reply) => {
+    if (request.url.startsWith("/socket.io/")) {
+      return;
+    }
   });
 }
 
