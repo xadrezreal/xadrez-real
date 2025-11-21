@@ -167,8 +167,6 @@ export async function gameRoutes(fastify: FastifyInstance) {
 
         await queue.add("game-ended", {
           gameIdText: gameId,
-          wsManager: (fastify as any).wsManager,
-          logger: fastify.log,
         });
 
         console.log("[GAME_END_API] ✅ Successfully added to queue");
