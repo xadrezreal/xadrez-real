@@ -56,11 +56,11 @@ export const getBotMove = (fen, color, level) => {
   const game = new Chess(fen);
   const legalMoves = game.moves({ verbose: true });
   if (legalMoves.length === 0) return null;
-  
-  let depth = 2; // Default for 'Fácil'
-  if (level === 'Médio') depth = 3;
-  if (level === 'Profissional') depth = 4;
-  if (level === 'Ultra Difícil') depth = 5;
+
+  let depth = 1; // Default for 'Fácil' - reduzido para não travar
+  if (level === 'Médio') depth = 2;
+  if (level === 'Profissional') depth = 3;
+  if (level === 'Ultra Difícil') depth = 3; // Reduzido de 5 para 3
 
   let bestMove = null;
   let bestValue = color === 'w' ? -Infinity : Infinity;
