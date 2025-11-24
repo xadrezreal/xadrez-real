@@ -387,8 +387,6 @@ export const useGameEffects = ({
   }, [
     isGameActive,
     currentPlayer,
-    whiteTime,
-    blackTime,
     gameData,
     user,
     toast,
@@ -397,5 +395,6 @@ export const useGameEffects = ({
     setBlackTime,
     gameStatus,
     gameType,
+    gameInitialized,
   ]);
 };
