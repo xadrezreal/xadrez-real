@@ -108,8 +108,11 @@ export const useGameEffects = ({
 
   useEffect(() => {
     if (gameType === "bot") {
+      console.log('[BOT_INIT] Inicializando jogo com bot...');
       const newGame = new Chess();
       const timeControl = location.state?.timeControl || 600;
+      console.log('[BOT_INIT] Cor do jogador:', location.state?.playerColor);
+      console.log('[BOT_INIT] Nível do bot:', location.state?.botLevel);
       setGame(newGame);
       updateBoard(newGame);
       setWhiteTime(timeControl);
@@ -117,6 +120,7 @@ export const useGameEffects = ({
       setIsGameLoading(false);
       setGameStatus("playing");
       gameInitialized.current = true;
+      console.log('[BOT_INIT] ✅ Jogo inicializado');
     }
   }, [
     gameType,
@@ -130,7 +134,15 @@ export const useGameEffects = ({
   ]);
 
   useEffect(() => {
+    console.log('[BOT_EFFECT] Verificando condições:', {
+      gameType,
+      isPlayerTurn,
+      gameStatus,
+      shouldTriggerBot: gameType === "bot" && !isPlayerTurn && gameStatus === "playing"
+    });
+
     if (gameType === "bot" && !isPlayerTurn && gameStatus === "playing") {
+      console.log('[BOT_EFFECT] ✅ Agendando movimento do bot...');
       const botMoveTimeout = setTimeout(() => getBotMove(), 500);
       return () => clearTimeout(botMoveTimeout);
     }
@@ -244,7 +256,8 @@ export const useGameEffects = ({
       return;
     }
 
-    if (!gameData || !gameData.white_player_id || !gameData.black_player_id) {
+    // Para jogos online, precisa de gameData. Para bot, não precisa
+    if (gameType !== "bot" && (!gameData || !gameData.white_player_id || !gameData.black_player_id)) {
       return;
     }
 
@@ -269,28 +282,37 @@ export const useGameEffects = ({
         setWhiteTime((t) => {
           if (t !== null && t <= 0 && !timeoutHandledRef.current) {
             timeoutHandledRef.current = true;
-            const loserName = gameData.white_player_name;
-            const winnerName = gameData.black_player_name;
 
             clearInterval(timerRef.current);
             timerRef.current = null;
 
-            const isUserTheLoser = gameData.white_player_id === user.id;
+            // Para jogos bot, apenas mostrar notificação simples
+            if (gameType === "bot") {
+              toast({
+                title: "⏰ Tempo esgotado!",
+                description: "As brancas perderam por tempo.",
+                variant: "destructive",
+              });
+            } else {
+              const loserName = gameData.white_player_name;
+              const winnerName = gameData.black_player_name;
+              const isUserTheLoser = gameData.white_player_id === user.id;
 
-            toast({
-              title: isUserTheLoser
-                ? "⏰ Você perdeu por tempo!"
-                : `⏰ ${loserName} perdeu por tempo!`,
-              description: isUserTheLoser
-                ? "Seu tempo esgotou. Redirecionando..."
-                : `${winnerName} venceu! Aguarde a próxima partida...`,
-              variant: isUserTheLoser ? "destructive" : "default",
-            });
+              toast({
+                title: isUserTheLoser
+                  ? "⏰ Você perdeu por tempo!"
+                  : `⏰ ${loserName} perdeu por tempo!`,
+                description: isUserTheLoser
+                  ? "Seu tempo esgotou. Redirecionando..."
+                  : `${winnerName} venceu! Aguarde a próxima partida...`,
+                variant: isUserTheLoser ? "destructive" : "default",
+              });
 
-            if (isUserTheLoser) {
-              setTimeout(() => {
-                handleResign(true);
-              }, 100);
+              if (isUserTheLoser) {
+                setTimeout(() => {
+                  handleResign(true);
+                }, 100);
+              }
             }
 
             return 0;
@@ -301,28 +323,37 @@ export const useGameEffects = ({
         setBlackTime((t) => {
           if (t !== null && t <= 0 && !timeoutHandledRef.current) {
             timeoutHandledRef.current = true;
-            const loserName = gameData.black_player_name;
-            const winnerName = gameData.white_player_name;
 
             clearInterval(timerRef.current);
             timerRef.current = null;
 
-            const isUserTheLoser = gameData.black_player_id === user.id;
+            // Para jogos bot, apenas mostrar notificação simples
+            if (gameType === "bot") {
+              toast({
+                title: "⏰ Tempo esgotado!",
+                description: "As pretas perderam por tempo.",
+                variant: "destructive",
+              });
+            } else {
+              const loserName = gameData.black_player_name;
+              const winnerName = gameData.white_player_name;
+              const isUserTheLoser = gameData.black_player_id === user.id;
 
-            toast({
-              title: isUserTheLoser
-                ? "⏰ Você perdeu por tempo!"
-                : `⏰ ${loserName} perdeu por tempo!`,
-              description: isUserTheLoser
-                ? "Seu tempo esgotou. Redirecionando..."
-                : `${winnerName} venceu! Aguarde a próxima partida...`,
-              variant: isUserTheLoser ? "destructive" : "default",
-            });
+              toast({
+                title: isUserTheLoser
+                  ? "⏰ Você perdeu por tempo!"
+                  : `⏰ ${loserName} perdeu por tempo!`,
+                description: isUserTheLoser
+                  ? "Seu tempo esgotou. Redirecionando..."
+                  : `${winnerName} venceu! Aguarde a próxima partida...`,
+                variant: isUserTheLoser ? "destructive" : "default",
+              });
 
-            if (isUserTheLoser) {
-              setTimeout(() => {
-                handleResign(true);
-              }, 100);
+              if (isUserTheLoser) {
+                setTimeout(() => {
+                  handleResign(true);
+                }, 100);
+              }
             }
 
             return 0;

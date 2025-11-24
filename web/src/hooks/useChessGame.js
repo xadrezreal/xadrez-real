@@ -108,7 +108,13 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
     if (isWaitingForOpponent || gameStatus !== "playing") return false;
 
     if (gameType === "bot") {
-      return currentPlayer === playerColor;
+      const result = currentPlayer === playerColor;
+      console.log('[IS_PLAYER_TURN] Bot game:', {
+        currentPlayer,
+        playerColor,
+        isPlayerTurn: result
+      });
+      return result;
     }
 
     if (!gameData || !user?.id) return false;
