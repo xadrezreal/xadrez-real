@@ -248,7 +248,17 @@ export const useGameEffects = ({
   }, [isGameActive, gameType, gameId, whiteTime, blackTime, saveGameTime]);
 
   useEffect(() => {
+    console.log('[TIMER_EFFECT] Verificando condições do timer:', {
+      isGameActive,
+      whiteTime,
+      blackTime,
+      gameType,
+      gameData: gameData ? 'exists' : 'null',
+      gameInitialized: gameInitialized.current
+    });
+
     if (!isGameActive || whiteTime === null || blackTime === null) {
+      console.log('[TIMER_EFFECT] ❌ Condições não atendidas: game não ativo ou tempos null');
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -258,14 +268,17 @@ export const useGameEffects = ({
 
     // Para jogos online, precisa de gameData. Para bot, não precisa
     if (gameType !== "bot" && (!gameData || !gameData.white_player_id || !gameData.black_player_id)) {
+      console.log('[TIMER_EFFECT] ❌ Jogo online sem gameData completo');
       return;
     }
 
     if (whiteTime === 0 && blackTime === 0) {
+      console.log('[TIMER_EFFECT] ❌ Ambos tempos zerados');
       return;
     }
 
     if (!gameInitialized.current) {
+      console.log('[TIMER_EFFECT] ❌ Jogo não inicializado ainda');
       return;
     }
 
