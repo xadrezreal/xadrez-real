@@ -67,6 +67,12 @@ export async function gameRoutes(fastify: FastifyInstance) {
       status: gameStateData.status,
     });
 
+    // Bloquear jogos bot
+    if (gameId && gameId.startsWith("bot_")) {
+      console.log("[SAVE_STATE] ⚠️ Bot game detected, ignoring...");
+      return reply.send({ success: true, message: "Bot game, not saved" });
+    }
+
     try {
       await prisma.game.update({
         where: { game_id_text: gameId },
@@ -110,6 +116,12 @@ export async function gameRoutes(fastify: FastifyInstance) {
       lastMove,
     });
 
+    // Bloquear jogos bot
+    if (gameId && gameId.startsWith("bot_")) {
+      console.log("[UPDATE_MOVE] ⚠️ Bot game detected, ignoring...");
+      return reply.send({ success: true, message: "Bot game, not saved" });
+    }
+
     try {
       const game = await prisma.game.update({
         where: { game_id_text: gameId },
@@ -137,6 +149,12 @@ export async function gameRoutes(fastify: FastifyInstance) {
     console.log("[GAME_END_API] Game ID:", gameId);
     console.log("[GAME_END_API] Winner ID:", winnerId);
     console.log("[GAME_END_API] Reason:", reason);
+
+    // Bloquear jogos bot - eles não devem ser salvos no banco
+    if (gameId && gameId.startsWith("bot_")) {
+      console.log("[GAME_END_API] ⚠️ Bot game detected, ignoring...");
+      return reply.send({ success: true, message: "Bot game, no points updated" });
+    }
 
     try {
       console.log("[GAME_END_API] Finding game in database...");

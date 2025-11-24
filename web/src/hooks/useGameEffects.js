@@ -277,6 +277,8 @@ export const useGameEffects = ({
       timeoutHandledRef.current = false;
     }
 
+    console.log('[TIMER] Iniciando timer para:', currentPlayer);
+
     timerRef.current = setInterval(() => {
       if (currentPlayer === "white") {
         setWhiteTime((t) => {
@@ -381,5 +383,6 @@ export const useGameEffects = ({
     setWhiteTime,
     setBlackTime,
     gameStatus,
+    gameType,
   ]);
 };

@@ -12,6 +12,7 @@ const GameOverModal = ({
   onRematch,
   onReturnHome,
   onReviewGame,
+  gameType,
 }) => {
   const { width, height } = useWindowSize();
 
@@ -39,18 +40,27 @@ const GameOverModal = ({
         gameStatus === "timeout") &&
       winner
     ) {
+      // Não mostrar pontos em jogos bot
+      if (gameType === "bot") {
+        return `Parabéns, ${winner.name}!`;
+      }
       return `Parabéns, ${winner.name}! (+10 Pontos)`;
     }
     return "Boa partida!";
   };
 
-  const getLoserMessage = () =>
-    (gameStatus === "checkmate" ||
+  const getLoserMessage = () => {
+    // Não mostrar pontos em jogos bot
+    if (gameType === "bot") {
+      return "";
+    }
+    return (gameStatus === "checkmate" ||
       gameStatus === "resignation" ||
       gameStatus === "timeout") &&
     winner
       ? "Mais sorte na próxima! (-10 Pontos)"
       : "";
+  };
   const isWinner =
     winner &&
     (gameStatus === "checkmate" ||

@@ -411,6 +411,7 @@ const ChessGame = () => {
               onRematch={gameType === "bot" ? null : handleRematch}
               onReturnHome={handleReturnHome}
               onReviewGame={handleReviewGame}
+              gameType={gameType}
             />
           )}
           {promotionMove && (
