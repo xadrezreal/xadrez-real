@@ -63,7 +63,7 @@ export const getBotMove = (fen, color, level) => {
   if (level === 'Ultra Difícil') depth = 5;
 
   let bestMove = null;
-  let bestValue = color === 'w' ? Infinity : -Infinity;
+  let bestValue = color === 'w' ? -Infinity : Infinity;
 
   for (const move of legalMoves) {
     game.move(move);
@@ -71,12 +71,12 @@ export const getBotMove = (fen, color, level) => {
     game.undo();
 
     if (color === 'w') {
-      if (boardValue < bestValue) {
+      if (boardValue > bestValue) {
         bestValue = boardValue;
         bestMove = move;
       }
-    } else { 
-      if (boardValue > bestValue) {
+    } else {
+      if (boardValue < bestValue) {
         bestValue = boardValue;
         bestMove = move;
       }

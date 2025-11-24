@@ -40,7 +40,10 @@ export const useGameEffects = ({
   const getBotMove = useCallback(() => {
     const move = getAdvancedBotMove(game.fen(), game.turn(), botLevel);
     if (move) {
-      makeMove(move, false);
+      console.log(`[BOT] Nível ${botLevel} jogando:`, move.san || move);
+      makeMove(move, true);
+    } else {
+      console.warn('[BOT] Nenhum movimento disponível');
     }
   }, [game, botLevel, makeMove]);
 

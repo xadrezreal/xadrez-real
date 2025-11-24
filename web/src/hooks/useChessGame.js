@@ -573,12 +573,12 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
   const { connectionStatus, isConnected } = socketIO;
 
   const makeMove = useCallback(
-    async (move) => {
+    async (move, isBotMove = false) => {
       if (isProcessingMoveRef.current) {
         return null;
       }
 
-      if (!isPlayerTurn) {
+      if (!isPlayerTurn && !isBotMove) {
         return null;
       }
 
