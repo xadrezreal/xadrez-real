@@ -327,11 +327,11 @@ export const useGameEffects = ({
                 variant: isUserTheLoser ? "destructive" : "default",
               });
 
-              if (isUserTheLoser) {
-                setTimeout(() => {
-                  handleResign(true);
-                }, 100);
-              }
+              // FIXADO: Chamar handleResign independente de quem perdeu
+              // Passa o ID do jogador que perdeu (brancas neste caso)
+              setTimeout(() => {
+                handleResign(true, gameData.white_player_id);
+              }, 100);
             }
 
             return 0;
@@ -368,11 +368,11 @@ export const useGameEffects = ({
                 variant: isUserTheLoser ? "destructive" : "default",
               });
 
-              if (isUserTheLoser) {
-                setTimeout(() => {
-                  handleResign(true);
-                }, 100);
-              }
+              // FIXADO: Chamar handleResign independente de quem perdeu
+              // Passa o ID do jogador que perdeu (pretas neste caso)
+              setTimeout(() => {
+                handleResign(true, gameData.black_player_id);
+              }, 100);
             }
 
             return 0;

@@ -786,7 +786,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
   );
 
   const handleResign = useCallback(
-    async (isAutomatic = false) => {
+    async (isAutomatic = false, loserPlayerId = null) => {
       if (!gameData?.white_player_id || !gameData?.black_player_id) {
         toast({
           title: "Erro",
@@ -799,8 +799,19 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
         return;
       }
 
-      const winnerInfo =
-        playerColor === "white" ? blackPlayerInfo : whitePlayerInfo;
+      // Determinar vencedor baseado em quem perdeu
+      let winnerInfo;
+      if (loserPlayerId) {
+        // Se foi especificado quem perdeu, o vencedor é o outro jogador
+        if (loserPlayerId === gameData.white_player_id) {
+          winnerInfo = blackPlayerInfo;
+        } else {
+          winnerInfo = whitePlayerInfo;
+        }
+      } else {
+        // Comportamento antigo: o jogador atual desiste, oponente ganha
+        winnerInfo = playerColor === "white" ? blackPlayerInfo : whitePlayerInfo;
+      }
 
       const resignationType = isAutomatic ? "timeout" : "resignation";
 
@@ -812,7 +823,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
       console.log("[RESIGN] ========== RESIGNING ==========");
 
-      console.log("[RESIGN] Resigning player:", user.id);
+      console.log("[RESIGN] Loser player:", loserPlayerId || user.id);
 
       console.log("[RESIGN] Winner:", winnerInfo.id, winnerInfo.name);
 

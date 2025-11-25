@@ -30,6 +30,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../contexts/UserContext";
 import { useAuth } from "../contexts/AuthContext";
+import { calculateTournamentPrize, getFeeTierDescription } from "../lib/prizeCalculations";
 
 const entryFees = [
   0, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0, 50.0, 70.0, 100.0,
@@ -256,7 +257,9 @@ const CreateTournament = () => {
     visible: { y: 0, opacity: 1 },
   };
 
-  const prizePool = (parseFloat(entryFee) * playerCount).toFixed(2);
+  // Calcular premiação com taxa progressiva
+  const prizeInfo = calculateTournamentPrize(parseFloat(entryFee), playerCount);
+  const feeTier = getFeeTierDescription(prizeInfo.totalCollected);
 
   const previewDateTime = () => {
     if (!startDate || !startTime) return null;
@@ -570,13 +573,46 @@ const CreateTournament = () => {
                   <Label htmlFor="r3">50% / 25% / 15% / 6% / 4% (Top 5)</Label>
                 </div>
               </RadioGroup>
-              <div className="mt-2 text-sm text-slate-400 p-3 bg-slate-900/30 rounded-md">
-                <Info className="inline w-4 h-4 mr-1 text-cyan-400" />
-                Prêmio total estimado:{" "}
-                <span className="font-bold text-yellow-400">
-                  R$ {prizePool}
-                </span>
-              </div>
+              {prizeInfo.totalCollected > 0 && (
+                <div className="mt-2 space-y-3">
+                  {/* Preview do Prêmio Líquido */}
+                  <div className="text-sm p-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 rounded-md">
+                    <Info className="inline w-4 h-4 mr-1 text-yellow-400" />
+                    Prêmio líquido estimado:{" "}
+                    <span className="font-bold text-yellow-400">
+                      R$ {prizeInfo.netPrizePool.toFixed(2)}
+                    </span>
+                  </div>
+
+                  {/* Detalhamento de Taxas */}
+                  <div className={`text-xs p-3 ${feeTier.bgColor} border ${feeTier.borderColor} rounded-md space-y-2`}>
+                    <div className="font-semibold text-slate-200 mb-2 flex items-center gap-1">
+                      <Shield className="w-3 h-3" />
+                      Estrutura de Taxas
+                    </div>
+
+                    <div className="space-y-1.5 text-slate-300">
+                      <div className="flex justify-between">
+                        <span>Total arrecadado:</span>
+                        <span className="font-semibold">R$ {prizeInfo.totalCollected.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Taxa da casa ({prizeInfo.housePercentage}%):</span>
+                        <span className={`font-semibold ${feeTier.color}`}>- R$ {prizeInfo.houseAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="pt-1.5 border-t border-slate-600/50 flex justify-between">
+                        <span className="font-semibold">Pote de prêmios:</span>
+                        <span className="font-bold text-green-400">R$ {prizeInfo.netPrizePool.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    <p className={`${feeTier.color} mt-2 text-xs flex items-center gap-1`}>
+                      <Info className="w-3 h-3" />
+                      {feeTier.message}
+                    </p>
+                  </div>
+                </div>
+              )}
             </motion.div>
 
             <motion.div variants={itemVariants} className="flex flex-col gap-4">

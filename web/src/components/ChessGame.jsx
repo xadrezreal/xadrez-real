@@ -7,8 +7,6 @@ import Chat from "./Chat";
 import MoveHistory from "./MoveHistory";
 import PlayerInfo from "./PlayerInfo";
 import CapturedPieces from "./CapturedPieces";
-import { DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
 import { useChessGame } from "../hooks/useChessGame";
 import { UserContext } from "../contexts/UserContext";
 import PromotionModal from "./PromotionModal";
@@ -333,8 +331,7 @@ const ChessGame = () => {
   });
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 flex items-center justify-center overflow-auto">
+    <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 flex items-center justify-center overflow-auto">
         <AnimatePresence>
           {activePanel && (
             <SidePanel
@@ -444,7 +441,7 @@ const ChessGame = () => {
         cancelText="Continuar jogando"
         variant="destructive"
       />
-    </DndProvider>
+    </div>
   );
 };
 

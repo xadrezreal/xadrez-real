@@ -193,14 +193,77 @@ export async function paymentRoutes(fastify: FastifyInstance) {
               return reply.code(400).send({ error: "Metadata inválido" });
             }
 
+            fastify.log.info({
+              message: "[WEBHOOK] Processing deposit",
+              userId,
+              amount,
+              stripeAccountId,
+              sessionId: session.id,
+            });
+
+            // Buscar informações do PaymentIntent para ver o transfer
+            const paymentIntent = await stripe.paymentIntents.retrieve(
+              session.payment_intent as string,
+              { expand: ['charges'] }
+            );
+
+            fastify.log.info({
+              message: "[WEBHOOK] PaymentIntent details",
+              paymentIntentId: paymentIntent.id,
+              amount: paymentIntent.amount,
+              transferData: paymentIntent.transfer_data,
+              status: paymentIntent.status,
+            });
+
+            // Se houver um transfer, buscar detalhes
+            if (paymentIntent.transfer_data?.destination) {
+              const destinationId = typeof paymentIntent.transfer_data.destination === 'string'
+                ? paymentIntent.transfer_data.destination
+                : paymentIntent.transfer_data.destination.id;
+
+              try {
+                // Buscar transfers recentes para essa conta
+                const transfers = await stripe.transfers.list({
+                  limit: 5,
+                });
+
+                const relevantTransfers = transfers.data.filter(
+                  t => t.destination === destinationId
+                );
+
+                fastify.log.info({
+                  message: "[WEBHOOK] Transfer details",
+                  transferCount: relevantTransfers.length,
+                  transfers: relevantTransfers.map(t => ({
+                    id: t.id,
+                    amount: t.amount / 100,
+                    destination: t.destination,
+                    created: t.created,
+                  })),
+                });
+              } catch (transferError: any) {
+                fastify.log.warn({
+                  message: "[WEBHOOK] Could not fetch transfer details",
+                  error: transferError.message,
+                });
+              }
+            }
+
             const balance = await stripe.balance.retrieve({
               stripeAccount: stripeAccountId,
             });
 
-            const realBalance =
-              balance.available.reduce((sum, item) => sum + item.amount, 0) /
-                100 +
-              balance.pending.reduce((sum, item) => sum + item.amount, 0) / 100;
+            const availableBalance = balance.available.reduce((sum, item) => sum + item.amount, 0) / 100;
+            const pendingBalance = balance.pending.reduce((sum, item) => sum + item.amount, 0) / 100;
+            const realBalance = availableBalance + pendingBalance;
+
+            fastify.log.info({
+              message: "[WEBHOOK] Stripe Connect balance",
+              stripeAccountId,
+              available: availableBalance,
+              pending: pendingBalance,
+              total: realBalance,
+            });
 
             await fastify.prisma.user.update({
               where: { id: userId },

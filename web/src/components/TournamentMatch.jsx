@@ -1,8 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
 import ChessBoard from "./ChessBoard";
 import PlayerInfo from "./PlayerInfo";
 import CapturedPieces from "./CapturedPieces";
@@ -173,8 +171,7 @@ const TournamentMatch = () => {
   }
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 flex flex-col p-2 sm:p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 flex flex-col p-2 sm:p-4">
         <div className="flex items-center justify-between mb-4">
           <Button variant="ghost" onClick={handleBackClick}>
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -363,7 +360,7 @@ const TournamentMatch = () => {
         cancelText="Continuar jogando"
         variant="destructive"
       />
-    </DndProvider>
+    </div>
   );
 };
 

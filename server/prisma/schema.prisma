@@ -73,6 +73,7 @@ model User {
   matchesAsPlayer2         TournamentMatch[]       @relation("MatchPlayer2")
   matchesWon               TournamentMatch[]       @relation("MatchWinner")
   transactions             Transaction[]
+  tournamentPrizes         TournamentPrize[]
 
   @@map("users")
 }
@@ -91,6 +92,9 @@ model Tournament {
   winnerId              String?
   nextRoundStartTime    DateTime?
   currentRoundStartTime DateTime?
+  housePercentage       Float             @default(10.0)
+  prizePool             Float             @default(0.0)
+  houseTake             Float             @default(0.0)
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 
@@ -101,8 +105,27 @@ model Tournament {
   participants TournamentParticipant[]
   matches      TournamentMatch[]
   games        Game[]
+  prizes       TournamentPrize[]
 
   @@map("tournaments")
+}
+
+model TournamentPrize {
+  id           String    @id @default(cuid())
+  tournamentId String
+  userId       String
+  position     Int
+  amount       Float
+  paid         Boolean   @default(false)
+  paidAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tournamentId])
+  @@index([userId])
+  @@map("tournament_prizes")
 }
 
 model TournamentParticipant {

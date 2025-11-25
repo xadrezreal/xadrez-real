@@ -19,6 +19,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { tournamentService } from "../lib/tournamentService";
 import { UserContext } from "../contexts/UserContext";
+import { calculateTournamentPrize } from "../lib/prizeCalculations";
 
 const TournamentCard = React.memo(
   ({ tournament, userId }) => {
@@ -28,7 +29,9 @@ const TournamentCard = React.memo(
     const isFull = participantCount >= tournament.playerCount;
     const isParticipant =
       tournament.participants?.some((p) => p.userId === userId) || false;
-    const prizePool = (tournament.entryFee * participantCount * 0.8).toFixed(2);
+
+    // Calcular premiação com taxa progressiva
+    const prizeInfo = calculateTournamentPrize(tournament.entryFee, participantCount);
     const startTime = new Date(tournament.startTime);
 
     const getStatusDisplay = () => {
@@ -102,13 +105,16 @@ const TournamentCard = React.memo(
                   <span>Torneio Privado</span>
                 </div>
               )}
-              {prizePool > 0 && (
+              {prizeInfo.netPrizePool > 0 && (
                 <div className="p-3 bg-slate-900/50 rounded-lg">
                   <p className="text-sm text-slate-400">
-                    Prêmio Total Estimado
+                    Prêmio Líquido Estimado
                   </p>
                   <p className="text-2xl font-bold text-yellow-400">
-                    R$ {prizePool}
+                    R$ {prizeInfo.netPrizePool.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Taxa: {prizeInfo.housePercentage}% • Casa: R$ {prizeInfo.houseAmount.toFixed(2)}
                   </p>
                 </div>
               )}

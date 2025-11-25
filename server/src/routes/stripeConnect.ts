@@ -195,6 +195,15 @@ export async function stripeConnectRoutes(fastify: FastifyInstance) {
           return reply.status(404).send({ error: "Usuário não encontrado" });
         }
 
+        // Verificar saldo interno PRIMEIRO
+        if (user.balance < amount) {
+          return reply.status(400).send({
+            error: "Saldo insuficiente",
+            availableBalance: user.balance,
+            requestedAmount: amount,
+          });
+        }
+
         if (!user.stripeAccountId) {
           return reply.status(400).send({
             error: "Você precisa conectar uma conta bancária primeiro",
@@ -209,7 +218,7 @@ export async function stripeConnectRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Verificar saldo REAL no Stripe
+        // Verificar saldo REAL no Stripe também (available + pending)
         const balance = await stripe.balance.retrieve({
           stripeAccount: user.stripeAccountId,
         });
@@ -217,12 +226,37 @@ export async function stripeConnectRoutes(fastify: FastifyInstance) {
         const availableBalance =
           balance.available.reduce((sum, item) => sum + item.amount, 0) / 100;
 
+        const pendingBalance =
+          balance.pending.reduce((sum, item) => sum + item.amount, 0) / 100;
+
+        const totalStripeBalance = availableBalance + pendingBalance;
+
+        fastify.log.info(`[WITHDRAW] Saldo Stripe disponível: R$ ${availableBalance}, Pendente: R$ ${pendingBalance}, Total: R$ ${totalStripeBalance}, Saldo interno: R$ ${user.balance}`);
+
+        // Se o saldo disponível no Stripe for menor que o solicitado, verificar se há saldo pendente
         if (availableBalance < amount) {
-          return reply.status(400).send({
-            error: "Saldo insuficiente no Stripe",
-            availableBalance: availableBalance,
-            requestedAmount: amount,
-          });
+          if (totalStripeBalance >= amount) {
+            // Tem saldo total, mas está pendente
+            return reply.status(400).send({
+              error: "Seu saldo está em processamento pelo Stripe. Aguarde alguns minutos.",
+              availableBalance: availableBalance,
+              pendingBalance: pendingBalance,
+              totalBalance: totalStripeBalance,
+              requestedAmount: amount,
+              hint: "Depósitos levam alguns minutos para ficarem disponíveis para saque.",
+            });
+          } else {
+            // Inconsistência real - saldo no Stripe menor que no DB
+            fastify.log.warn(`[WITHDRAW] Inconsistência de saldo! Stripe total: ${totalStripeBalance}, DB: ${user.balance}`);
+
+            return reply.status(400).send({
+              error: "Saldo insuficiente no Stripe. Entre em contato com o suporte.",
+              availableStripe: availableBalance,
+              pendingStripe: pendingBalance,
+              availableInternal: user.balance,
+              requestedAmount: amount,
+            });
+          }
         }
 
         // Criar payout DA conta Connect do usuário para a conta bancária dele
@@ -278,6 +312,95 @@ export async function stripeConnectRoutes(fastify: FastifyInstance) {
         fastify.log.error(error);
         return reply.status(500).send({
           error: "Erro ao processar saque",
+          details: error.message,
+        });
+      }
+    }
+  );
+
+  // Rota de debug para verificar status da conta e transferências
+  fastify.get(
+    "/debug-balance",
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request: any, reply: any) => {
+      try {
+        const userId = request.user.id;
+
+        const user = await fastify.prisma.user.findUnique({
+          where: { id: userId },
+        });
+
+        if (!user || !user.stripeAccountId) {
+          return reply.status(404).send({
+            error: "Usuário ou conta Stripe não encontrado",
+          });
+        }
+
+        // Buscar informações da conta
+        const account = await stripe.accounts.retrieve(user.stripeAccountId);
+
+        // Buscar saldo
+        const balance = await stripe.balance.retrieve({
+          stripeAccount: user.stripeAccountId,
+        });
+
+        const availableBalance =
+          balance.available.reduce((sum, item) => sum + item.amount, 0) / 100;
+        const pendingBalance =
+          balance.pending.reduce((sum, item) => sum + item.amount, 0) / 100;
+
+        // Buscar últimas transações
+        const balanceTransactions = await stripe.balanceTransactions.list(
+          { limit: 10 },
+          { stripeAccount: user.stripeAccountId }
+        );
+
+        // Buscar últimos payouts
+        const payouts = await stripe.payouts.list(
+          { limit: 10 },
+          { stripeAccount: user.stripeAccountId }
+        );
+
+        return reply.send({
+          userId,
+          stripeAccountId: user.stripeAccountId,
+          internalBalance: user.balance,
+          stripeBalance: {
+            available: availableBalance,
+            pending: pendingBalance,
+            total: availableBalance + pendingBalance,
+            details: {
+              available: balance.available,
+              pending: balance.pending,
+            },
+          },
+          accountStatus: {
+            chargesEnabled: account.charges_enabled,
+            payoutsEnabled: account.payouts_enabled,
+            capabilities: account.capabilities,
+          },
+          recentTransactions: balanceTransactions.data.map((t) => ({
+            id: t.id,
+            amount: t.amount / 100,
+            net: t.net / 100,
+            type: t.type,
+            description: t.description,
+            created: new Date(t.created * 1000).toISOString(),
+          })),
+          recentPayouts: payouts.data.map((p) => ({
+            id: p.id,
+            amount: p.amount / 100,
+            status: p.status,
+            created: new Date(p.created * 1000).toISOString(),
+            arrivalDate: new Date(p.arrival_date * 1000).toISOString(),
+          })),
+        });
+      } catch (error: any) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: "Erro ao buscar informações de debug",
           details: error.message,
         });
       }

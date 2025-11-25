@@ -16,9 +16,13 @@ import {
   WifiOff,
   Clock,
   Timer,
+  ChevronLeft,
+  ChevronRight,
+  Search,
 } from "lucide-react";
 import { tournamentService } from "../lib/tournamentService";
 import { useSocketIO } from "../hooks/useSocketIO";
+import { calculateTournamentPrize } from "../lib/prizeCalculations";
 
 const TournamentBracket = () => {
   const { id: tournamentId } = useParams();
@@ -31,6 +35,8 @@ const TournamentBracket = () => {
   const [bracket, setBracket] = useState({});
   const [nextRoundStartTime, setNextRoundStartTime] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);
+  const [selectedRound, setSelectedRound] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const hasReloadedRef = useRef(false);
   const previousStatusRef = useRef(null);
 
@@ -319,6 +325,44 @@ const TournamentBracket = () => {
     return tournament.status === "FINISHED" && tournament.winnerId === user.id;
   }, [tournament, user]);
 
+  // Determinar rodada atual a mostrar
+  const displayRound = useMemo(() => {
+    if (selectedRound !== null) return selectedRound;
+    if (!tournament) return 1;
+    return tournament.currentRound || 1;
+  }, [selectedRound, tournament]);
+
+  // Filtrar matches por busca
+  const filteredMatches = useMemo(() => {
+    if (!bracket[displayRound]) return [];
+    if (!searchTerm.trim()) return bracket[displayRound];
+
+    const term = searchTerm.toLowerCase();
+    return bracket[displayRound].filter((match) =>
+      match.player1?.name?.toLowerCase().includes(term) ||
+      match.player2?.name?.toLowerCase().includes(term)
+    );
+  }, [bracket, displayRound, searchTerm]);
+
+  // Encontrar match do usuário na rodada atual
+  const userMatchInRound = useMemo(() => {
+    if (!bracket[displayRound] || !user) return null;
+    return bracket[displayRound].find(
+      (match) =>
+        match.player1?.id === user.id || match.player2?.id === user.id
+    );
+  }, [bracket, displayRound, user]);
+
+  // Auto-scroll para o card do usuário
+  useEffect(() => {
+    if (userMatchInRound && !searchTerm) {
+      const element = document.getElementById(`match-${userMatchInRound.id}`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [userMatchInRound, searchTerm]);
+
   const handlePlayMatch = async (match) => {
     if (userIsEliminated) {
       toast({
@@ -593,148 +637,235 @@ const TournamentBracket = () => {
                 <Trophy className="w-4 h-4 text-yellow-400" />
                 <span className="text-slate-300">
                   R${" "}
-                  {(
-                    tournament.entryFee *
-                    (tournament._count?.participants || 0) *
-                    0.8
-                  ).toFixed(2)}
+                  {calculateTournamentPrize(
+                    tournament.entryFee,
+                    tournament._count?.participants || 0
+                  ).netPrizePool.toFixed(2)}
                 </span>
               </div>
             </div>
           </div>
 
           {Object.keys(bracket).length > 0 && (
-            <div className="flex justify-center overflow-x-auto pb-4">
-              <div className="flex space-x-8 md:space-x-16">
-                {Object.keys(bracket)
-                  .sort((a, b) => parseInt(a) - parseInt(b))
-                  .map((round) => (
-                    <div
-                      key={round}
-                      className="flex flex-col justify-around min-w-[280px]"
+            <div className="max-w-6xl mx-auto">
+              {/* Navegação e Busca */}
+              <div className="mb-6 space-y-4">
+                {/* Navegação de Rodadas */}
+                <div className="flex items-center justify-center gap-4 flex-wrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedRound(Math.max(1, displayRound - 1))}
+                    disabled={displayRound === 1}
+                    className="text-slate-300"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+
+                  <div className="flex items-center gap-2 px-6 py-2 bg-slate-800/50 rounded-lg border border-slate-700">
+                    <span className="text-slate-400 text-sm">Rodada</span>
+                    <span className="text-2xl font-bold text-cyan-400">
+                      {displayRound}
+                    </span>
+                    <span className="text-slate-400 text-sm">
+                      de {tournament.totalRounds}
+                    </span>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedRound(Math.min(tournament.totalRounds, displayRound + 1))}
+                    disabled={displayRound === tournament.totalRounds}
+                    className="text-slate-300"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+
+                  {selectedRound !== null && selectedRound !== tournament.currentRound && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedRound(null)}
+                      className="text-cyan-400 hover:text-cyan-300"
                     >
-                      <h3 className="text-xl font-bold text-center mb-6 text-slate-300">
-                        Rodada {round}
-                      </h3>
-                      <div className="space-y-8">
-                        {bracket[round].map((match) => (
-                          <Card
-                            key={match.id}
-                            className="bg-slate-800/70 border-slate-700 w-full"
+                      Voltar à rodada atual
+                    </Button>
+                  )}
+                </div>
+
+                {/* Busca de Jogador */}
+                {bracket[displayRound]?.length > 10 && (
+                  <div className="max-w-md mx-auto relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar jogador..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                    />
+                  </div>
+                )}
+
+                {/* Indicadores */}
+                <div className="flex justify-center gap-6 text-xs text-slate-400">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded bg-cyan-500/20 border border-cyan-500/50"></div>
+                    <span>Você</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded bg-green-500/20 border border-green-500/50"></div>
+                    <span>Vencedor</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded bg-slate-700/50"></div>
+                    <span>Outros</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lista de Partidas */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredMatches.map((match) => {
+                  const isUserMatch = match.player1?.id === user.id || match.player2?.id === user.id;
+
+                  return (
+                    <Card
+                      key={match.id}
+                      id={`match-${match.id}`}
+                      className={`transition-all duration-300 ${
+                        isUserMatch
+                          ? "bg-cyan-500/10 border-cyan-500/50 shadow-lg shadow-cyan-500/20"
+                          : "bg-slate-800/70 border-slate-700"
+                      }`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="space-y-2 mb-4">
+                          <div
+                            className={`flex justify-between items-center p-3 rounded-lg transition-colors ${
+                              match.winnerId === match.player1?.id
+                                ? "bg-green-500/20 border border-green-500/50"
+                                : match.player1?.id === user.id
+                                ? "bg-cyan-500/20 border border-cyan-500/50"
+                                : "bg-slate-700/50"
+                            }`}
                           >
-                            <CardContent className="p-4">
-                              <div className="space-y-2 mb-4">
-                                <div
-                                  className={`flex justify-between items-center p-3 rounded-lg transition-colors ${
-                                    match.winnerId === match.player1?.id
-                                      ? "bg-green-500/20 border border-green-500/50"
-                                      : match.player1?.id === user.id
-                                      ? "bg-cyan-500/20 border border-cyan-500/50"
-                                      : "bg-slate-700/50"
-                                  }`}
-                                >
-                                  <span
-                                    className={`${
-                                      match.winnerId === match.player1?.id
-                                        ? "text-green-300 font-bold"
-                                        : match.player1?.id === user.id
-                                        ? "text-cyan-300 font-semibold"
-                                        : "text-slate-300"
-                                    }`}
-                                  >
-                                    {match.player1?.name || "Aguardando..."}
-                                  </span>
-                                  {match.winnerId === match.player1?.id && (
-                                    <Crown className="w-5 h-5 text-yellow-400" />
-                                  )}
-                                </div>
+                            <span
+                              className={`truncate ${
+                                match.winnerId === match.player1?.id
+                                  ? "text-green-300 font-bold"
+                                  : match.player1?.id === user.id
+                                  ? "text-cyan-300 font-semibold"
+                                  : "text-slate-300"
+                              }`}
+                            >
+                              {match.player1?.name || "Aguardando..."}
+                            </span>
+                            {match.winnerId === match.player1?.id && (
+                              <Crown className="w-5 h-5 text-yellow-400 flex-shrink-0 ml-2" />
+                            )}
+                          </div>
 
-                                <div
-                                  className={`flex justify-between items-center p-3 rounded-lg transition-colors ${
-                                    match.winnerId === match.player2?.id
-                                      ? "bg-green-500/20 border border-green-500/50"
-                                      : match.player2?.id === user.id
-                                      ? "bg-cyan-500/20 border border-cyan-500/50"
-                                      : "bg-slate-700/50"
-                                  }`}
-                                >
-                                  <span
-                                    className={`${
-                                      match.winnerId === match.player2?.id
-                                        ? "text-green-300 font-bold"
-                                        : match.player2?.id === user.id
-                                        ? "text-cyan-300 font-semibold"
-                                        : "text-slate-300"
-                                    }`}
-                                  >
-                                    {match.player2?.name || "Aguardando..."}
-                                  </span>
-                                  {match.winnerId === match.player2?.id && (
-                                    <Crown className="w-5 h-5 text-yellow-400" />
-                                  )}
-                                </div>
-                              </div>
+                          <div
+                            className={`flex justify-between items-center p-3 rounded-lg transition-colors ${
+                              match.winnerId === match.player2?.id
+                                ? "bg-green-500/20 border border-green-500/50"
+                                : match.player2?.id === user.id
+                                ? "bg-cyan-500/20 border border-cyan-500/50"
+                                : "bg-slate-700/50"
+                            }`}
+                          >
+                            <span
+                              className={`truncate ${
+                                match.winnerId === match.player2?.id
+                                  ? "text-green-300 font-bold"
+                                  : match.player2?.id === user.id
+                                  ? "text-cyan-300 font-semibold"
+                                  : "text-slate-300"
+                              }`}
+                            >
+                              {match.player2?.name || "Aguardando..."}
+                            </span>
+                            {match.winnerId === match.player2?.id && (
+                              <Crown className="w-5 h-5 text-yellow-400 flex-shrink-0 ml-2" />
+                            )}
+                          </div>
+                        </div>
 
-                              {(match.status === "PENDING" ||
-                                match.status === "IN_PROGRESS") &&
-                                match.player1 &&
-                                match.player2 &&
-                                !userIsEliminated &&
-                                (match.player1.id === user.id ||
-                                  match.player2.id === user.id) && (
-                                  <Button
-                                    size="sm"
-                                    className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    onClick={() => handlePlayMatch(match)}
-                                  >
-                                    <Swords className="w-4 h-4 mr-2" />
-                                    Jogar Agora
-                                  </Button>
-                                )}
+                        {(match.status === "PENDING" ||
+                          match.status === "IN_PROGRESS") &&
+                          match.player1 &&
+                          match.player2 &&
+                          !userIsEliminated &&
+                          (match.player1.id === user.id ||
+                            match.player2.id === user.id) && (
+                            <Button
+                              size="sm"
+                              className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 animate-pulse"
+                              onClick={() => handlePlayMatch(match)}
+                            >
+                              <Swords className="w-4 h-4 mr-2" />
+                              Jogar Agora
+                            </Button>
+                          )}
 
-                              {match.status === "COMPLETED" && (
-                                <div className="text-center">
-                                  <p className="text-xs text-green-400 font-semibold">
-                                    Vencedor: {match.winner?.name}
-                                  </p>
-                                </div>
-                              )}
+                        {match.status === "COMPLETED" && (
+                          <div className="text-center">
+                            <p className="text-xs text-green-400 font-semibold">
+                              Vencedor: {match.winner?.name}
+                            </p>
+                          </div>
+                        )}
 
-                              {match.status === "BYE" && (
-                                <div className="text-center">
-                                  <p className="text-xs text-blue-400">
-                                    {match.player1?.name} avança automaticamente
-                                  </p>
-                                </div>
-                              )}
+                        {match.status === "BYE" && (
+                          <div className="text-center">
+                            <p className="text-xs text-blue-400">
+                              {match.player1?.name} avança automaticamente
+                            </p>
+                          </div>
+                        )}
 
-                              {match.status === "IN_PROGRESS" &&
-                                !userIsEliminated &&
-                                (match.player1?.id === user.id ||
-                                  match.player2?.id === user.id) && (
-                                  <div className="space-y-2">
-                                    <p className="text-xs text-cyan-400 font-semibold animate-pulse text-center">
-                                      É a sua vez!
-                                    </p>
-                                  </div>
-                                )}
+                        {match.status === "IN_PROGRESS" &&
+                          !userIsEliminated &&
+                          (match.player1?.id === user.id ||
+                            match.player2?.id === user.id) && (
+                            <div className="space-y-2">
+                              <p className="text-xs text-cyan-400 font-semibold animate-pulse text-center">
+                                É a sua vez!
+                              </p>
+                            </div>
+                          )}
 
-                              {match.status === "IN_PROGRESS" &&
-                                (userIsEliminated ||
-                                  (match.player1?.id !== user.id &&
-                                    match.player2?.id !== user.id)) && (
-                                  <div className="text-center">
-                                    <p className="text-xs text-slate-400">
-                                      Partida em andamento
-                                    </p>
-                                  </div>
-                                )}
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                        {match.status === "IN_PROGRESS" &&
+                          (userIsEliminated ||
+                            (match.player1?.id !== user.id &&
+                              match.player2?.id !== user.id)) && (
+                            <div className="text-center">
+                              <p className="text-xs text-slate-400">
+                                Partida em andamento
+                              </p>
+                            </div>
+                          )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Mensagem quando nenhum resultado */}
+              {filteredMatches.length === 0 && searchTerm && (
+                <div className="text-center py-12">
+                  <Search className="w-12 h-12 text-slate-500 mx-auto mb-4" />
+                  <p className="text-slate-400">
+                    Nenhum jogador encontrado com "{searchTerm}"
+                  </p>
+                </div>
+              )}
+
+              {/* Info de partidas */}
+              <div className="mt-6 text-center text-sm text-slate-400">
+                Mostrando {filteredMatches.length} de {bracket[displayRound]?.length || 0} partidas
               </div>
             </div>
           )}

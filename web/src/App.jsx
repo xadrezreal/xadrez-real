@@ -8,6 +8,8 @@ import {
   useLocation,
   Navigate,
 } from "react-router-dom";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
 import { Toaster } from "./components/ui/toaster";
 import Home from "./components/Home";
 import Profile from "./components/Profile";
@@ -316,16 +318,18 @@ function App() {
         <UserContext.Provider value={userContextValue}>
           <BoardThemeContext.Provider value={boardContextValue}>
             <CartProvider>
-              <Router>
-                <Helmet>
-                  <title>Xadrez Real</title>
-                  <meta
-                    name="description"
-                    content="Jogue xadrez online, participe de campeonatos e melhore sua pontuação."
-                  />
-                </Helmet>
-                <AppContent />
-              </Router>
+              <DndProvider backend={HTML5Backend}>
+                <Router>
+                  <Helmet>
+                    <title>Xadrez Real</title>
+                    <meta
+                      name="description"
+                      content="Jogue xadrez online, participe de campeonatos e melhore sua pontuação."
+                    />
+                  </Helmet>
+                  <AppContent />
+                </Router>
+              </DndProvider>
             </CartProvider>
           </BoardThemeContext.Provider>
         </UserContext.Provider>
