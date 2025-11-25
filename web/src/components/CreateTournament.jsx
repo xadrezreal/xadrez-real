@@ -36,7 +36,9 @@ const entryFees = [
   0, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0, 50.0, 70.0, 100.0,
   200.0, 500.0, 1000, 2000, 5000, 10000,
 ];
-const playerCounts = [4, 8, 16, 32, 64, 128, 256, 512];
+// Limites: PREMIUM até 128, ADMIN até 8192
+const playerCountsPremium = [4, 8, 16, 32, 64, 128];
+const playerCountsAdmin = [4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192];
 
 const CreateTournament = () => {
   const [tournamentName, setTournamentName] = useState("");
@@ -530,9 +532,15 @@ const CreateTournament = () => {
               <Label htmlFor="playerCount">
                 <Users className="inline-block w-4 h-4 mr-1" />
                 Quantidade de Jogadores
+                {isAdmin && (
+                  <span className="ml-2 text-xs text-purple-400">
+                    <Shield className="inline w-3 h-3 mr-1" />
+                    Até 8.192 jogadores (Admin)
+                  </span>
+                )}
               </Label>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {playerCounts.map((count) => (
+                {(isAdmin ? playerCountsAdmin : playerCountsPremium).map((count) => (
                   <Button
                     key={count}
                     type="button"
@@ -543,7 +551,7 @@ const CreateTournament = () => {
                     }`}
                     disabled={isLoading}
                   >
-                    {count}
+                    {count >= 1000 ? `${(count / 1000).toFixed(1)}k` : count}
                   </Button>
                 ))}
               </div>

@@ -9,7 +9,7 @@ const createTournamentSchema = z.object({
   name: z.string().min(3).max(100),
   password: z.string().min(4).max(50).optional(),
   entryFee: z.number().min(0).max(10000),
-  playerCount: z.number().int().min(2).max(8192),
+  playerCount: z.number().int().min(2),
   prizeDistribution: z.enum(["WINNER_TAKES_ALL", "SPLIT_TOP_2", "SPLIT_TOP_4"]),
   startTime: z.string().datetime(),
 });
@@ -45,6 +45,18 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             error: "Acesso negado",
             message:
               "Apenas usuários Premium podem criar torneios. Faça upgrade para desbloquear este recurso!",
+          });
+        }
+
+        // Validar limite de jogadores baseado na role
+        // PREMIUM: até 128 jogadores
+        // ADMIN: até 8192 jogadores (potências de 2 para brackets: 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192)
+        const maxPlayerCount = user.role === "ADMIN" ? 8192 : 128;
+        if (tournamentData.playerCount > maxPlayerCount) {
+          return reply.status(400).send({
+            error: `Limite de jogadores excedido`,
+            message: `Usuários ${user.role} podem criar torneios com até ${maxPlayerCount} jogadores. Você tentou criar com ${tournamentData.playerCount} jogadores.`,
+            maxAllowed: maxPlayerCount,
           });
         }
 
