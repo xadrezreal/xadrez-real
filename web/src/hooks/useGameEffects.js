@@ -247,14 +247,21 @@ export const useGameEffects = ({
     };
   }, [isGameActive, gameType, gameId, whiteTime, blackTime, saveGameTime]);
 
+  // Ref para armazenar currentPlayer atualizado sem recriar o timer
+  const currentPlayerRef = useRef(currentPlayer);
+
+  // Atualizar ref sempre que currentPlayer muda
   useEffect(() => {
-    // Só executar quando o jogo inicializar (tempos setados) ou quando o turno mudar
+    currentPlayerRef.current = currentPlayer;
+  }, [currentPlayer]);
+
+  useEffect(() => {
+    // Só executar quando o jogo inicializar
     const shouldStartTimer = isGameActive && gameStatus === "playing" && gameInitialized.current;
 
     console.log('[TIMER_EFFECT] Verificando:', {
       isGameActive,
       gameStatus,
-      currentPlayer,
       gameType,
       gameInitialized: gameInitialized.current,
       shouldStartTimer
@@ -275,18 +282,23 @@ export const useGameEffects = ({
       return;
     }
 
+    // Não recriar timer se já existe
     if (timerRef.current) {
-      clearInterval(timerRef.current);
+      console.log('[TIMER_EFFECT] ⚠️ Timer já existe, não recriando');
+      return;
     }
 
     if (isGameActive && gameStatus === "playing") {
       timeoutHandledRef.current = false;
     }
 
-    console.log('[TIMER] Iniciando timer para:', currentPlayer);
+    console.log('[TIMER] Iniciando timer único...');
 
     timerRef.current = setInterval(() => {
-      if (currentPlayer === "white") {
+      // Usar a ref atualizada ao invés da dependência
+      const activePlayer = currentPlayerRef.current;
+
+      if (activePlayer === "white") {
         setWhiteTime((t) => {
           if (t !== null && t <= 0 && !timeoutHandledRef.current) {
             timeoutHandledRef.current = true;
@@ -379,7 +391,6 @@ export const useGameEffects = ({
     };
   }, [
     isGameActive,
-    currentPlayer,
     gameData,
     user,
     toast,
@@ -388,6 +399,6 @@ export const useGameEffects = ({
     setBlackTime,
     gameStatus,
     gameType,
-    gameInitialized,
+    // Removido currentPlayer das dependências!
   ]);
 };

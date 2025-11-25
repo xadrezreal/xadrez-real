@@ -57,10 +57,11 @@ export const getBotMove = (fen, color, level) => {
   const legalMoves = game.moves({ verbose: true });
   if (legalMoves.length === 0) return null;
 
-  let depth = 1; // Default for 'Fácil' - reduzido para não travar
-  if (level === 'Médio') depth = 2;
-  if (level === 'Profissional') depth = 3;
-  if (level === 'Ultra Difícil') depth = 3; // Reduzido de 5 para 3
+  // Profundidade reduzida drasticamente para evitar freezing
+  let depth = 1; // Fácil - apenas 1 jogada à frente
+  if (level === 'Médio') depth = 1; // Médio - também 1 (com variações na avaliação)
+  if (level === 'Profissional') depth = 2; // Profissional - 2 jogadas
+  if (level === 'Ultra Difícil') depth = 2; // Ultra Difícil - 2 jogadas
 
   let bestMove = null;
   let bestValue = color === 'w' ? -Infinity : Infinity;
