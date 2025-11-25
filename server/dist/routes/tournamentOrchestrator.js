@@ -1,46 +1,59 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TournamentOrchestrator = void 0;
+const client_1 = require("@prisma/client");
 class TournamentOrchestrator {
     prisma;
     wsManager;
     logger;
+    roundTimers = new Map();
     constructor(prisma, wsManager, logger) {
         this.prisma = prisma;
         this.wsManager = wsManager;
         this.logger = logger;
     }
     async createBracket(tournamentId) {
-        console.log("[BRACKET] Starting createBracket for", tournamentId);
         const tournament = await this.prisma.tournament.findUnique({
             where: { id: tournamentId },
             include: {
                 participants: {
-                    include: { user: true },
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true,
+                                country: true,
+                                role: true,
+                            },
+                        },
+                    },
                 },
             },
         });
         if (!tournament)
             throw new Error("Tournament not found");
-        console.log("[BRACKET] Found tournament with", tournament.participants.length, "participants");
         await this.prisma.tournamentMatch.deleteMany({
             where: { tournamentId },
         });
-        console.log("[BRACKET] Deleted old matches");
-        const participants = tournament.participants.map((p) => p.user);
+        const participants = tournament.participants
+            .filter((p) => p.user.role !== "ADMIN")
+            .map((p) => p.user);
+        if (participants.length < 2) {
+            this.logger.error(`Tournament ${tournamentId} has insufficient participants (${participants.length}). Minimum is 2.`);
+            throw new Error("Insufficient participants to start tournament");
+        }
         const numPlayers = participants.length;
         const totalRounds = Math.ceil(Math.log2(numPlayers));
-        console.log("[BRACKET] Will create", totalRounds, "rounds");
         await this.prisma.tournament.update({
             where: { id: tournamentId },
             data: { totalRounds, currentRound: 1 },
         });
         await this.createRoundMatches(tournamentId, 1, participants);
-        console.log("[BRACKET] Matches created successfully");
-        this.logger.info(`Bracket created for tournament ${tournamentId}: ${totalRounds} rounds`);
+        await this.startRoundImmediately(tournamentId, 1);
+        this.logger.info(`Bracket created for tournament ${tournamentId}: ${totalRounds} rounds with ${numPlayers} players (admins excluded)`);
     }
     async createRoundMatches(tournamentId, round, players) {
-        console.log(`[BRACKET] Creating ${Math.ceil(players.length / 2)} matches for round ${round}`);
         const shuffled = [...players].sort(() => Math.random() - 0.5);
         const matchesInRound = Math.ceil(shuffled.length / 2);
         for (let i = 0; i < matchesInRound; i++) {
@@ -48,7 +61,6 @@ class TournamentOrchestrator {
             const player2 = shuffled[i * 2 + 1] || null;
             const matchStatus = !player2 ? "BYE" : "PENDING";
             const winnerId = !player2 ? player1.id : null;
-            console.log(`[BRACKET] Match ${i + 1}: ${player1.name} vs ${player2?.name || "BYE"}`);
             await this.prisma.tournamentMatch.create({
                 data: {
                     tournamentId,
@@ -65,8 +77,56 @@ class TournamentOrchestrator {
             }
         }
     }
+    async startRoundImmediately(tournamentId, round) {
+        this.logger.info(`🚀 Starting round ${round} immediately`);
+        const now = new Date();
+        const roundDuration = 20 * 60 * 1000;
+        const intervalDuration = 2 * 60 * 1000;
+        const totalTime = roundDuration + intervalDuration;
+        const roundEndTime = new Date(now.getTime() + totalTime);
+        await this.prisma.tournament.update({
+            where: { id: tournamentId },
+            data: {
+                currentRoundStartTime: now,
+                nextRoundStartTime: roundEndTime,
+            },
+        });
+        const matches = await this.prisma.tournamentMatch.findMany({
+            where: {
+                tournamentId,
+                round,
+                status: "PENDING",
+            },
+        });
+        for (const match of matches) {
+            try {
+                await this.startMatch(match.id);
+            }
+            catch (error) {
+                this.logger.error(`Error starting match ${match.id}:`, error);
+            }
+        }
+        this.wsManager.broadcastToTournament(tournamentId, {
+            type: "ROUND_STARTED_AUTO",
+            data: {
+                round,
+                startsAt: roundEndTime.toISOString(),
+                message: "Rodada iniciada! Clique em 'Jogar Agora' para entrar na partida.",
+                timestamp: now.toISOString(),
+            },
+        });
+        const timerKey = `${tournamentId}-${round}-advance`;
+        if (this.roundTimers.has(timerKey)) {
+            clearTimeout(this.roundTimers.get(timerKey));
+        }
+        const timer = setTimeout(async () => {
+            await this.forceAdvanceToNextRound(tournamentId, round);
+            this.roundTimers.delete(timerKey);
+        }, totalTime);
+        this.roundTimers.set(timerKey, timer);
+        this.logger.info(`Round ${round} started at ${now.toISOString()}. Will force advance at ${roundEndTime.toISOString()} (22 minutes: 20 game + 2 interval)`);
+    }
     async startMatch(matchId) {
-        console.log("[MATCH] Starting match", matchId);
         const match = await this.prisma.tournamentMatch.findUnique({
             where: { id: matchId },
             include: {
@@ -78,11 +138,6 @@ class TournamentOrchestrator {
         if (!match || !match.player1 || !match.player2) {
             throw new Error("Match or players not found");
         }
-        console.log("[MATCH] Found match:", {
-            player1: match.player1.name,
-            player2: match.player2.name,
-            status: match.status,
-        });
         if (match.status === "COMPLETED" || match.status === "BYE") {
             throw new Error("Match already finished");
         }
@@ -90,22 +145,26 @@ class TournamentOrchestrator {
             const existingGame = await this.prisma.game.findUnique({
                 where: { game_id_text: match.gameId },
             });
-            return existingGame;
+            const updatedMatch = await this.prisma.tournamentMatch.findUnique({
+                where: { id: matchId },
+            });
+            return { game: existingGame, match: updatedMatch };
         }
         const isFirstWhite = Math.random() < 0.5;
         const whitePlayer = isFirstWhite ? match.player1 : match.player2;
         const blackPlayer = isFirstWhite ? match.player2 : match.player1;
         const gameIdText = `tournament-${match.tournamentId}-r${match.round}-m${match.matchNumber}`;
-        console.log("[MATCH] Creating game:", gameIdText);
-        const game = await this.prisma.game.upsert({
+        const existingGame = await this.prisma.game.findUnique({
             where: { game_id_text: gameIdText },
-            update: {
-                status: "playing",
-                fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-                white_time: 600,
-                black_time: 600,
-            },
-            create: {
+        });
+        let game;
+        if (existingGame) {
+            await this.prisma.game.delete({
+                where: { game_id_text: gameIdText },
+            });
+        }
+        game = await this.prisma.game.create({
+            data: {
                 game_id_text: gameIdText,
                 tournament_id: match.tournamentId,
                 white_player_id: whitePlayer.id,
@@ -119,17 +178,28 @@ class TournamentOrchestrator {
                 white_time: 600,
                 black_time: 600,
                 wager: 0,
+                winner_id: null,
+                last_move: client_1.Prisma.JsonNull,
             },
         });
-        console.log("[MATCH] Game created:", game.game_id_text);
-        await this.prisma.tournamentMatch.update({
+        this.logger.info(`✅ New game created for match ${matchId}: ${JSON.stringify({
+            gameId: game.game_id_text,
+            whitePlayer: whitePlayer.name,
+            blackPlayer: blackPlayer.name,
+            whitePlayerId: whitePlayer.id,
+            blackPlayerId: blackPlayer.id,
+            fen: game.fen,
+            whiteTime: game.white_time,
+            blackTime: game.black_time,
+            status: game.status,
+        })}`);
+        const updatedMatch = await this.prisma.tournamentMatch.update({
             where: { id: matchId },
             data: {
                 gameId: game.game_id_text,
                 status: "IN_PROGRESS",
             },
         });
-        console.log("[MATCH] Match status updated to IN_PROGRESS");
         this.wsManager.broadcastToTournament(match.tournamentId, {
             type: "MATCH_STARTED",
             data: {
@@ -142,32 +212,46 @@ class TournamentOrchestrator {
                 player2Id: match.player2Id,
             },
         });
-        console.log("[MATCH] Broadcasted MATCH_STARTED");
         this.logger.info(`Match ${matchId} started: ${game.game_id_text}`);
+        return { game, match: updatedMatch };
     }
     async handleMatchEnd(gameIdText) {
-        console.log("[MATCH_END] Processing game end:", gameIdText);
         const game = await this.prisma.game.findUnique({
             where: { game_id_text: gameIdText },
-            include: {
-                whitePlayer: true,
-                blackPlayer: true,
+            select: {
+                tournament_id: true,
+                winner_id: true,
+                white_player_id: true,
+                black_player_id: true,
             },
         });
         if (!game || !game.tournament_id || !game.winner_id) {
             this.logger.warn(`Game ${gameIdText} is not a tournament game or has no winner`);
             return;
         }
-        console.log("[MATCH_END] Found game with winner:", game.winner_id);
         const match = await this.prisma.tournamentMatch.findUnique({
             where: { gameId: gameIdText },
-            include: { tournament: true },
+            select: {
+                id: true,
+                status: true,
+                round: true,
+                tournamentId: true,
+                player1Id: true,
+                player2Id: true,
+                tournament: {
+                    select: {
+                        totalRounds: true,
+                    },
+                },
+            },
         });
         if (!match) {
             this.logger.error(`Match not found for game ${gameIdText}`);
             return;
         }
-        console.log("[MATCH_END] Updating match to COMPLETED");
+        if (match.status === "COMPLETED") {
+            return;
+        }
         await this.prisma.tournamentMatch.update({
             where: { id: match.id },
             data: {
@@ -175,19 +259,23 @@ class TournamentOrchestrator {
                 status: "COMPLETED",
             },
         });
+        const winner = await this.prisma.user.findUnique({
+            where: { id: game.winner_id },
+            select: { name: true },
+        });
+        const winnerName = winner?.name || "Unknown";
         this.wsManager.broadcastToTournament(match.tournamentId, {
             type: "MATCH_COMPLETED",
             data: {
                 matchId: match.id,
                 round: match.round,
                 winnerId: game.winner_id,
-                winnerName: game.winner_id === game.white_player_id
-                    ? game.whitePlayer.name
-                    : game.blackPlayer.name,
+                winnerName,
+                player1Id: match.player1Id,
+                player2Id: match.player2Id,
             },
         });
         const pointsForWin = this.calculateMatchPoints(match.round, match.tournament.totalRounds);
-        console.log("[MATCH_END] Awarding", pointsForWin, "points to winner");
         await this.prisma.user.update({
             where: { id: game.winner_id },
             data: {
@@ -208,7 +296,6 @@ class TournamentOrchestrator {
         return pointsMap[roundsFromFinal] || 10;
     }
     async checkRoundCompletion(tournamentId, round) {
-        console.log("[ROUND_CHECK] Checking if round", round, "is complete");
         const pendingMatches = await this.prisma.tournamentMatch.count({
             where: {
                 tournamentId,
@@ -216,82 +303,217 @@ class TournamentOrchestrator {
                 status: { in: ["PENDING", "IN_PROGRESS"] },
             },
         });
-        console.log("[ROUND_CHECK] Pending matches:", pendingMatches);
         if (pendingMatches > 0) {
-            this.logger.info(`Round ${round} still has ${pendingMatches} pending matches`);
+            this.logger.info(`Round ${round} still has ${pendingMatches} pending matches.`);
             return;
         }
-        console.log("[ROUND_CHECK] Round complete, advancing...");
+        this.logger.info(`Round ${round} completed! All matches finished.`);
+        const timerKey = `${tournamentId}-${round}-advance`;
+        if (this.roundTimers.has(timerKey)) {
+            clearTimeout(this.roundTimers.get(timerKey));
+            this.roundTimers.delete(timerKey);
+            this.logger.info(`Timer cancelled for round ${round} - all matches completed early`);
+        }
         await this.advanceToNextRound(tournamentId, round);
     }
     async advanceToNextRound(tournamentId, completedRound) {
-        console.log("[ADVANCE] Advancing from round", completedRound);
         const tournament = await this.prisma.tournament.findUnique({
             where: { id: tournamentId },
         });
-        if (!tournament)
+        if (!tournament) {
             return;
+        }
         const nextRound = completedRound + 1;
-        console.log("[ADVANCE] Next round:", nextRound, "Total rounds:", tournament.totalRounds);
         if (nextRound > tournament.totalRounds) {
-            console.log("[ADVANCE] Tournament complete!");
             await this.finalizeTournament(tournamentId);
             return;
         }
-        const winners = await this.prisma.tournamentMatch.findMany({
+        const completedMatches = await this.prisma.tournamentMatch.findMany({
             where: {
                 tournamentId,
                 round: completedRound,
+                status: { in: ["COMPLETED", "BYE"] },
             },
             include: {
                 winner: true,
             },
+            orderBy: {
+                matchNumber: "asc",
+            },
         });
-        const winnerUsers = winners.filter((m) => m.winner).map((m) => m.winner);
-        console.log("[ADVANCE] Winners advancing:", winnerUsers.length);
+        const winnerUsers = completedMatches
+            .filter((m) => m.winner)
+            .map((m) => m.winner);
         if (winnerUsers.length === 0) {
             this.logger.error(`No winners found for round ${completedRound}`);
+            return;
+        }
+        if (winnerUsers.length === 1) {
+            await this.finalizeTournament(tournamentId);
             return;
         }
         await this.createRoundMatches(tournamentId, nextRound, winnerUsers);
         await this.prisma.tournament.update({
             where: { id: tournamentId },
-            data: { currentRound: nextRound },
-        });
-        this.wsManager.broadcastToTournament(tournamentId, {
-            type: "ROUND_ADVANCED",
             data: {
-                completedRound,
-                nextRound,
-                winnersCount: winnerUsers.length,
+                currentRound: nextRound,
             },
         });
-        this.logger.info(`Tournament ${tournamentId} advanced to round ${nextRound}`);
+        this.logger.info(`All matches completed for round ${completedRound}. Starting round ${nextRound} immediately.`);
+        await this.startRoundImmediately(tournamentId, nextRound);
+        this.logger.info(`Tournament ${tournamentId} advanced to round ${nextRound} with ${winnerUsers.length} winners.`);
+    }
+    async forceAdvanceToNextRound(tournamentId, currentRound) {
+        this.logger.info(`⏰ Timer expired for round ${currentRound}. Forcing advancement...`);
+        const pendingMatches = await this.prisma.tournamentMatch.findMany({
+            where: {
+                tournamentId,
+                round: currentRound,
+                status: { in: ["PENDING", "IN_PROGRESS"] },
+            },
+            select: {
+                id: true,
+                status: true,
+                gameId: true,
+                player1Id: true,
+                player2Id: true,
+            },
+        });
+        if (pendingMatches.length > 0) {
+            this.logger.warn(`Round ${currentRound} still has ${pendingMatches.length} incomplete matches. Determining winners by forfeit...`);
+            for (const match of pendingMatches) {
+                if (!match.player1Id || !match.player2Id) {
+                    this.logger.error(`Match ${match.id} is missing player IDs, skipping forfeit logic`);
+                    continue;
+                }
+                let winnerId;
+                if (match.status === "PENDING") {
+                    winnerId = Math.random() < 0.5 ? match.player1Id : match.player2Id;
+                    this.logger.info(`Match ${match.id} did not start. Random winner: ${winnerId}`);
+                }
+                else {
+                    const game = await this.prisma.game.findUnique({
+                        where: { game_id_text: match.gameId },
+                        select: {
+                            white_time: true,
+                            black_time: true,
+                            white_player_id: true,
+                            black_player_id: true,
+                        },
+                    });
+                    if (game) {
+                        winnerId =
+                            game.white_time > game.black_time
+                                ? game.white_player_id
+                                : game.black_player_id;
+                        this.logger.info(`Match ${match.id} in progress. Winner by time: ${winnerId}`);
+                    }
+                    else {
+                        winnerId = Math.random() < 0.5 ? match.player1Id : match.player2Id;
+                    }
+                }
+                const winner = await this.prisma.user.findUnique({
+                    where: { id: winnerId },
+                    select: { name: true },
+                });
+                if (!winner) {
+                    this.logger.error(`Winner ${winnerId} not found, skipping match ${match.id}`);
+                    continue;
+                }
+                await this.prisma.tournamentMatch.update({
+                    where: { id: match.id },
+                    data: {
+                        winnerId,
+                        status: "COMPLETED",
+                    },
+                });
+                this.wsManager.broadcastToTournament(tournamentId, {
+                    type: "MATCH_COMPLETED",
+                    data: {
+                        matchId: match.id,
+                        round: currentRound,
+                        winnerId,
+                        winnerName: winner.name,
+                        player1Id: match.player1Id,
+                        player2Id: match.player2Id,
+                        forfeit: true,
+                    },
+                });
+            }
+        }
+        await this.advanceToNextRound(tournamentId, currentRound);
     }
     async finalizeTournament(tournamentId) {
-        console.log("[FINALIZE] Finalizing tournament", tournamentId);
+        const tournament = await this.prisma.tournament.findUnique({
+            where: { id: tournamentId },
+            select: {
+                totalRounds: true,
+            },
+        });
+        if (!tournament)
+            return;
         const finalMatch = await this.prisma.tournamentMatch.findFirst({
             where: {
                 tournamentId,
-                status: "COMPLETED",
+                round: tournament.totalRounds,
             },
             orderBy: {
                 round: "desc",
             },
-            include: {
-                winner: true,
-                tournament: true,
+            select: {
+                id: true,
+                winnerId: true,
+                player1Id: true,
+                player2Id: true,
+                matchNumber: true,
             },
         });
-        if (!finalMatch || !finalMatch.winner) {
-            this.logger.error(`No final match winner found for tournament ${tournamentId}`);
+        if (!finalMatch) {
+            this.logger.error(`No final match found for tournament ${tournamentId}`);
             return;
         }
-        const champion = finalMatch.winner;
+        let championId;
+        if (finalMatch.winnerId) {
+            championId = finalMatch.winnerId;
+        }
+        else {
+            if (!finalMatch.player1Id || !finalMatch.player2Id) {
+                this.logger.error(`Final match ${finalMatch.id} is missing players`);
+                return;
+            }
+            const finalGameId = `tournament-${tournamentId}-r${tournament.totalRounds}-m${finalMatch.matchNumber || 1}`;
+            const finalGame = await this.prisma.game.findUnique({
+                where: { game_id_text: finalGameId },
+                select: {
+                    white_time: true,
+                    black_time: true,
+                    white_player_id: true,
+                    black_player_id: true,
+                },
+            });
+            if (finalGame) {
+                championId =
+                    finalGame.white_time > finalGame.black_time
+                        ? finalGame.white_player_id
+                        : finalGame.black_player_id;
+                this.logger.info(`Final match incomplete. Winner by time: ${championId}`);
+            }
+            else {
+                championId =
+                    Math.random() < 0.5 ? finalMatch.player1Id : finalMatch.player2Id;
+                this.logger.warn(`Final match has no game. Random champion: ${championId}`);
+            }
+            await this.prisma.tournamentMatch.update({
+                where: { id: finalMatch.id },
+                data: {
+                    winnerId: championId,
+                    status: "COMPLETED",
+                },
+            });
+        }
         const championBonus = 200;
-        console.log("[FINALIZE] Champion:", champion.name, "Bonus:", championBonus);
         await this.prisma.user.update({
-            where: { id: champion.id },
+            where: { id: championId },
             data: {
                 tournamentPoints: { increment: championBonus },
             },
@@ -300,18 +522,31 @@ class TournamentOrchestrator {
             where: { id: tournamentId },
             data: {
                 status: "FINISHED",
-                winnerId: champion.id,
+                winnerId: championId,
             },
         });
+        const champion = await this.prisma.user.findUnique({
+            where: { id: championId },
+            select: { name: true },
+        });
+        const championName = champion?.name || "Unknown Champion";
         this.wsManager.broadcastToTournament(tournamentId, {
             type: "TOURNAMENT_FINISHED",
             data: {
-                championId: champion.id,
-                championName: champion.name,
+                championId,
+                championName,
                 totalPoints: championBonus,
             },
         });
-        this.logger.info(`Tournament ${tournamentId} finished! Champion: ${champion.name}`);
+        const timerKeys = Array.from(this.roundTimers.keys()).filter((key) => key.startsWith(tournamentId));
+        timerKeys.forEach((key) => {
+            const timer = this.roundTimers.get(key);
+            if (timer) {
+                clearTimeout(timer);
+                this.roundTimers.delete(key);
+            }
+        });
+        this.logger.info(`🏆 Tournament ${tournamentId} finished! Champion: ${championName}`);
     }
 }
 exports.TournamentOrchestrator = TournamentOrchestrator;

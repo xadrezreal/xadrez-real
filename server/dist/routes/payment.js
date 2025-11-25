@@ -1,0 +1,380 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.paymentRoutes = paymentRoutes;
+const stripe_1 = require("../config/stripe");
+async function paymentRoutes(fastify) {
+    fastify.post("/create-checkout", { preHandler: [fastify.authenticate] }, async (request, reply) => {
+        try {
+            const { priceId, amount } = request.body;
+            const userId = request.user.id;
+            if (!priceId) {
+                return reply.code(400).send({
+                    error: "Price ID é obrigatório",
+                });
+            }
+            if (!amount || amount < 1) {
+                return reply.code(400).send({
+                    error: "Valor mínimo de depósito é R$ 1,00",
+                });
+            }
+            const user = await fastify.prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    stripeAccountId: true,
+                },
+            });
+            if (!user) {
+                return reply.code(404).send({
+                    error: "Usuário não encontrado",
+                });
+            }
+            let stripeAccountId = user.stripeAccountId;
+            if (!stripeAccountId) {
+                const account = await stripe_1.stripe.accounts.create({
+                    type: "express",
+                    country: "BR",
+                    email: user.email,
+                    capabilities: {
+                        transfers: { requested: true },
+                    },
+                    business_type: "individual",
+                });
+                stripeAccountId = account.id;
+                await fastify.prisma.user.update({
+                    where: { id: userId },
+                    data: {
+                        stripeAccountId: account.id,
+                        stripeAccountStatus: "pending",
+                    },
+                });
+            }
+            const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+            const session = await stripe_1.stripe.checkout.sessions.create({
+                payment_method_types: ["card", "boleto"],
+                line_items: [
+                    {
+                        price: priceId,
+                        quantity: 1,
+                    },
+                ],
+                mode: "payment",
+                success_url: `${frontendUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+                cancel_url: `${frontendUrl}/wallet?deposit_cancelled=true`,
+                payment_intent_data: {
+                    application_fee_amount: 0,
+                    transfer_data: {
+                        destination: stripeAccountId,
+                    },
+                },
+                metadata: {
+                    userId: userId,
+                    amount: amount.toString(),
+                    type: "deposit",
+                    stripeAccountId: stripeAccountId,
+                },
+                customer_email: user.email,
+            });
+            fastify.log.info({
+                message: "[PAYMENT] Checkout session created with destination charge",
+                sessionId: session.id,
+                userId,
+                amount,
+                priceId,
+                destination: stripeAccountId,
+            });
+            return reply.send({
+                url: session.url,
+                sessionId: session.id,
+            });
+        }
+        catch (error) {
+            fastify.log.error("[PAYMENT] Error creating checkout:", error);
+            return reply.code(500).send({
+                error: "Erro ao criar sessão de pagamento",
+                message: error.message,
+            });
+        }
+    });
+    fastify.post("/webhook", {
+        config: {
+            rawBody: true,
+        },
+    }, async (request, reply) => {
+        const sig = request.headers["stripe-signature"];
+        const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET_PAYMENTS;
+        if (!webhookSecret) {
+            fastify.log.error("[WEBHOOK] Webhook secret not configured");
+            return reply.code(500).send({
+                error: "Webhook secret não configurado",
+            });
+        }
+        if (!sig) {
+            return reply.code(400).send({ error: "Assinatura ausente" });
+        }
+        if (!request.rawBody) {
+            return reply.code(400).send({ error: "Body ausente" });
+        }
+        let event;
+        try {
+            event = stripe_1.stripe.webhooks.constructEvent(request.rawBody, sig, webhookSecret);
+        }
+        catch (err) {
+            fastify.log.error("[WEBHOOK] Signature verification failed:", err);
+            return reply.code(400).send({
+                error: `Webhook Error: ${err.message}`,
+            });
+        }
+        fastify.log.info({
+            message: "[WEBHOOK] Event received",
+            eventType: event.type,
+            eventId: event.id,
+        });
+        if (event.type === "checkout.session.completed") {
+            const session = event.data.object;
+            fastify.log.info({
+                message: "[WEBHOOK] Checkout completed",
+                sessionId: session.id,
+                metadata: session.metadata,
+            });
+            if (session.metadata?.type === "deposit") {
+                try {
+                    const userId = session.metadata.userId;
+                    const amount = parseFloat(session.metadata.amount);
+                    const stripeAccountId = session.metadata.stripeAccountId;
+                    if (!userId || !amount) {
+                        fastify.log.error("[WEBHOOK] Invalid metadata", session.metadata);
+                        return reply.code(400).send({ error: "Metadata inválido" });
+                    }
+                    fastify.log.info({
+                        message: "[WEBHOOK] Processing deposit",
+                        userId,
+                        amount,
+                        stripeAccountId,
+                        sessionId: session.id,
+                    });
+                    // Buscar informações do PaymentIntent para ver o transfer
+                    const paymentIntent = await stripe_1.stripe.paymentIntents.retrieve(session.payment_intent, { expand: ['charges'] });
+                    fastify.log.info({
+                        message: "[WEBHOOK] PaymentIntent details",
+                        paymentIntentId: paymentIntent.id,
+                        amount: paymentIntent.amount,
+                        transferData: paymentIntent.transfer_data,
+                        status: paymentIntent.status,
+                    });
+                    // Se houver um transfer, buscar detalhes
+                    if (paymentIntent.transfer_data?.destination) {
+                        const destinationId = typeof paymentIntent.transfer_data.destination === 'string'
+                            ? paymentIntent.transfer_data.destination
+                            : paymentIntent.transfer_data.destination.id;
+                        try {
+                            // Buscar transfers recentes para essa conta
+                            const transfers = await stripe_1.stripe.transfers.list({
+                                limit: 5,
+                            });
+                            const relevantTransfers = transfers.data.filter(t => t.destination === destinationId);
+                            fastify.log.info({
+                                message: "[WEBHOOK] Transfer details",
+                                transferCount: relevantTransfers.length,
+                                transfers: relevantTransfers.map(t => ({
+                                    id: t.id,
+                                    amount: t.amount / 100,
+                                    destination: t.destination,
+                                    created: t.created,
+                                })),
+                            });
+                        }
+                        catch (transferError) {
+                            fastify.log.warn({
+                                message: "[WEBHOOK] Could not fetch transfer details",
+                                error: transferError.message,
+                            });
+                        }
+                    }
+                    const balance = await stripe_1.stripe.balance.retrieve({
+                        stripeAccount: stripeAccountId,
+                    });
+                    const availableBalance = balance.available.reduce((sum, item) => sum + item.amount, 0) / 100;
+                    const pendingBalance = balance.pending.reduce((sum, item) => sum + item.amount, 0) / 100;
+                    const realBalance = availableBalance + pendingBalance;
+                    fastify.log.info({
+                        message: "[WEBHOOK] Stripe Connect balance",
+                        stripeAccountId,
+                        available: availableBalance,
+                        pending: pendingBalance,
+                        total: realBalance,
+                    });
+                    await fastify.prisma.user.update({
+                        where: { id: userId },
+                        data: {
+                            balance: realBalance,
+                        },
+                    });
+                    await fastify.prisma.transaction.create({
+                        data: {
+                            userId: userId,
+                            amount: amount,
+                            type: "DEPOSIT",
+                            status: "COMPLETED",
+                            stripeSessionId: session.id,
+                            description: `Depósito via Stripe - R$ ${amount.toFixed(2)}`,
+                            metadata: {
+                                stripeAccountId: stripeAccountId,
+                                destinationCharge: true,
+                                grossAmount: amount,
+                                netBalance: realBalance,
+                            },
+                        },
+                    });
+                    fastify.log.info({
+                        message: "[WEBHOOK] Balance updated successfully",
+                        userId,
+                        grossAmount: amount,
+                        netBalance: realBalance,
+                    });
+                }
+                catch (error) {
+                    fastify.log.error("[WEBHOOK] Error updating balance:", error);
+                    console.error("[WEBHOOK] FULL ERROR:", error);
+                    return reply.code(500).send({
+                        error: "Erro ao processar pagamento",
+                    });
+                }
+            }
+        }
+        if (event.type === "charge.refunded") {
+            const charge = event.data.object;
+            fastify.log.info({
+                message: "[WEBHOOK] Charge refunded",
+                chargeId: charge.id,
+                amount: charge.amount_refunded,
+            });
+            try {
+                const paymentIntent = charge.payment_intent;
+                const sessions = await stripe_1.stripe.checkout.sessions.list({
+                    payment_intent: paymentIntent,
+                    limit: 1,
+                });
+                if (sessions.data.length > 0) {
+                    const session = sessions.data[0];
+                    const userId = session.metadata?.userId;
+                    const refundedAmount = charge.amount_refunded / 100;
+                    const stripeAccountId = session.metadata?.stripeAccountId;
+                    if (userId && stripeAccountId) {
+                        const balance = await stripe_1.stripe.balance.retrieve({
+                            stripeAccount: stripeAccountId,
+                        });
+                        const realBalance = balance.available.reduce((sum, item) => sum + item.amount, 0) /
+                            100 +
+                            balance.pending.reduce((sum, item) => sum + item.amount, 0) /
+                                100;
+                        await fastify.prisma.$transaction(async (prisma) => {
+                            await prisma.user.update({
+                                where: { id: userId },
+                                data: {
+                                    balance: realBalance,
+                                },
+                            });
+                            await prisma.transaction.create({
+                                data: {
+                                    userId: userId,
+                                    amount: -refundedAmount,
+                                    type: "REFUND",
+                                    status: "COMPLETED",
+                                    description: `Estorno de depósito - R$ ${refundedAmount.toFixed(2)}`,
+                                    metadata: {
+                                        chargeId: charge.id,
+                                        paymentIntent: paymentIntent,
+                                        netBalance: realBalance,
+                                    },
+                                },
+                            });
+                        });
+                        fastify.log.info({
+                            message: "[WEBHOOK] Refund processed successfully",
+                            userId,
+                            refundedAmount,
+                            netBalance: realBalance,
+                        });
+                    }
+                }
+            }
+            catch (error) {
+                fastify.log.error("[WEBHOOK] Error processing refund:", error);
+            }
+        }
+        return reply.send({ received: true });
+    });
+    fastify.get("/verify-session/:sessionId", { preHandler: [fastify.authenticate] }, async (request, reply) => {
+        try {
+            const { sessionId } = request.params;
+            const userId = request.user.id;
+            const session = await stripe_1.stripe.checkout.sessions.retrieve(sessionId);
+            if (session.metadata?.userId !== userId) {
+                return reply.code(403).send({
+                    error: "Não autorizado",
+                });
+            }
+            if (session.payment_status === "paid") {
+                const amount = parseFloat(session.metadata?.amount || "0");
+                return reply.send({
+                    success: true,
+                    amount: amount,
+                    status: session.payment_status,
+                });
+            }
+            return reply.send({
+                success: false,
+                status: session.payment_status,
+            });
+        }
+        catch (error) {
+            fastify.log.error("[PAYMENT] Error verifying session:", error);
+            return reply.code(500).send({
+                error: "Erro ao verificar sessão",
+                message: error.message,
+            });
+        }
+    });
+    fastify.get("/transactions", { preHandler: [fastify.authenticate] }, async (request, reply) => {
+        try {
+            const userId = request.user.id;
+            const { limit = 10, offset = 0 } = request.query;
+            const transactions = await fastify.prisma.transaction.findMany({
+                where: { userId },
+                orderBy: { createdAt: "desc" },
+                take: Number(limit),
+                skip: Number(offset),
+                select: {
+                    id: true,
+                    amount: true,
+                    type: true,
+                    status: true,
+                    description: true,
+                    createdAt: true,
+                },
+            });
+            const total = await fastify.prisma.transaction.count({
+                where: { userId },
+            });
+            return reply.send({
+                transactions,
+                pagination: {
+                    total,
+                    limit: Number(limit),
+                    offset: Number(offset),
+                },
+            });
+        }
+        catch (error) {
+            fastify.log.error("[PAYMENT] Error fetching transactions:", error);
+            return reply.code(500).send({
+                error: "Erro ao buscar transações",
+                message: error.message,
+            });
+        }
+    });
+}
+//# sourceMappingURL=payment.js.map

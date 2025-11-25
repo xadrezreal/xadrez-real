@@ -121,6 +121,9 @@ async function authRoutes(fastify) {
                     name: true,
                     email: true,
                     role: true,
+                    balance: true,
+                    stripeCustomerId: true,
+                    stripeSubscriptionId: true,
                     createdAt: true,
                     updatedAt: true,
                 },
@@ -130,7 +133,7 @@ async function authRoutes(fastify) {
                     error: "Usuário não encontrado",
                 });
             }
-            return reply.send({ user });
+            return reply.send(user);
         }
         catch (error) {
             fastify.log.error(error);
