@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TournamentOrchestrator = void 0;
 const client_1 = require("@prisma/client");
+const tournamentPayment_1 = require("../services/tournamentPayment");
 class TournamentOrchestrator {
     prisma;
     wsManager;
@@ -525,6 +526,32 @@ class TournamentOrchestrator {
                 winnerId: championId,
             },
         });
+        // Distribuir prêmios automaticamente
+        try {
+            this.logger.info(`[TOURNAMENT] Distribuindo prêmios do torneio ${tournamentId}`);
+            const prizeDistribution = await (0, tournamentPayment_1.distributeTournamentPrizes)(tournamentId);
+            this.logger.info({
+                message: "[TOURNAMENT] Prêmios distribuídos com sucesso",
+                tournamentId,
+                summary: prizeDistribution.summary,
+            });
+            // Pagar todos os prêmios (atualizar saldos)
+            const paymentResult = await (0, tournamentPayment_1.payAllTournamentPrizes)(tournamentId);
+            this.logger.info({
+                message: "[TOURNAMENT] Prêmios pagos com sucesso",
+                tournamentId,
+                totalPaid: paymentResult.totalPaid,
+                totalAmount: paymentResult.totalAmount,
+            });
+        }
+        catch (error) {
+            this.logger.error({
+                message: "[TOURNAMENT] Erro ao distribuir/pagar prêmios",
+                tournamentId,
+                error: error instanceof Error ? error.message : String(error),
+            });
+            // Não interrompe o fluxo - prêmios podem ser distribuídos manualmente depois
+        }
         const champion = await this.prisma.user.findUnique({
             where: { id: championId },
             select: { name: true },

@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { FastifyBaseLogger } from "fastify";
 import { WebSocketManager } from "../websocket/webSocketManager";
+import { distributeTournamentPrizes, payAllTournamentPrizes } from "../services/tournamentPayment";
 
 export class TournamentOrchestrator {
   private prisma: PrismaClient;
@@ -681,6 +682,34 @@ export class TournamentOrchestrator {
         winnerId: championId,
       },
     });
+
+    // Distribuir prêmios automaticamente
+    try {
+      this.logger.info(`[TOURNAMENT] Distribuindo prêmios do torneio ${tournamentId}`);
+
+      const prizeDistribution = await distributeTournamentPrizes(tournamentId);
+      this.logger.info({
+        message: "[TOURNAMENT] Prêmios distribuídos com sucesso",
+        tournamentId,
+        summary: prizeDistribution.summary,
+      });
+
+      // Pagar todos os prêmios (atualizar saldos)
+      const paymentResult = await payAllTournamentPrizes(tournamentId);
+      this.logger.info({
+        message: "[TOURNAMENT] Prêmios pagos com sucesso",
+        tournamentId,
+        totalPaid: paymentResult.totalPaid,
+        totalAmount: paymentResult.totalAmount,
+      });
+    } catch (error) {
+      this.logger.error({
+        message: "[TOURNAMENT] Erro ao distribuir/pagar prêmios",
+        tournamentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Não interrompe o fluxo - prêmios podem ser distribuídos manualmente depois
+    }
 
     const champion = await this.prisma.user.findUnique({
       where: { id: championId },

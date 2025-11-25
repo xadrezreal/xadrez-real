@@ -127,23 +127,45 @@ export function calculatePrizes(
       }
     }
   } else {
-    // Torneios pequenos: distribuição simples
-    // 1º: 50%, 2º: 30%, 3º-4º: 10% cada
-    const distribution = [0.5, 0.3, 0.1, 0.1];
+    // Torneios pequenos: TODOS ganham algo!
+    // TOP 4 recebe 70% do prize pool
+    // Resto divide 30% igualmente
 
+    const top4Pool = netPrizePool * 0.7;
+    const restPool = netPrizePool * 0.3;
+
+    // Distribuição TOP 4: 50%, 28.5%, 14.3%, 7.2% (do top4Pool)
+    const top4Distribution = [0.5, 0.285, 0.143, 0.072];
+
+    // Premiar TOP 4
     for (let i = 0; i < Math.min(participants.length, 4); i++) {
       const participant = sortedParticipants[i];
       if (participant) {
         prizes.push({
           position: i + 1,
           userId: participant.userId,
-          amount: Number((netPrizePool * distribution[i]).toFixed(2)),
+          amount: Number((top4Pool * top4Distribution[i]).toFixed(2)),
           description: i === 0 ? "🏆 Campeão" : `${i + 1}º lugar`,
         });
       }
     }
 
-    // Resto não ganha nada em torneios pequenos
+    // Resto (5º em diante) divide 30% igualmente
+    const remainingCount = participants.length - 4;
+    if (remainingCount > 0) {
+      const perPlayer = restPool / remainingCount;
+      for (let i = 4; i < participants.length; i++) {
+        const participant = sortedParticipants[i];
+        if (participant) {
+          prizes.push({
+            position: i + 1,
+            userId: participant.userId,
+            amount: Number(perPlayer.toFixed(2)),
+            description: `${i + 1}º lugar - Participação`,
+          });
+        }
+      }
+    }
   }
 
   return {

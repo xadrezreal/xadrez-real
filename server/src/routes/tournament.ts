@@ -3,6 +3,7 @@ import { z } from "zod";
 import { TournamentOrchestrator } from "./tournamentOrchestrator";
 import "../types/fastify";
 import { isPremiumOrAdmin } from "../utils/roleHelper";
+import { enterTournamentWithConnect } from "../services/tournamentPayment";
 
 const createTournamentSchema = z.object({
   name: z.string().min(3).max(100),
@@ -66,65 +67,76 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           });
         }
 
-        const result = await fastify.prisma.$transaction(async (prisma) => {
-          const tournament = await prisma.tournament.create({
-            data: {
-              name: tournamentData.name,
-              password: tournamentData.password || null,
-              entryFee: tournamentData.entryFee,
-              playerCount: tournamentData.playerCount,
-              prizeDistribution: tournamentData.prizeDistribution,
-              startTime: startTime,
-              creatorId: userId,
-            },
-            include: {
-              creator: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
+        // Criar torneio primeiro
+        const tournament = await fastify.prisma.tournament.create({
+          data: {
+            name: tournamentData.name,
+            password: tournamentData.password || null,
+            entryFee: tournamentData.entryFee,
+            playerCount: tournamentData.playerCount,
+            prizeDistribution: tournamentData.prizeDistribution,
+            startTime: startTime,
+            creatorId: userId,
+          },
+          include: {
+            creator: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
               },
             },
-          });
+          },
+        });
 
-          if (user.role !== "ADMIN") {
-            await prisma.tournamentParticipant.create({
+        // Se não for admin, criador entra automaticamente
+        if (user.role !== "ADMIN") {
+          if (tournamentData.entryFee > 0) {
+            // Usar sistema de transfers com Stripe Connect
+            try {
+              const entryResult = await enterTournamentWithConnect(
+                userId,
+                tournament.id,
+                tournamentData.entryFee
+              );
+
+              fastify.log.info({
+                message: "[TOURNAMENT] Creator joined with Connect transfer",
+                userId,
+                tournamentId: tournament.id,
+                breakdown: entryResult.breakdown,
+                transferId: entryResult.transferId,
+              });
+            } catch (error: any) {
+              // Se falhar a entrada, deletar o torneio criado
+              await fastify.prisma.tournament.delete({
+                where: { id: tournament.id },
+              });
+
+              fastify.log.error({
+                message: "[TOURNAMENT] Error entering tournament as creator",
+                userId,
+                tournamentId: tournament.id,
+                error: error.message,
+              });
+
+              return reply.status(400).send({
+                error: error.message || "Erro ao processar entrada no torneio",
+              });
+            }
+          } else {
+            // Torneio gratuito - apenas criar participação
+            await fastify.prisma.tournamentParticipant.create({
               data: {
                 tournamentId: tournament.id,
                 userId: userId,
-                paidEntry: tournamentData.entryFee > 0,
+                paidEntry: false,
               },
             });
-
-            if (tournamentData.entryFee > 0) {
-              await prisma.user.update({
-                where: { id: userId },
-                data: {
-                  balance: {
-                    decrement: tournamentData.entryFee,
-                  },
-                },
-              });
-
-              await prisma.transaction.create({
-                data: {
-                  userId,
-                  amount: -tournamentData.entryFee,
-                  type: "TOURNAMENT_ENTRY",
-                  status: "COMPLETED",
-                  description: `Entrada no torneio: ${tournamentData.name}`,
-                  metadata: {
-                    tournamentId: tournament.id,
-                    tournamentName: tournamentData.name,
-                  },
-                },
-              });
-            }
           }
+        }
 
-          return tournament;
-        });
+        const result = tournament;
 
         return reply.status(201).send({
           message: "Torneio criado com sucesso",
@@ -462,54 +474,57 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           }
         }
 
-        const result = await fastify.prisma.$transaction(async (prisma) => {
-          await prisma.tournamentParticipant.create({
+        // Se o torneio tem taxa de entrada, usar sistema de transfers com Stripe Connect
+        let entryResult;
+        if (tournament.entryFee > 0) {
+          try {
+            entryResult = await enterTournamentWithConnect(
+              userId,
+              tournamentId,
+              tournament.entryFee
+            );
+
+            fastify.log.info({
+              message: "[TOURNAMENT] User joined with Connect transfer",
+              userId,
+              tournamentId,
+              breakdown: entryResult.breakdown,
+              transferId: entryResult.transferId,
+            });
+          } catch (error: any) {
+            fastify.log.error({
+              message: "[TOURNAMENT] Error entering tournament with Connect",
+              userId,
+              tournamentId,
+              error: error.message,
+            });
+
+            return reply.status(400).send({
+              error: error.message || "Erro ao processar entrada no torneio",
+            });
+          }
+        } else {
+          // Torneio gratuito - apenas criar participação
+          await fastify.prisma.tournamentParticipant.create({
             data: {
               tournamentId,
               userId,
-              paidEntry: tournament.entryFee > 0,
+              paidEntry: false,
             },
           });
+        }
 
-          if (tournament.entryFee > 0) {
-            await prisma.user.update({
-              where: { id: userId },
-              data: {
-                balance: {
-                  decrement: tournament.entryFee,
-                },
-              },
-            });
-
-            await prisma.transaction.create({
-              data: {
-                userId,
-                amount: -tournament.entryFee,
-                type: "TOURNAMENT_ENTRY",
-                status: "COMPLETED",
-                description: `Entrada no torneio: ${tournament.name}`,
-                metadata: {
-                  tournamentId,
-                  tournamentName: tournament.name,
-                },
-              },
-            });
-          }
-
-          const updatedUser = await prisma.user.findUnique({
-            where: { id: userId },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
-              balance: true,
-              stripeCustomerId: true,
-              stripeSubscriptionId: true,
-            },
-          });
-
-          return updatedUser;
+        const result = await fastify.prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            balance: true,
+            stripeCustomerId: true,
+            stripeSubscriptionId: true,
+          },
         });
 
         return reply.send({
