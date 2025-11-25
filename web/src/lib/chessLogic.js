@@ -57,18 +57,43 @@ export const getBotMove = (fen, color, level) => {
   const legalMoves = game.moves({ verbose: true });
   if (legalMoves.length === 0) return null;
 
-  // Profundidade reduzida drasticamente para evitar freezing
-  let depth = 1; // Fácil - apenas 1 jogada à frente
-  if (level === 'Médio') depth = 1; // Médio - também 1 (com variações na avaliação)
-  if (level === 'Profissional') depth = 2; // Profissional - 2 jogadas
-  if (level === 'Ultra Difícil') depth = 2; // Ultra Difícil - 2 jogadas
+  // Profundidade e número de movimentos baseado no nível
+  let depth = 1;
+  let maxMovesToEvaluate = legalMoves.length;
+
+  if (level === 'Fácil') {
+    depth = 1;
+    maxMovesToEvaluate = Math.min(12, legalMoves.length);
+  } else if (level === 'Médio') {
+    depth = 1;
+    maxMovesToEvaluate = Math.min(15, legalMoves.length);
+  } else if (level === 'Profissional') {
+    depth = 1; // Reduzido de 2 para 1
+    maxMovesToEvaluate = Math.min(18, legalMoves.length);
+  } else if (level === 'Ultra Difícil') {
+    depth = 2;
+    maxMovesToEvaluate = Math.min(15, legalMoves.length); // Reduzido de 25 para 15
+  }
 
   let bestMove = null;
   let bestValue = color === 'w' ? -Infinity : Infinity;
 
-  for (const move of legalMoves) {
+  // Timeout de segurança - máximo 1.5 segundos
+  const startTime = Date.now();
+  const maxTime = 1500; // 1.5 segundos
+
+  // Limitar número de movimentos avaliados
+  const movesToEvaluate = legalMoves.slice(0, maxMovesToEvaluate);
+
+  for (const move of movesToEvaluate) {
+    // Verificar timeout
+    if (Date.now() - startTime > maxTime) {
+      console.warn('[BOT] Timeout atingido, retornando melhor movimento até agora');
+      break;
+    }
+
     game.move(move);
-    const boardValue = minimax(game, depth -1, -Infinity, Infinity, color !== 'w');
+    const boardValue = minimax(game, depth - 1, -Infinity, Infinity, color !== 'w');
     game.undo();
 
     if (color === 'w') {
@@ -83,5 +108,6 @@ export const getBotMove = (fen, color, level) => {
       }
     }
   }
+
   return bestMove || legalMoves[0];
 };
