@@ -406,6 +406,71 @@ const Wallet = () => {
 
           {renderConnectStatus()}
 
+          {/* Seção de Debug - Remover em produção */}
+          {connectStatus && (
+            <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <h3 className="font-semibold text-blue-300 mb-3">
+                🔧 Debug - Status da Conta Stripe
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Stripe Account ID:</span>
+                  <span className="text-blue-300 font-mono text-xs">
+                    {connectStatus.accountId || "N/A"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Status da Conta:</span>
+                  <span className={connectStatus.accountStatus === "active" ? "text-green-400" : "text-yellow-400"}>
+                    {connectStatus.accountStatus}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Charges Enabled:</span>
+                  <span className={connectStatus.chargesEnabled ? "text-green-400" : "text-red-400"}>
+                    {connectStatus.chargesEnabled ? "✓ Sim" : "✗ Não"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Payouts Enabled:</span>
+                  <span className={connectStatus.payoutsEnabled ? "text-green-400" : "text-red-400"}>
+                    {connectStatus.payoutsEnabled ? "✓ Sim" : "✗ Não"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Details Submitted:</span>
+                  <span className={connectStatus.detailsSubmitted ? "text-green-400" : "text-yellow-400"}>
+                    {connectStatus.detailsSubmitted ? "✓ Sim" : "✗ Não"}
+                  </span>
+                </div>
+                {stripeBalance && (
+                  <>
+                    <div className="pt-2 mt-2 border-t border-blue-500/30">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Saldo Disponível:</span>
+                        <span className="text-green-400 font-semibold">
+                          R$ {stripeBalance.available?.toFixed(2) || "0.00"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Saldo Pendente:</span>
+                        <span className="text-yellow-400 font-semibold">
+                          R$ {stripeBalance.pending?.toFixed(2) || "0.00"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Saldo Total:</span>
+                        <span className="text-blue-300 font-semibold">
+                          R$ {stripeBalance.total?.toFixed(2) || "0.00"}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
             <h3 className="font-semibold text-slate-200">Ações</h3>
 
