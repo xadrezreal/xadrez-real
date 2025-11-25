@@ -418,30 +418,29 @@ const ChessGame = () => {
             />
           )}
         </AnimatePresence>
+
+        <ConfirmDialog
+          isOpen={showResignDialog}
+          onOpenChange={setShowResignDialog}
+          onConfirm={handleConfirmResign}
+          title="Desistir da Partida?"
+          description="Você tem certeza que deseja desistir? Esta ação não poderá ser desfeita."
+          confirmText="Sim, desistir"
+          cancelText="Continuar jogando"
+          variant="destructive"
+        />
+
+        <ConfirmDialog
+          isOpen={showLeaveDialog}
+          onOpenChange={setShowLeaveDialog}
+          onConfirm={handleConfirmLeave}
+          title="Sair da Partida?"
+          description="Se você sair agora enquanto a partida está em andamento, será considerada uma desistência. Deseja realmente sair?"
+          confirmText="Sim, sair e desistir"
+          cancelText="Continuar jogando"
+          variant="destructive"
+        />
       </div>
-
-      <ConfirmDialog
-        isOpen={showResignDialog}
-        onOpenChange={setShowResignDialog}
-        onConfirm={handleConfirmResign}
-        title="Desistir da Partida?"
-        description="Você tem certeza que deseja desistir? Esta ação não poderá ser desfeita."
-        confirmText="Sim, desistir"
-        cancelText="Continuar jogando"
-        variant="destructive"
-      />
-
-      <ConfirmDialog
-        isOpen={showLeaveDialog}
-        onOpenChange={setShowLeaveDialog}
-        onConfirm={handleConfirmLeave}
-        title="Sair da Partida?"
-        description="Se você sair agora enquanto a partida está em andamento, será considerada uma desistência. Deseja realmente sair?"
-        confirmText="Sim, sair e desistir"
-        cancelText="Continuar jogando"
-        variant="destructive"
-      />
-    </div>
   );
 };
 

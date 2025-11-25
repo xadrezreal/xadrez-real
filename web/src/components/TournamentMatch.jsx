@@ -331,36 +331,35 @@ const TournamentMatch = () => {
             )}
           </div>
         </motion.div>
+
+        <ConfirmDialog
+          isOpen={showResignDialog}
+          onOpenChange={(value) => {
+            console.log("showResignDialog onOpenChange:", value);
+            setShowResignDialog(value);
+          }}
+          onConfirm={handleConfirmResign}
+          title="Desistir da Partida?"
+          description="Você tem certeza que deseja desistir? Esta ação resultará em uma derrota e você será eliminado do torneio."
+          confirmText="Sim, desistir"
+          cancelText="Continuar jogando"
+          variant="destructive"
+        />
+
+        <ConfirmDialog
+          isOpen={showLeaveDialog}
+          onOpenChange={(value) => {
+            console.log("showLeaveDialog onOpenChange:", value);
+            setShowLeaveDialog(value);
+          }}
+          onConfirm={handleConfirmLeave}
+          title="Sair da Partida?"
+          description="Se você sair agora, estará automaticamente desistindo do jogo e será eliminado do torneio. Deseja realmente sair?"
+          confirmText="Sim, sair e desistir"
+          cancelText="Continuar jogando"
+          variant="destructive"
+        />
       </div>
-
-      <ConfirmDialog
-        isOpen={showResignDialog}
-        onOpenChange={(value) => {
-          console.log("showResignDialog onOpenChange:", value);
-          setShowResignDialog(value);
-        }}
-        onConfirm={handleConfirmResign}
-        title="Desistir da Partida?"
-        description="Você tem certeza que deseja desistir? Esta ação resultará em uma derrota e você será eliminado do torneio."
-        confirmText="Sim, desistir"
-        cancelText="Continuar jogando"
-        variant="destructive"
-      />
-
-      <ConfirmDialog
-        isOpen={showLeaveDialog}
-        onOpenChange={(value) => {
-          console.log("showLeaveDialog onOpenChange:", value);
-          setShowLeaveDialog(value);
-        }}
-        onConfirm={handleConfirmLeave}
-        title="Sair da Partida?"
-        description="Se você sair agora, estará automaticamente desistindo do jogo e será eliminado do torneio. Deseja realmente sair?"
-        confirmText="Sim, sair e desistir"
-        cancelText="Continuar jogando"
-        variant="destructive"
-      />
-    </div>
   );
 };
 
