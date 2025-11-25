@@ -36,6 +36,8 @@ export const useGameEffects = ({
   const currentGameIdRef = useRef(null);
   const timerRef = useRef(null);
   const timeoutHandledRef = useRef(false);
+  const timerInitializedRef = useRef(false);
+  const currentPlayerRef = useRef(currentPlayer);
 
   const getBotMove = useCallback(() => {
     const move = getAdvancedBotMove(game.fen(), game.turn(), botLevel);
@@ -91,6 +93,7 @@ export const useGameEffects = ({
       gameInitialized.current = false;
       lastSavedTimeRef.current = { white: null, black: null };
       timeoutHandledRef.current = false;
+      timerInitializedRef.current = false; // Reset timer flag
 
       if (saveTimeIntervalRef.current) {
         clearInterval(saveTimeIntervalRef.current);
@@ -247,9 +250,6 @@ export const useGameEffects = ({
     };
   }, [isGameActive, gameType, gameId, whiteTime, blackTime, saveGameTime]);
 
-  // Ref para armazenar currentPlayer atualizado sem recriar o timer
-  const currentPlayerRef = useRef(currentPlayer);
-
   // Atualizar ref sempre que currentPlayer muda
   useEffect(() => {
     currentPlayerRef.current = currentPlayer;
@@ -264,7 +264,8 @@ export const useGameEffects = ({
       gameStatus,
       gameType,
       gameInitialized: gameInitialized.current,
-      shouldStartTimer
+      shouldStartTimer,
+      timerInitialized: timerInitializedRef.current
     });
 
     if (!shouldStartTimer) {
@@ -272,6 +273,7 @@ export const useGameEffects = ({
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
+        timerInitializedRef.current = false;
       }
       return;
     }
@@ -282,9 +284,9 @@ export const useGameEffects = ({
       return;
     }
 
-    // Não recriar timer se já existe
-    if (timerRef.current) {
-      console.log('[TIMER_EFFECT] ⚠️ Timer já existe, não recriando');
+    // Não recriar timer se já foi inicializado
+    if (timerInitializedRef.current) {
+      console.log('[TIMER_EFFECT] ⚠️ Timer já foi inicializado, ignorando');
       return;
     }
 
@@ -293,6 +295,7 @@ export const useGameEffects = ({
     }
 
     console.log('[TIMER] Iniciando timer único...');
+    timerInitializedRef.current = true;
 
     timerRef.current = setInterval(() => {
       // Usar a ref atualizada ao invés da dependência

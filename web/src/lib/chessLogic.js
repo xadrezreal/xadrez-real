@@ -57,30 +57,31 @@ export const getBotMove = (fen, color, level) => {
   const legalMoves = game.moves({ verbose: true });
   if (legalMoves.length === 0) return null;
 
-  // Profundidade e número de movimentos baseado no nível
+  // TODOS os níveis usam depth 1 para evitar travamento
+  // A diferença está na quantidade de movimentos avaliados
   let depth = 1;
   let maxMovesToEvaluate = legalMoves.length;
+  let maxTime = 800; // 800ms padrão
 
   if (level === 'Fácil') {
-    depth = 1;
-    maxMovesToEvaluate = Math.min(12, legalMoves.length);
+    maxMovesToEvaluate = Math.min(10, legalMoves.length);
+    maxTime = 500; // 500ms
   } else if (level === 'Médio') {
-    depth = 1;
     maxMovesToEvaluate = Math.min(15, legalMoves.length);
+    maxTime = 600; // 600ms
   } else if (level === 'Profissional') {
-    depth = 1; // Reduzido de 2 para 1
-    maxMovesToEvaluate = Math.min(18, legalMoves.length);
+    maxMovesToEvaluate = Math.min(20, legalMoves.length);
+    maxTime = 800; // 800ms
   } else if (level === 'Ultra Difícil') {
-    depth = 2;
-    maxMovesToEvaluate = Math.min(15, legalMoves.length); // Reduzido de 25 para 15
+    maxMovesToEvaluate = legalMoves.length; // Avalia todos
+    maxTime = 1000; // 1 segundo máximo
   }
 
   let bestMove = null;
   let bestValue = color === 'w' ? -Infinity : Infinity;
 
-  // Timeout de segurança - máximo 1.5 segundos
+  // Timeout de segurança
   const startTime = Date.now();
-  const maxTime = 1500; // 1.5 segundos
 
   // Limitar número de movimentos avaliados
   const movesToEvaluate = legalMoves.slice(0, maxMovesToEvaluate);
@@ -88,7 +89,7 @@ export const getBotMove = (fen, color, level) => {
   for (const move of movesToEvaluate) {
     // Verificar timeout
     if (Date.now() - startTime > maxTime) {
-      console.warn('[BOT] Timeout atingido, retornando melhor movimento até agora');
+      console.warn(`[BOT] Timeout atingido (${maxTime}ms), retornando melhor movimento`);
       break;
     }
 
