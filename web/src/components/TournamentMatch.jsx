@@ -334,7 +334,7 @@ const TournamentMatch = () => {
       </div>
 
       <ConfirmDialog
-        open={showResignDialog}
+        isOpen={showResignDialog}
         onOpenChange={(value) => {
           console.log("showResignDialog onOpenChange:", value);
           setShowResignDialog(value);
@@ -348,7 +348,7 @@ const TournamentMatch = () => {
       />
 
       <ConfirmDialog
-        open={showLeaveDialog}
+        isOpen={showLeaveDialog}
         onOpenChange={(value) => {
           console.log("showLeaveDialog onOpenChange:", value);
           setShowLeaveDialog(value);

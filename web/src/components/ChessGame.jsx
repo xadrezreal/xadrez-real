@@ -421,7 +421,7 @@ const ChessGame = () => {
       </div>
 
       <ConfirmDialog
-        open={showResignDialog}
+        isOpen={showResignDialog}
         onOpenChange={setShowResignDialog}
         onConfirm={handleConfirmResign}
         title="Desistir da Partida?"
@@ -432,7 +432,7 @@ const ChessGame = () => {
       />
 
       <ConfirmDialog
-        open={showLeaveDialog}
+        isOpen={showLeaveDialog}
         onOpenChange={setShowLeaveDialog}
         onConfirm={handleConfirmLeave}
         title="Sair da Partida?"

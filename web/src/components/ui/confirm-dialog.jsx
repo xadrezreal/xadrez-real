@@ -10,7 +10,7 @@ import {
 import { Button } from "./button";
 
 export const ConfirmDialog = ({
-  open,
+  isOpen,
   onOpenChange,
   onConfirm,
   title,
@@ -19,10 +19,10 @@ export const ConfirmDialog = ({
   cancelText = "Cancelar",
   variant = "destructive",
 }) => {
-  console.log("SimpleConfirmDialog render:", { open, title });
+  console.log("SimpleConfirmDialog render:", { isOpen, title });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="bg-slate-800 border-slate-700">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
