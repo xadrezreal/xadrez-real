@@ -36,7 +36,6 @@ const Wallet = () => {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [stripeBalance, setStripeBalance] = useState(null);
   const [loadingBalance, setLoadingBalance] = useState(true);
-  const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
     const refreshUser = async () => {
@@ -370,97 +369,6 @@ const Wallet = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Botão de Debug */}
-          <button
-            onClick={() => setShowDebug(!showDebug)}
-            className="w-full text-left p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-blue-300 font-semibold text-sm">
-                🔧 Debug - Info da Conta Stripe
-              </span>
-              <span className="text-blue-400 text-xs">
-                {showDebug ? "▼ Fechar" : "► Abrir"}
-              </span>
-            </div>
-          </button>
-
-          {showDebug && (
-            <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg space-y-3">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center py-2 border-b border-blue-500/20">
-                  <span className="text-slate-400">Stripe Account ID:</span>
-                  <span className="text-blue-300 font-mono text-xs break-all max-w-[60%] text-right">
-                    {connectStatus?.accountId || "Não conectado"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center py-2 border-b border-blue-500/20">
-                  <span className="text-slate-400">Status da Conta:</span>
-                  <span className={connectStatus?.accountStatus === "active" ? "text-green-400 font-semibold" : "text-yellow-400 font-semibold"}>
-                    {connectStatus?.accountStatus || "N/A"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center py-2 border-b border-blue-500/20">
-                  <span className="text-slate-400">Charges Enabled:</span>
-                  <span className={connectStatus?.chargesEnabled ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
-                    {connectStatus?.chargesEnabled ? "✓ Sim" : "✗ Não"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center py-2 border-b border-blue-500/20">
-                  <span className="text-slate-400">⚠️ Payouts Enabled:</span>
-                  <span className={connectStatus?.payoutsEnabled ? "text-green-400 font-bold text-base" : "text-red-400 font-bold text-base"}>
-                    {connectStatus?.payoutsEnabled ? "✓ SIM" : "✗ NÃO"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center py-2 border-b border-blue-500/20">
-                  <span className="text-slate-400">Details Submitted:</span>
-                  <span className={connectStatus?.detailsSubmitted ? "text-green-400 font-semibold" : "text-yellow-400 font-semibold"}>
-                    {connectStatus?.detailsSubmitted ? "✓ Sim" : "✗ Não"}
-                  </span>
-                </div>
-
-                {stripeBalance && (
-                  <>
-                    <div className="pt-3 mt-3 border-t border-blue-500/30">
-                      <h4 className="text-blue-300 font-semibold mb-2">Saldos no Stripe:</h4>
-
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-slate-400">💰 Disponível p/ Saque:</span>
-                        <span className="text-green-400 font-bold text-base">
-                          R$ {stripeBalance.available?.toFixed(2) || "0.00"}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-slate-400">⏳ Pendente:</span>
-                        <span className="text-yellow-400 font-semibold">
-                          R$ {stripeBalance.pending?.toFixed(2) || "0.00"}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center py-2 border-t border-blue-500/20 mt-2 pt-2">
-                        <span className="text-slate-400">Total:</span>
-                        <span className="text-blue-300 font-bold text-base">
-                          R$ {stripeBalance.total?.toFixed(2) || "0.00"}
-                        </span>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {!connectStatus && (
-                  <div className="text-yellow-400 text-sm p-2 bg-yellow-500/10 rounded">
-                    ⚠️ Dados não carregados. Recarregue a página.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           <div className="p-4 bg-slate-900/50 rounded-lg text-center">
             <p className="text-sm text-slate-400">SALDO TOTAL</p>
             {loadingBalance ? (
