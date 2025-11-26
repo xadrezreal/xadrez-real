@@ -37,6 +37,7 @@ const entryFees = [
   200.0, 500.0, 1000, 2000, 5000, 10000,
 ];
 // Limites: PREMIUM até 128, ADMIN até 8192
+// Apenas potências de 2 para brackets perfeitos
 const playerCountsPremium = [4, 8, 16, 32, 64, 128];
 const playerCountsAdmin = [4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192];
 
@@ -532,12 +533,6 @@ const CreateTournament = () => {
               <Label htmlFor="playerCount">
                 <Users className="inline-block w-4 h-4 mr-1" />
                 Quantidade de Jogadores
-                {isAdmin && (
-                  <span className="ml-2 text-xs text-purple-400">
-                    <Shield className="inline w-3 h-3 mr-1" />
-                    Até 8.192 jogadores (Admin)
-                  </span>
-                )}
               </Label>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {(isAdmin ? playerCountsAdmin : playerCountsPremium).map((count) => (
@@ -551,7 +546,7 @@ const CreateTournament = () => {
                     }`}
                     disabled={isLoading}
                   >
-                    {count >= 1000 ? `${(count / 1000).toFixed(1)}k` : count}
+                    {count.toLocaleString('pt-BR')}
                   </Button>
                 ))}
               </div>
