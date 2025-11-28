@@ -21,6 +21,9 @@ import {
   Loader2,
   Link as LinkIcon,
   Clock,
+  ChevronDown,
+  ChevronUp,
+  Info,
 } from "lucide-react";
 import { UserContext } from "../contexts/UserContext";
 
@@ -36,6 +39,7 @@ const Wallet = () => {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [stripeBalance, setStripeBalance] = useState(null);
   const [loadingBalance, setLoadingBalance] = useState(true);
+  const [showAccountStatus, setShowAccountStatus] = useState(false);
 
   useEffect(() => {
     const refreshUser = async () => {
@@ -406,68 +410,98 @@ const Wallet = () => {
 
           {renderConnectStatus()}
 
-          {/* Seção de Debug - Remover em produção */}
+          {/* Status da Conta */}
           {connectStatus && (
-            <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-              <h3 className="font-semibold text-blue-300 mb-3">
-                🔧 Debug - Status da Conta Stripe
-              </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Stripe Account ID:</span>
-                  <span className="text-blue-300 font-mono text-xs">
-                    {connectStatus.accountId || "N/A"}
-                  </span>
+            <div className="bg-slate-900/30 border border-slate-600/50 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setShowAccountStatus(!showAccountStatus)}
+                className="w-full p-4 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Info className="w-5 h-5 text-slate-400" />
+                  <span className="font-semibold text-slate-300">Status da Conta</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Status da Conta:</span>
-                  <span className={connectStatus.accountStatus === "active" ? "text-green-400" : "text-yellow-400"}>
-                    {connectStatus.accountStatus}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Charges Enabled:</span>
-                  <span className={connectStatus.chargesEnabled ? "text-green-400" : "text-red-400"}>
-                    {connectStatus.chargesEnabled ? "✓ Sim" : "✗ Não"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Payouts Enabled:</span>
-                  <span className={connectStatus.payoutsEnabled ? "text-green-400" : "text-red-400"}>
-                    {connectStatus.payoutsEnabled ? "✓ Sim" : "✗ Não"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Details Submitted:</span>
-                  <span className={connectStatus.detailsSubmitted ? "text-green-400" : "text-yellow-400"}>
-                    {connectStatus.detailsSubmitted ? "✓ Sim" : "✗ Não"}
-                  </span>
-                </div>
-                {stripeBalance && (
-                  <>
-                    <div className="pt-2 mt-2 border-t border-blue-500/30">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Saldo Disponível:</span>
-                        <span className="text-green-400 font-semibold">
-                          R$ {stripeBalance.available?.toFixed(2) || "0.00"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Saldo Pendente:</span>
-                        <span className="text-yellow-400 font-semibold">
-                          R$ {stripeBalance.pending?.toFixed(2) || "0.00"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Saldo Total:</span>
-                        <span className="text-blue-300 font-semibold">
-                          R$ {stripeBalance.total?.toFixed(2) || "0.00"}
-                        </span>
+                {showAccountStatus ? (
+                  <ChevronUp className="w-5 h-5 text-slate-400" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-slate-400" />
+                )}
+              </button>
+
+              {showAccountStatus && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="border-t border-slate-600/50"
+                >
+                  <div className="p-4 space-y-3 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Status</span>
+                      <span className={`font-semibold px-2 py-1 rounded ${
+                        connectStatus.accountStatus === "active"
+                          ? "bg-green-500/20 text-green-400"
+                          : "bg-yellow-500/20 text-yellow-400"
+                      }`}>
+                        {connectStatus.accountStatus === "active" ? "Ativa" : "Pendente"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Receber pagamentos</span>
+                      <span className={connectStatus.chargesEnabled ? "text-green-400" : "text-red-400"}>
+                        {connectStatus.chargesEnabled ? "✓ Habilitado" : "✗ Desabilitado"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Fazer saques</span>
+                      <span className={connectStatus.payoutsEnabled ? "text-green-400" : "text-red-400"}>
+                        {connectStatus.payoutsEnabled ? "✓ Habilitado" : "✗ Desabilitado"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Dados completos</span>
+                      <span className={connectStatus.detailsSubmitted ? "text-green-400" : "text-yellow-400"}>
+                        {connectStatus.detailsSubmitted ? "✓ Sim" : "⚠ Pendente"}
+                      </span>
+                    </div>
+
+                    {stripeBalance && (
+                      <>
+                        <div className="pt-3 mt-3 border-t border-slate-600/50 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-400">Disponível para saque</span>
+                            <span className="text-green-400 font-semibold">
+                              R$ {stripeBalance.available?.toFixed(2) || "0.00"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-400">Em processamento</span>
+                            <span className="text-yellow-400 font-semibold">
+                              R$ {stripeBalance.pending?.toFixed(2) || "0.00"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-slate-600/50">
+                            <span className="text-slate-300 font-semibold">Saldo total</span>
+                            <span className="text-cyan-400 font-bold">
+                              R$ {stripeBalance.total?.toFixed(2) || "0.00"}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="pt-3 mt-3 border-t border-slate-600/50">
+                      <div className="text-xs text-slate-500">
+                        <span className="font-mono">ID: {connectStatus.accountId?.slice(-12) || "N/A"}</span>
                       </div>
                     </div>
-                  </>
-                )}
-              </div>
+                  </div>
+                </motion.div>
+              )}
             </div>
           )}
 

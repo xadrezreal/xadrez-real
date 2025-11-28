@@ -26,15 +26,12 @@ export const SUBSCRIPTION_PLANS = {
 } as const;
 
 export const DEPOSIT_OPTIONS = [
-  { amount: 1, priceId: process.env.STRIPE_DEPOSIT_1 || "price_deposit_1" },
-  { amount: 5, priceId: process.env.STRIPE_DEPOSIT_5 || "price_deposit_5" },
-  { amount: 10, priceId: process.env.STRIPE_DEPOSIT_10 || "price_deposit_10" },
-  { amount: 20, priceId: process.env.STRIPE_DEPOSIT_20 || "price_deposit_20" },
-  { amount: 50, priceId: process.env.STRIPE_DEPOSIT_50 || "price_deposit_50" },
-  {
-    amount: 100,
-    priceId: process.env.STRIPE_DEPOSIT_100 || "price_deposit_100",
-  },
+  { amount: 1, priceId: process.env.STRIPE_DEPOSIT_1 || "price_1SNcg0BOcWVXza8XshopeAH0" },
+  { amount: 10, priceId: process.env.STRIPE_DEPOSIT_10 || "price_1SO2k9BOcWVXza8XerIqIiNW" },
+  { amount: 20, priceId: process.env.STRIPE_DEPOSIT_20 || "price_1SO2kzBOcWVXza8XGZbtrKj3" },
+  { amount: 50, priceId: process.env.STRIPE_DEPOSIT_50 || "price_1SO2lBBOcWVXza8XKEKKHLuu" },
+  { amount: 100, priceId: process.env.STRIPE_DEPOSIT_100 || "price_1SO2lIBOcWVXza8XpANjmt2K" },
+  { amount: 200, priceId: process.env.STRIPE_DEPOSIT_200 || "price_1SO2lQBOcWVXza8X4i7a2QWP" },
 ] as const;
 
 export type SubscriptionPlanId = keyof typeof SUBSCRIPTION_PLANS;
