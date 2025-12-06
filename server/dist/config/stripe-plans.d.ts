@@ -26,9 +26,6 @@ export declare const DEPOSIT_OPTIONS: readonly [{
     readonly amount: 1;
     readonly priceId: string;
 }, {
-    readonly amount: 5;
-    readonly priceId: string;
-}, {
     readonly amount: 10;
     readonly priceId: string;
 }, {
@@ -39,6 +36,9 @@ export declare const DEPOSIT_OPTIONS: readonly [{
     readonly priceId: string;
 }, {
     readonly amount: 100;
+    readonly priceId: string;
+}, {
+    readonly amount: 200;
     readonly priceId: string;
 }];
 export type SubscriptionPlanId = keyof typeof SUBSCRIPTION_PLANS;

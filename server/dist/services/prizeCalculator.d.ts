@@ -4,6 +4,10 @@
  * Calcula distribuição de prêmios com taxa progressiva da casa:
  * - Até R$ 5.000: 10% para a casa
  * - Acima de R$ 5.000: 20% para a casa
+ *
+ * Para torneios grandes (>= 2048 participantes):
+ * - 33% dividido igualmente entre TODOS (até posição 2048)
+ * - Restante dividido entre TOP 8 com percentuais fixos
  */
 export interface PrizeCalculationResult {
     totalPrizePool: number;

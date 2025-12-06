@@ -5,6 +5,10 @@
  * Calcula distribuição de prêmios com taxa progressiva da casa:
  * - Até R$ 5.000: 10% para a casa
  * - Acima de R$ 5.000: 20% para a casa
+ *
+ * Para torneios grandes (>= 2048 participantes):
+ * - 33% dividido igualmente entre TODOS (até posição 2048)
+ * - Restante dividido entre TOP 8 com percentuais fixos
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculatePrizes = calculatePrizes;
@@ -32,27 +36,6 @@ function calculateHouseFee(totalCollected) {
     }
 }
 /**
- * Distribui prêmios para TOP 16 usando escala geométrica
- */
-function distributeTop16(pool) {
-    // Valores fixos
-    const FIRST_PLACE = Math.min(pool * 0.35, 8000); // 35% ou max R$ 8.000
-    const SIXTEENTH_PLACE = Math.max(pool * 0.01, 50); // 1% ou min R$ 50
-    // Distribuição geométrica para 2º-15º lugares
-    const remaining = pool - FIRST_PLACE - SIXTEENTH_PLACE;
-    const q = 0.85; // razão geométrica
-    // Calcular primeira parcela (2º lugar)
-    const sum = (1 - Math.pow(q, 14)) / (1 - q); // soma de 14 termos
-    const secondPlace = remaining / sum;
-    const prizes = [FIRST_PLACE];
-    // Gerar 2º ao 15º lugar
-    for (let i = 0; i < 14; i++) {
-        prizes.push(secondPlace * Math.pow(q, i));
-    }
-    prizes.push(SIXTEENTH_PLACE);
-    return prizes;
-}
-/**
  * Calcula distribuição de prêmios para torneio
  */
 function calculatePrizes(entryFee, participants) {
@@ -68,28 +51,96 @@ function calculatePrizes(entryFee, participants) {
             return -1;
         return a.finalPosition - b.finalPosition;
     });
-    if (participants.length >= 16) {
-        // Torneios grandes: TOP 16 + resto
-        const top16Pool = netPrizePool * 0.6; // 60% para TOP 16
-        const restPool = netPrizePool * 0.4; // 40% dividido igualmente entre o resto
-        const top16Prizes = distributeTop16(top16Pool);
-        // Distribuir para TOP 16
-        for (let i = 0; i < 16; i++) {
+    if (participants.length >= 2048) {
+        // TORNEIOS MASSIVOS (>= 2048 jogadores)
+        // 33% dividido entre os primeiros 2048 jogadores
+        // 67% dividido entre TOP 8 com percentuais fixos
+        const bonusPool = netPrizePool * 0.33; // 33% para bônus
+        const top8Pool = netPrizePool * 0.67; // 67% para TOP 8
+        // Bônus: R$ para cada um dos primeiros 2048 (ou todos se < 2048)
+        const bonusCount = Math.min(participants.length, 2048);
+        const bonusPerPlayer = bonusPool / bonusCount;
+        // TOP 8 distribuição fixa
+        const top8Distribution = [
+            { pct: 0.35, desc: "🏆 Campeão" }, // 35%
+            { pct: 0.20, desc: "🥈 2º lugar" }, // 20%
+            { pct: 0.15, desc: "🥉 3º lugar" }, // 15%
+            { pct: 0.10, desc: "4º lugar" }, // 10%
+            { pct: 0.08, desc: "5º lugar" }, // 8%
+            { pct: 0.06, desc: "6º lugar" }, // 6%
+            { pct: 0.04, desc: "7º lugar" }, // 4%
+            { pct: 0.02, desc: "8º lugar" }, // 2%
+        ];
+        // Distribuir prêmios TOP 8
+        for (let i = 0; i < Math.min(8, participants.length); i++) {
+            const participant = sortedParticipants[i];
+            if (participant) {
+                const topPrize = top8Pool * top8Distribution[i].pct;
+                prizes.push({
+                    position: i + 1,
+                    userId: participant.userId,
+                    amount: Number((topPrize + bonusPerPlayer).toFixed(2)),
+                    description: top8Distribution[i].desc,
+                });
+            }
+        }
+        // Distribuir bônus para o resto (9º até 2048º)
+        for (let i = 8; i < bonusCount; i++) {
             const participant = sortedParticipants[i];
             if (participant) {
                 prizes.push({
                     position: i + 1,
                     userId: participant.userId,
-                    amount: Number(top16Prizes[i].toFixed(2)),
-                    description: i === 0 ? "🏆 Campeão" : `${i + 1}º lugar`,
+                    amount: Number(bonusPerPlayer.toFixed(2)),
+                    description: `${i + 1}º lugar - Bônus`,
+                });
+            }
+        }
+        // Jogadores além de 2048 não recebem nada
+        for (let i = bonusCount; i < participants.length; i++) {
+            const participant = sortedParticipants[i];
+            if (participant) {
+                prizes.push({
+                    position: i + 1,
+                    userId: participant.userId,
+                    amount: 0,
+                    description: `${i + 1}º lugar`,
+                });
+            }
+        }
+    }
+    else if (participants.length >= 16) {
+        // TORNEIOS GRANDES (16-2047 jogadores)
+        // TOP 8 + resto divide igualmente
+        const top8Pool = netPrizePool * 0.6; // 60% para TOP 8
+        const restPool = netPrizePool * 0.4; // 40% dividido igualmente entre o resto
+        const top8Distribution = [
+            { pct: 0.35, desc: "🏆 Campeão" },
+            { pct: 0.20, desc: "🥈 2º lugar" },
+            { pct: 0.15, desc: "🥉 3º lugar" },
+            { pct: 0.10, desc: "4º lugar" },
+            { pct: 0.08, desc: "5º lugar" },
+            { pct: 0.06, desc: "6º lugar" },
+            { pct: 0.04, desc: "7º lugar" },
+            { pct: 0.02, desc: "8º lugar" },
+        ];
+        // Distribuir para TOP 8
+        for (let i = 0; i < Math.min(8, participants.length); i++) {
+            const participant = sortedParticipants[i];
+            if (participant) {
+                prizes.push({
+                    position: i + 1,
+                    userId: participant.userId,
+                    amount: Number((top8Pool * top8Distribution[i].pct).toFixed(2)),
+                    description: top8Distribution[i].desc,
                 });
             }
         }
         // Resto dos participantes divide igualmente
-        const remainingCount = participants.length - 16;
+        const remainingCount = participants.length - 8;
         if (remainingCount > 0) {
             const perPlayer = restPool / remainingCount;
-            for (let i = 16; i < participants.length; i++) {
+            for (let i = 8; i < participants.length; i++) {
                 const participant = sortedParticipants[i];
                 if (participant) {
                     prizes.push({
@@ -103,7 +154,7 @@ function calculatePrizes(entryFee, participants) {
         }
     }
     else {
-        // Torneios pequenos: TODOS ganham algo!
+        // TORNEIOS PEQUENOS (<16 jogadores)
         // TOP 4 recebe 70% do prize pool
         // Resto divide 30% igualmente
         const top4Pool = netPrizePool * 0.7;
@@ -155,22 +206,52 @@ function calculatePrizePreview(entryFee, expectedParticipants) {
     const houseFee = calculateHouseFee(totalCollected);
     const netPrizePool = totalCollected - houseFee.amount;
     let preview = [];
-    if (expectedParticipants >= 16) {
-        const top16Pool = netPrizePool * 0.6;
-        const top16Prizes = distributeTop16(top16Pool);
-        preview = [
-            { description: "🏆 1º lugar", amount: Number(top16Prizes[0].toFixed(2)) },
-            { description: "🥈 2º lugar", amount: Number(top16Prizes[1].toFixed(2)) },
-            { description: "🥉 3º lugar", amount: Number(top16Prizes[2].toFixed(2)) },
-            { description: "4º lugar", amount: Number(top16Prizes[3].toFixed(2)) },
-            { description: "5º-8º lugar", amount: Number(top16Prizes[4].toFixed(2)) },
-            { description: "9º-16º lugar", amount: Number(top16Prizes[8].toFixed(2)) },
+    if (expectedParticipants >= 2048) {
+        // Torneios massivos
+        const bonusPool = netPrizePool * 0.33;
+        const top8Pool = netPrizePool * 0.67;
+        const bonusCount = Math.min(expectedParticipants, 2048);
+        const bonusPerPlayer = bonusPool / bonusCount;
+        const top8Distribution = [
+            { desc: "🏆 1º lugar (35%)", pct: 0.35 },
+            { desc: "🥈 2º lugar (20%)", pct: 0.20 },
+            { desc: "🥉 3º lugar (15%)", pct: 0.15 },
+            { desc: "4º lugar (10%)", pct: 0.10 },
+            { desc: "5º lugar (8%)", pct: 0.08 },
+            { desc: "6º lugar (6%)", pct: 0.06 },
+            { desc: "7º lugar (4%)", pct: 0.04 },
+            { desc: "8º lugar (2%)", pct: 0.02 },
         ];
-        if (expectedParticipants > 16) {
+        preview = top8Distribution.map((d) => ({
+            description: d.desc,
+            amount: Number((top8Pool * d.pct + bonusPerPlayer).toFixed(2)),
+        }));
+        preview.push({
+            description: `9º-2.048º lugar (Bônus)`,
+            amount: Number(bonusPerPlayer.toFixed(2)),
+        });
+    }
+    else if (expectedParticipants >= 16) {
+        const top8Pool = netPrizePool * 0.6;
+        const top8Distribution = [
+            { desc: "🏆 1º lugar (35%)", pct: 0.35 },
+            { desc: "🥈 2º lugar (20%)", pct: 0.20 },
+            { desc: "🥉 3º lugar (15%)", pct: 0.15 },
+            { desc: "4º lugar (10%)", pct: 0.10 },
+            { desc: "5º lugar (8%)", pct: 0.08 },
+            { desc: "6º lugar (6%)", pct: 0.06 },
+            { desc: "7º lugar (4%)", pct: 0.04 },
+            { desc: "8º lugar (2%)", pct: 0.02 },
+        ];
+        preview = top8Distribution.map((d) => ({
+            description: d.desc,
+            amount: Number((top8Pool * d.pct).toFixed(2)),
+        }));
+        if (expectedParticipants > 8) {
             const restPool = netPrizePool * 0.4;
-            const perPlayer = restPool / (expectedParticipants - 16);
+            const perPlayer = restPool / (expectedParticipants - 8);
             preview.push({
-                description: `17º-${expectedParticipants}º lugar`,
+                description: `9º-${expectedParticipants}º lugar`,
                 amount: Number(perPlayer.toFixed(2)),
             });
         }
