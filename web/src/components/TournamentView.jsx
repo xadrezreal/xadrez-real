@@ -227,9 +227,7 @@ const TournamentView = () => {
         });
 
         if (!hasChanges) {
-          // console.log(
-            "🔒 Sem mudanças - MANTENDO estado anterior (sem re-render)"
-          );
+          // No changes detected - keeping previous state
           return prevTournaments;
         }
 

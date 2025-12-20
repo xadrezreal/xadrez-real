@@ -66,10 +66,7 @@ const Deposit = () => {
         return;
       }
 
-      // console.log("[DEPOSIT] Criando checkout:", {
-        priceId: selectedOption.priceId,
-        amount: selectedOption.amount,
-      });
+      // DEPOSIT creating checkout
 
       const response = await fetch(`${API_URL}/payments/create-checkout`, {
         method: "POST",

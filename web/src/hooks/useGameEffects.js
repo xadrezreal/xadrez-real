@@ -135,12 +135,7 @@ export const useGameEffects = ({
   ]);
 
   useEffect(() => {
-    // console.log('[BOT_EFFECT] Verificando condições:', {
-      gameType,
-      isPlayerTurn,
-      gameStatus,
-      shouldTriggerBot: gameType === "bot" && !isPlayerTurn && gameStatus === "playing"
-    });
+    // BOT_EFFECT checking conditions
 
     if (gameType === "bot" && !isPlayerTurn && gameStatus === "playing") {
       // console.log('[BOT_EFFECT] ✅ Agendando movimento do bot...');
@@ -257,14 +252,7 @@ export const useGameEffects = ({
     // Só executar quando o jogo inicializar
     const shouldStartTimer = isGameActive && gameStatus === "playing" && gameInitialized.current;
 
-    // console.log('[TIMER_EFFECT] Verificando:', {
-      isGameActive,
-      gameStatus,
-      gameType,
-      gameInitialized: gameInitialized.current,
-      shouldStartTimer,
-      hasTimer: !!timerRef.current
-    });
+    // TIMER_EFFECT checking conditions
 
     if (!shouldStartTimer) {
       // console.log('[TIMER_EFFECT] ❌ Condições não atendidas');

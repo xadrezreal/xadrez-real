@@ -109,11 +109,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
     if (gameType === "bot") {
       const result = currentPlayer === playerColor;
-      // console.log('[IS_PLAYER_TURN] Bot game:', {
-        currentPlayer,
-        playerColor,
-        isPlayerTurn: result
-      });
+      // IS_PLAYER_TURN check for bot game
       return result;
     }
 
@@ -359,15 +355,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       try {
         const token = localStorage.getItem("auth_token");
 
-        // console.log("[SAVE_GAME] Saving game state:", {
-          gameId,
-
-          fen: newFen,
-
-          whiteTime: newWhiteTime,
-
-          blackTime: newBlackTime,
-        });
+        // SAVE_GAME saving game state
 
         await fetch(`${API_URL}/api/game/${gameId}/move`, {
           method: "PUT",
