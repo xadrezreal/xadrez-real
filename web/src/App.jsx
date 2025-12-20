@@ -27,6 +27,7 @@ import Success from "./pages/Success";
 import CreateTournament from "./components/CreateTournament";
 import CustomTournamentRegistration from "./components/CustomTournamentRegistration";
 import TournamentBracket from "./components/TournamentBracket";
+import TestTournamentResults from "./components/TestTournamentResults";
 import Deposit from "./components/Deposit";
 import Matchmaking from "./components/Matchmaking";
 import GameRoom from "./components/GameRoom";
@@ -251,6 +252,10 @@ const AppContent = () => {
             <Route
               path="/tournament/:id/bracket"
               element={<TournamentBracket />}
+            />
+            <Route
+              path="/tournament/:id/results"
+              element={<TestTournamentResults />}
             />
             <Route
               path="/tournament/:tournamentId/match/:matchId"
