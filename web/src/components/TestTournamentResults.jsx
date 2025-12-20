@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import tournamentService from '../lib/tournamentService';
+import { tournamentService } from '../lib/tournamentService';
 
 export default function TestTournamentResults() {
   const { id } = useParams();
