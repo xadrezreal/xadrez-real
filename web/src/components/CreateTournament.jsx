@@ -17,7 +17,6 @@ import {
   Clock,
   DollarSign,
   Users,
-  Percent,
   Trophy,
   Info,
   Lock,
@@ -31,6 +30,7 @@ import { useNavigate } from "react-router-dom";
 import { UserContext } from "../contexts/UserContext";
 import { useAuth } from "../contexts/AuthContext";
 import { calculateTournamentPrize, getFeeTierDescription } from "../lib/prizeCalculations";
+import PrizeDistributionModal from "./PrizeDistributionModal";
 
 const entryFees = [
   0, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0, 50.0, 70.0, 100.0,
@@ -47,10 +47,10 @@ const CreateTournament = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [entryFee, setEntryFee] = useState("0");
   const [playerCount, setPlayerCount] = useState(8);
-  const [prizeDistribution, setPrizeDistribution] = useState("SPLIT_TOP_2");
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPrizeModal, setShowPrizeModal] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, setUser } = useContext(UserContext);
@@ -175,7 +175,6 @@ const CreateTournament = () => {
             password: password || undefined,
             entryFee: fee,
             playerCount: playerCount,
-            prizeDistribution: prizeDistribution,
             startTime: startDateTime.toISOString(),
           }),
         }
@@ -552,68 +551,32 @@ const CreateTournament = () => {
               </div>
             </motion.div>
 
-            <motion.div variants={itemVariants} className="space-y-2">
-              <Label>
-                <Percent className="inline-block w-4 h-4 mr-1" />
-                Distribuição do Prêmio
-              </Label>
-              <RadioGroup
-                value={prizeDistribution}
-                onValueChange={setPrizeDistribution}
-                className="flex flex-col sm:flex-row gap-4"
-                disabled={isLoading}
+            {/* Botão de Distribuição de Prêmios */}
+            <motion.div variants={itemVariants} className="space-y-3">
+              <Button
+                type="button"
+                onClick={() => setShowPrizeModal(true)}
+                variant="outline"
+                className="w-full border-purple-500/30 bg-gradient-to-r from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 text-white"
               >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="WINNER_TAKES_ALL" id="r1" />
-                  <Label htmlFor="r1">Campeão leva tudo</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="SPLIT_TOP_2" id="r2" />
-                  <Label htmlFor="r2">60% / 30% / 10% (Top 3)</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="SPLIT_TOP_4" id="r3" />
-                  <Label htmlFor="r3">50% / 25% / 15% / 6% / 4% (Top 5)</Label>
-                </div>
-              </RadioGroup>
+                <Trophy className="w-4 h-4 mr-2" />
+                Ver Distribuição de Prêmios
+              </Button>
+
+              {/* Preview rápido do pote */}
               {prizeInfo.totalCollected > 0 && (
-                <div className="mt-2 space-y-3">
-                  {/* Preview do Prêmio Líquido */}
-                  <div className="text-sm p-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 rounded-md">
-                    <Info className="inline w-4 h-4 mr-1 text-yellow-400" />
-                    Prêmio líquido estimado:{" "}
-                    <span className="font-bold text-yellow-400">
+                <div className="text-sm p-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/20 rounded-md">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300">Pote estimado:</span>
+                    <span className="font-bold text-xl text-yellow-400">
                       R$ {prizeInfo.netPrizePool.toFixed(2)}
                     </span>
                   </div>
-
-                  {/* Detalhamento de Taxas */}
-                  <div className={`text-xs p-3 ${feeTier.bgColor} border ${feeTier.borderColor} rounded-md space-y-2`}>
-                    <div className="font-semibold text-slate-200 mb-2 flex items-center gap-1">
-                      <Shield className="w-3 h-3" />
-                      Estrutura de Taxas
-                    </div>
-
-                    <div className="space-y-1.5 text-slate-300">
-                      <div className="flex justify-between">
-                        <span>Total arrecadado:</span>
-                        <span className="font-semibold">R$ {prizeInfo.totalCollected.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Taxa da casa ({prizeInfo.housePercentage}%):</span>
-                        <span className={`font-semibold ${feeTier.color}`}>- R$ {prizeInfo.houseAmount.toFixed(2)}</span>
-                      </div>
-                      <div className="pt-1.5 border-t border-slate-600/50 flex justify-between">
-                        <span className="font-semibold">Pote de prêmios:</span>
-                        <span className="font-bold text-green-400">R$ {prizeInfo.netPrizePool.toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    <p className={`${feeTier.color} mt-2 text-xs flex items-center gap-1`}>
-                      <Info className="w-3 h-3" />
-                      {feeTier.message}
-                    </p>
-                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {playerCount < 16 && "TOP 4 + participação"}
+                    {playerCount >= 16 && playerCount < 2048 && "TOP 8 + bônus para todos"}
+                    {playerCount >= 2048 && "Até 2.048 ganhadores!"}
+                  </p>
                 </div>
               )}
             </motion.div>
@@ -635,6 +598,13 @@ const CreateTournament = () => {
           </form>
         </CardContent>
       </Card>
+
+      {/* Modal de Distribuição de Prêmios */}
+      <PrizeDistributionModal
+        isOpen={showPrizeModal}
+        onClose={() => setShowPrizeModal(false)}
+        playerCount={playerCount}
+      />
     </motion.div>
   );
 };
