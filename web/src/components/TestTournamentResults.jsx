@@ -19,16 +19,19 @@ export default function TestTournamentResults() {
   const loadTournamentData = async () => {
     try {
       setLoading(true);
-      const data = await tournamentService.getTournament(id);
-      setTournament(data);
+      const response = await tournamentService.getTournament(id);
+      const tournamentData = response.tournament || response;
 
-      // Carrega prêmios (simulado - você pode adicionar endpoint real)
-      if (data.prizes) {
-        setPrizes(data.prizes);
+      setTournament(tournamentData);
+
+      // Carrega prêmios
+      if (tournamentData.prizes) {
+        setPrizes(tournamentData.prizes);
       }
 
-      if (data.participants) {
-        setParticipants(data.participants);
+      // Carrega participantes
+      if (tournamentData.participants) {
+        setParticipants(tournamentData.participants);
       }
 
       setLoading(false);
