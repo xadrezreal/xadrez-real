@@ -56,6 +56,16 @@ export default function TestTournamentResults() {
     return `${position}º`;
   };
 
+  const getStatusText = (status) => {
+    const statusMap = {
+      'WAITING': 'Aguardando',
+      'ACTIVE': 'Em Andamento',
+      'FINISHED': 'Finalizado',
+      'CANCELLED': 'Cancelado'
+    };
+    return statusMap[status] || status;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -89,7 +99,7 @@ export default function TestTournamentResults() {
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-8">
         <button
-          onClick={() => navigate('/tournaments')}
+          onClick={() => navigate('/tournament')}
           className="mb-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition"
         >
           ← Voltar para Torneios
@@ -98,7 +108,7 @@ export default function TestTournamentResults() {
         <div className="bg-gradient-to-r from-purple-900 to-indigo-900 rounded-xl p-8 shadow-2xl">
           <h1 className="text-4xl font-bold mb-2">{tournament.name}</h1>
           <p className="text-gray-300 text-lg">
-            Status: <span className="text-green-400 font-semibold">{tournament.status}</span>
+            Status: <span className="text-green-400 font-semibold">{getStatusText(tournament.status)}</span>
           </p>
         </div>
       </div>

@@ -80,11 +80,7 @@ const CustomTournamentRegistration = () => {
       const now = new Date();
       const timeUntilStart = startTime - now;
 
-      // console.log(
-        `[REGISTRATION_RELOAD] Time until start: ${Math.ceil(
-          timeUntilStart / 1000
-        )}s`
-      );
+      // REGISTRATION_RELOAD time until start check
 
       if (timeUntilStart <= -25000) {
         localStorage.setItem(reloadKey, "true");

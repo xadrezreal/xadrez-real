@@ -995,11 +995,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
         setIsGameLoading(false);
       } else if (data.status !== "waiting") {
-        // console.log(
-          "[PROCESS_GAME_DATA] ⚠️ Game is already finished:",
-
-          data.status
-        );
+        // PROCESS_GAME_DATA game already finished
 
         onGameEnd();
 

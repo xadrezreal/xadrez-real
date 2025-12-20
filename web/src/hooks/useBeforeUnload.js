@@ -18,9 +18,7 @@ export const useBeforeUnload = (
         gameType !== "bot" &&
         gameData
       ) {
-        // console.log(
-          "[BEFOREUNLOAD] Page closing during active game - saving state"
-        );
+        // BEFOREUNLOAD page closing during active game
 
         const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
         const apiEndpoint = `${API_URL}/api/game/${gameId}/end`;
