@@ -236,6 +236,9 @@ async function tournamentRoutes(fastify) {
                     winnerId: true,
                     nextRoundStartTime: true,
                     currentRoundStartTime: true,
+                    housePercentage: true,
+                    prizePool: true,
+                    houseTake: true,
                     createdAt: true,
                     updatedAt: true,
                     creatorId: true,
@@ -247,8 +250,16 @@ async function tournamentRoutes(fastify) {
                             email: true,
                         },
                     },
+                    winner: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                        },
+                    },
                     participants: {
                         select: {
+                            id: true,
                             userId: true,
                             paidEntry: true,
                             joinedAt: true,
@@ -256,12 +267,34 @@ async function tournamentRoutes(fastify) {
                                 select: {
                                     id: true,
                                     name: true,
+                                    email: true,
                                     role: true,
+                                    tournamentPoints: true,
                                 },
                             },
                         },
                         orderBy: {
                             joinedAt: "asc",
+                        },
+                    },
+                    prizes: {
+                        select: {
+                            id: true,
+                            userId: true,
+                            position: true,
+                            amount: true,
+                            paid: true,
+                            paidAt: true,
+                            user: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    email: true,
+                                },
+                            },
+                        },
+                        orderBy: {
+                            position: "asc",
                         },
                     },
                     _count: {

@@ -297,14 +297,14 @@ async function seedTestTournament() {
     }
 
     // Usa a função calculatePrizes
-    const userPositions = Array.from(finalPositions.entries()).map(([userId, pos]) => ({
+    const participantsWithPositions = Array.from(finalPositions.entries()).map(([userId, pos]) => ({
       userId,
-      position: pos
+      finalPosition: pos
     }));
 
     const prizeCalculation = calculatePrizes(
-      netPrizePool,
-      userPositions
+      entryFee,
+      participantsWithPositions
     );
 
     console.log('📊 RESUMO DA DISTRIBUIÇÃO:\n');
