@@ -714,34 +714,49 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
         return;
       }
 
+      // Verifica se a casa clicada tem uma peça
+      const clickedPiece = game.get(square);
+
+      // Determina a cor das peças do jogador
+      const isTournamentGame = gameId?.includes("tournament-");
+      let myPieceColor;
+
+      if (isTournamentGame && gameData) {
+        if (gameData.white_player_id === user.id) {
+          myPieceColor = "w";
+        } else if (gameData.black_player_id === user.id) {
+          myPieceColor = "b";
+        }
+      } else if (playerColor) {
+        myPieceColor = playerColor[0];
+      }
+
+      // Se já tem uma peça selecionada
       if (selectedSquare) {
+        // Clicou na mesma peça selecionada → desmarca
         if (selectedSquare === square) {
           setSelectedSquare(null);
-        } else {
-          handleMove(selectedSquare, square);
+          return;
         }
-      } else {
-        const piece = game.get(square);
 
-        if (piece) {
-          const isTournamentGame = gameId?.includes("tournament-");
-
-          let canSelectPiece = false;
-
-          let myPieceColor;
-
-          if (isTournamentGame && gameData) {
-            if (gameData.white_player_id === user.id) {
-              myPieceColor = "w";
-            } else if (gameData.black_player_id === user.id) {
-              myPieceColor = "b";
-            }
-          } else if (playerColor) {
-            myPieceColor = playerColor[0];
+        // Clicou em outra peça SUA → troca a seleção
+        if (clickedPiece && clickedPiece.color === myPieceColor && clickedPiece.color === currentPlayer[0]) {
+          const moves = game.moves({ square: square, verbose: true });
+          if (moves.length > 0) {
+            setSelectedSquare(square);
+          } else {
+            setSelectedSquare(null);
           }
+          return;
+        }
 
-          canSelectPiece =
-            piece.color === myPieceColor && piece.color === currentPlayer[0];
+        // Clicou em casa vazia ou peça adversária → tenta mover
+        handleMove(selectedSquare, square);
+      } else {
+        // Nenhuma peça selecionada → tenta selecionar
+        if (clickedPiece) {
+          const canSelectPiece =
+            clickedPiece.color === myPieceColor && clickedPiece.color === currentPlayer[0];
 
           if (canSelectPiece) {
             const moves = game.moves({ square: square, verbose: true });
@@ -752,13 +767,12 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
           } else {
             toast({
               title: "Peça inválida",
-
               description: "Você só pode mover suas próprias peças!",
-
               variant: "destructive",
             });
           }
         }
+        // Clicou em casa vazia sem peça selecionada → não faz nada
       }
     },
 
