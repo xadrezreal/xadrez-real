@@ -14,13 +14,6 @@ export declare const SUBSCRIPTION_PLANS: {
         readonly description: "R$ 140/ano - Economize 20%";
         readonly originalAmount: 180;
     };
-    readonly trial: {
-        readonly priceId: string;
-        readonly amount: 1;
-        readonly period: "month";
-        readonly name: "Teste Premium";
-        readonly description: "R$ 1 no primeiro mês";
-    };
 };
 export declare const DEPOSIT_OPTIONS: readonly [{
     readonly amount: 1;

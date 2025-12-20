@@ -11,7 +11,6 @@ const createTournamentSchema = zod_1.z.object({
     password: zod_1.z.string().min(4).max(50).optional(),
     entryFee: zod_1.z.number().min(0).max(10000),
     playerCount: zod_1.z.number().int().min(2),
-    prizeDistribution: zod_1.z.enum(["WINNER_TAKES_ALL", "SPLIT_TOP_2", "SPLIT_TOP_4"]),
     startTime: zod_1.z.string().datetime(),
 });
 const joinTournamentSchema = zod_1.z.object({
@@ -72,7 +71,6 @@ async function tournamentRoutes(fastify) {
                     password: tournamentData.password || null,
                     entryFee: tournamentData.entryFee,
                     playerCount: tournamentData.playerCount,
-                    prizeDistribution: tournamentData.prizeDistribution,
                     startTime: startTime,
                     creatorId: userId,
                 },
@@ -158,7 +156,6 @@ async function tournamentRoutes(fastify) {
                     name: true,
                     entryFee: true,
                     playerCount: true,
-                    prizeDistribution: true,
                     status: true,
                     startTime: true,
                     createdAt: true,
@@ -232,7 +229,6 @@ async function tournamentRoutes(fastify) {
                     name: true,
                     entryFee: true,
                     playerCount: true,
-                    prizeDistribution: true,
                     status: true,
                     startTime: true,
                     currentRound: true,

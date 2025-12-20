@@ -16,13 +16,6 @@ export const SUBSCRIPTION_PLANS = {
     description: "R$ 140/ano - Economize 20%",
     originalAmount: 180,
   },
-  trial: {
-    priceId: process.env.STRIPE_PRICE_TRIAL || "price_1SMqB9BOcWVXza8Xb7xIl8mE",
-    amount: 1,
-    period: "month",
-    name: "Teste Premium",
-    description: "R$ 1 no primeiro mês",
-  },
 } as const;
 
 export const DEPOSIT_OPTIONS = [

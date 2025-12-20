@@ -11,7 +11,6 @@ import {
 import {
   Crown,
   Check,
-  Zap,
   TrendingUp,
   ArrowLeft,
   Loader2,
@@ -62,22 +61,6 @@ const SubscriptionManager = () => {
   }, [toast]);
 
   const plans = [
-    {
-      id: "trial",
-      name: "Teste Premium",
-      price: 1.0,
-      period: "primeiro mês",
-      description: "Experimente todos os recursos por apenas R$ 1",
-      features: [
-        "Acesso total por 30 dias",
-        "Todos os recursos Premium",
-        "Cancele quando quiser",
-        "Após o período: R$ 15/mês",
-      ],
-      popular: false,
-      icon: <Zap className="w-8 h-8 text-cyan-400" />,
-      gradient: "from-cyan-500 to-blue-500",
-    },
     {
       id: "monthly",
       name: "Plano Mensal",
@@ -344,11 +327,11 @@ const SubscriptionManager = () => {
           </motion.div>
         )}
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
           {plans.map((plan) => (
-            <motion.div key={plan.id} variants={itemVariants}>
+            <motion.div key={plan.id} variants={itemVariants} className="h-full">
               <Card
-                className={`relative overflow-hidden ${
+                className={`relative overflow-hidden h-full flex flex-col ${
                   plan.popular
                     ? "border-yellow-500/50 shadow-xl shadow-yellow-500/20"
                     : "border-slate-700"
@@ -371,7 +354,7 @@ const SubscriptionManager = () => {
                     {plan.description}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="flex-1 flex flex-col space-y-6">
                   <div className="text-center">
                     {plan.originalPrice && (
                       <p className="text-slate-500 line-through text-lg">
@@ -384,7 +367,7 @@ const SubscriptionManager = () => {
                     <p className="text-slate-400 text-sm">por {plan.period}</p>
                   </div>
 
-                  <ul className="space-y-3">
+                  <ul className="space-y-3 flex-1">
                     {plan.features.map((feature, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-sm">
                         <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />

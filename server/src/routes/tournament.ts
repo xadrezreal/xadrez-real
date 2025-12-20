@@ -10,7 +10,6 @@ const createTournamentSchema = z.object({
   password: z.string().min(4).max(50).optional(),
   entryFee: z.number().min(0).max(10000),
   playerCount: z.number().int().min(2),
-  prizeDistribution: z.enum(["WINNER_TAKES_ALL", "SPLIT_TOP_2", "SPLIT_TOP_4"]),
   startTime: z.string().datetime(),
 });
 
@@ -86,7 +85,6 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
             password: tournamentData.password || null,
             entryFee: tournamentData.entryFee,
             playerCount: tournamentData.playerCount,
-            prizeDistribution: tournamentData.prizeDistribution,
             startTime: startTime,
             creatorId: userId,
           },
@@ -185,7 +183,6 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           name: true,
           entryFee: true,
           playerCount: true,
-          prizeDistribution: true,
           status: true,
           startTime: true,
           createdAt: true,
@@ -265,7 +262,6 @@ export async function tournamentRoutes(fastify: FastifyInstance) {
           name: true,
           entryFee: true,
           playerCount: true,
-          prizeDistribution: true,
           status: true,
           startTime: true,
           currentRound: true,
