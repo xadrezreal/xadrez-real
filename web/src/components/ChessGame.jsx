@@ -324,11 +324,7 @@ const ChessGame = () => {
     return <WaitingForOpponent />;
   }
 
-  // console.log("ChessGame - States:", {
-    showResignDialog,
-    showLeaveDialog,
-    gameStatus,
-  });
+  // ChessGame states check
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 flex items-center justify-center overflow-auto">
