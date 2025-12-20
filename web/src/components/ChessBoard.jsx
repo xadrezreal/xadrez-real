@@ -58,7 +58,7 @@ const ChessBoard = React.memo(
         prevConnectionRef.current !== isConnected ||
         prevConnectionRef.current !== connectionStatus
       ) {
-        console.log("ChessBoard - Conexão mudou:", {
+        // console.log("ChessBoard - Conexão mudou:", {
           isConnected,
           connectionStatus,
         });

@@ -19,7 +19,7 @@ export const ConfirmDialog = ({
   cancelText = "Cancelar",
   variant = "destructive",
 }) => {
-  console.log("SimpleConfirmDialog render:", { isOpen, title });
+  // console.log("SimpleConfirmDialog render:", { isOpen, title });
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -32,7 +32,7 @@ export const ConfirmDialog = ({
           <Button
             variant="outline"
             onClick={() => {
-              console.log("Botão cancelar clicado");
+              // console.log("Botão cancelar clicado");
               onOpenChange(false);
             }}
             className="bg-slate-700 hover:bg-slate-600 text-white border-slate-600"
@@ -42,7 +42,7 @@ export const ConfirmDialog = ({
           <Button
             variant={variant}
             onClick={() => {
-              console.log("Botão confirmar clicado");
+              // console.log("Botão confirmar clicado");
               onConfirm();
             }}
             className={

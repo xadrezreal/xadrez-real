@@ -109,7 +109,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
     if (gameType === "bot") {
       const result = currentPlayer === playerColor;
-      console.log('[IS_PLAYER_TURN] Bot game:', {
+      // console.log('[IS_PLAYER_TURN] Bot game:', {
         currentPlayer,
         playerColor,
         isPlayerTurn: result
@@ -230,7 +230,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
   }, []);
 
   const handleWagerPayout = useCallback(() => {
-    console.log("Payout desabilitado - Supabase removido");
+    // console.log("Payout desabilitado - Supabase removido");
   }, []);
 
   const handleGameEnd = useCallback(
@@ -287,7 +287,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
         const data = await response.json();
 
-        console.log("[GAME_END] Game finalized:", data);
+        // console.log("[GAME_END] Game finalized:", data);
       } catch (error) {
         console.error("[GAME_END] Error finalizing game:", error);
       }
@@ -359,7 +359,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       try {
         const token = localStorage.getItem("auth_token");
 
-        console.log("[SAVE_GAME] Saving game state:", {
+        // console.log("[SAVE_GAME] Saving game state:", {
           gameId,
 
           fen: newFen,
@@ -414,7 +414,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
           };
         }
 
-        console.log("[SAVE_GAME] ✅ Game state saved successfully");
+        // console.log("[SAVE_GAME] ✅ Game state saved successfully");
       } catch (error) {
         console.error("[SAVE_GAME] ❌ Error saving game state:", error);
       }
@@ -835,11 +835,11 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
         return;
       }
 
-      console.log("[RESIGN] ========== RESIGNING ==========");
+      // console.log("[RESIGN] ========== RESIGNING ==========");
 
-      console.log("[RESIGN] Loser player:", loserPlayerId || user.id);
+      // console.log("[RESIGN] Loser player:", loserPlayerId || user.id);
 
-      console.log("[RESIGN] Winner:", winnerInfo.id, winnerInfo.name);
+      // console.log("[RESIGN] Winner:", winnerInfo.id, winnerInfo.name);
 
       const token = localStorage.getItem("auth_token");
 
@@ -849,7 +849,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
         reason: resignationType,
       };
 
-      console.log("[RESIGN] Payload being sent:", payload);
+      // console.log("[RESIGN] Payload being sent:", payload);
 
       try {
         const response = await fetch(`${API_URL}/api/game/${gameId}/end`, {
@@ -874,7 +874,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
         const result = await response.json();
 
-        console.log("[RESIGN] API success:", result);
+        // console.log("[RESIGN] API success:", result);
 
         setGameStatus(resignationType);
 
@@ -929,21 +929,21 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
       )
         return;
 
-      console.log("[PROCESS_GAME_DATA] ========== LOADING GAME ==========");
+      // console.log("[PROCESS_GAME_DATA] ========== LOADING GAME ==========");
 
-      console.log("[PROCESS_GAME_DATA] Game ID:", data.game_id_text);
+      // console.log("[PROCESS_GAME_DATA] Game ID:", data.game_id_text);
 
-      console.log("[PROCESS_GAME_DATA] FEN:", data.fen);
+      // console.log("[PROCESS_GAME_DATA] FEN:", data.fen);
 
-      console.log("[PROCESS_GAME_DATA] White Time:", data.white_time);
+      // console.log("[PROCESS_GAME_DATA] White Time:", data.white_time);
 
-      console.log("[PROCESS_GAME_DATA] Black Time:", data.black_time);
+      // console.log("[PROCESS_GAME_DATA] Black Time:", data.black_time);
 
-      console.log("[PROCESS_GAME_DATA] Status:", data.status);
+      // console.log("[PROCESS_GAME_DATA] Status:", data.status);
 
-      console.log("[PROCESS_GAME_DATA] Winner ID:", data.winner_id);
+      // console.log("[PROCESS_GAME_DATA] Winner ID:", data.winner_id);
 
-      console.log("[PROCESS_GAME_DATA] ===============================");
+      // console.log("[PROCESS_GAME_DATA] ===============================");
 
       const newGame = new Chess(data.fen);
 
@@ -1007,7 +1007,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
 
         setIsGameLoading(false);
       } else if (data.status !== "waiting") {
-        console.log(
+        // console.log(
           "[PROCESS_GAME_DATA] ⚠️ Game is already finished:",
 
           data.status
@@ -1095,7 +1095,7 @@ export const useChessGame = ({ gameId, gameType: initialGameType }) => {
   };
 
   const handleSendMessage = async () => {
-    console.log("Chat desabilitado");
+    // console.log("Chat desabilitado");
   };
 
   const handleNewGame = useCallback(() => navigate("/"), [navigate]);

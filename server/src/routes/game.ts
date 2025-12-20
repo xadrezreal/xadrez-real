@@ -15,10 +15,10 @@ function getTournamentQueue() {
       },
     });
 
-    console.log("[QUEUE] ✅ Tournament queue initialized (lazy)");
+    // console.log("[QUEUE] ✅ Tournament queue initialized (lazy)");
 
     tournamentQueue.on("ready", () => {
-      console.log("[QUEUE] ✅ Connected to Redis!");
+      // console.log("[QUEUE] ✅ Connected to Redis!");
     });
 
     tournamentQueue.on("error", (error: any) => {
@@ -40,7 +40,7 @@ export async function gameRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({ error: "Jogo não encontrado" });
       }
 
-      console.log("[GET_STATE] Game loaded:", {
+      // console.log("[GET_STATE] Game loaded:", {
         gameId,
         fen: game.fen,
         whiteTime: game.white_time,
@@ -59,7 +59,7 @@ export async function gameRoutes(fastify: FastifyInstance) {
     const { gameId } = request.params;
     const gameStateData = request.body;
 
-    console.log("[SAVE_STATE] Saving game state:", {
+    // console.log("[SAVE_STATE] Saving game state:", {
       gameId,
       fen: gameStateData.fen,
       whiteTime: gameStateData.white_time,
@@ -69,7 +69,7 @@ export async function gameRoutes(fastify: FastifyInstance) {
 
     // Bloquear jogos bot
     if (gameId && gameId.startsWith("bot_")) {
-      console.log("[SAVE_STATE] ⚠️ Bot game detected, ignoring...");
+      // console.log("[SAVE_STATE] ⚠️ Bot game detected, ignoring...");
       return reply.send({ success: true, message: "Bot game, not saved" });
     }
 
@@ -97,7 +97,7 @@ export async function gameRoutes(fastify: FastifyInstance) {
         },
       });
 
-      console.log("[SAVE_STATE] ✅ Game state saved in both tables");
+      // console.log("[SAVE_STATE] ✅ Game state saved in both tables");
       return reply.send({ success: true });
     } catch (error: any) {
       console.error("[SAVE_STATE] ❌ Error:", error);
@@ -110,7 +110,7 @@ export async function gameRoutes(fastify: FastifyInstance) {
     const { gameId } = request.params;
     const { fen, lastMove } = request.body;
 
-    console.log("[UPDATE_MOVE] Updating move:", {
+    // console.log("[UPDATE_MOVE] Updating move:", {
       gameId,
       fen,
       lastMove,
@@ -118,7 +118,7 @@ export async function gameRoutes(fastify: FastifyInstance) {
 
     // Bloquear jogos bot
     if (gameId && gameId.startsWith("bot_")) {
-      console.log("[UPDATE_MOVE] ⚠️ Bot game detected, ignoring...");
+      // console.log("[UPDATE_MOVE] ⚠️ Bot game detected, ignoring...");
       return reply.send({ success: true, message: "Bot game, not saved" });
     }
 
@@ -132,7 +132,7 @@ export async function gameRoutes(fastify: FastifyInstance) {
         },
       });
 
-      console.log("[UPDATE_MOVE] ✅ Move updated successfully");
+      // console.log("[UPDATE_MOVE] ✅ Move updated successfully");
       return reply.send(game);
     } catch (error: any) {
       console.error("[UPDATE_MOVE] ❌ Error:", error);
@@ -145,19 +145,19 @@ export async function gameRoutes(fastify: FastifyInstance) {
     const { gameId } = request.params;
     const { winnerId, reason } = request.body;
 
-    console.log("[GAME_END_API] ========== API CALLED ==========");
-    console.log("[GAME_END_API] Game ID:", gameId);
-    console.log("[GAME_END_API] Winner ID:", winnerId);
-    console.log("[GAME_END_API] Reason:", reason);
+    // console.log("[GAME_END_API] ========== API CALLED ==========");
+    // console.log("[GAME_END_API] Game ID:", gameId);
+    // console.log("[GAME_END_API] Winner ID:", winnerId);
+    // console.log("[GAME_END_API] Reason:", reason);
 
     // Bloquear jogos bot - eles não devem ser salvos no banco
     if (gameId && gameId.startsWith("bot_")) {
-      console.log("[GAME_END_API] ⚠️ Bot game detected, ignoring...");
+      // console.log("[GAME_END_API] ⚠️ Bot game detected, ignoring...");
       return reply.send({ success: true, message: "Bot game, no points updated" });
     }
 
     try {
-      console.log("[GAME_END_API] Finding game in database...");
+      // console.log("[GAME_END_API] Finding game in database...");
       const existingGame = await prisma.game.findUnique({
         where: { game_id_text: gameId },
       });
@@ -167,7 +167,7 @@ export async function gameRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({ error: "Game not found" });
       }
 
-      console.log("[GAME_END_API] Game found, updating...");
+      // console.log("[GAME_END_API] Game found, updating...");
       const game = await prisma.game.update({
         where: { game_id_text: gameId },
         data: {
@@ -176,18 +176,18 @@ export async function gameRoutes(fastify: FastifyInstance) {
         },
       });
 
-      console.log("[GAME_END_API] Game updated successfully");
-      console.log("[GAME_END_API] Tournament ID:", game.tournament_id);
+      // console.log("[GAME_END_API] Game updated successfully");
+      // console.log("[GAME_END_API] Tournament ID:", game.tournament_id);
 
       if (game.tournament_id) {
-        console.log("[GAME_END_API] Adding to tournament queue");
+        // console.log("[GAME_END_API] Adding to tournament queue");
         const queue = getTournamentQueue();
 
         await queue.add("game-ended", {
           gameIdText: gameId,
         });
 
-        console.log("[GAME_END_API] ✅ Successfully added to queue");
+        // console.log("[GAME_END_API] ✅ Successfully added to queue");
       }
 
       return reply.send({ success: true, game });

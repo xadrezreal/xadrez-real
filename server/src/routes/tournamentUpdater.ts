@@ -75,7 +75,7 @@ export class TournamentUpdater {
 
   private async startTournament(tournament: any): Promise<void> {
     try {
-      console.log(`[TOURNAMENT] Starting tournament ${tournament.id}`);
+      // console.log(`[TOURNAMENT] Starting tournament ${tournament.id}`);
 
       await this.orchestrator.createBracket(tournament.id);
 
@@ -84,7 +84,7 @@ export class TournamentUpdater {
         data: { status: "IN_PROGRESS" },
       });
 
-      console.log(`[TOURNAMENT] Status updated to IN_PROGRESS`);
+      // console.log(`[TOURNAMENT] Status updated to IN_PROGRESS`);
 
       this.wsManager.broadcastToTournament(tournament.id, {
         type: "TOURNAMENT_STARTED",

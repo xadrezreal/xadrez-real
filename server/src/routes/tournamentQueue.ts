@@ -9,7 +9,7 @@ const redisConfig = {
   port: parseInt(process.env.REDIS_PORT || "6379"),
   retryStrategy: (times: number) => {
     const delay = Math.min(times * 50, 2000);
-    console.log(`[QUEUE] Retry connection attempt ${times}, delay: ${delay}ms`);
+    // console.log(`[QUEUE] Retry connection attempt ${times}, delay: ${delay}ms`);
     return delay;
   },
   maxRetriesPerRequest: null,
@@ -20,27 +20,27 @@ export const tournamentQueue = new Queue("tournament-events", {
   redis: redisConfig,
 });
 
-console.log("[QUEUE] Tournament queue initialized");
+// console.log("[QUEUE] Tournament queue initialized");
 
 tournamentQueue.process("game-ended", async (job) => {
-  console.log("[QUEUE] ========== PROCESSING JOB ==========");
-  console.log("[QUEUE] Job ID:", job.id);
-  console.log("[QUEUE] Job data:", job.data);
+  // console.log("[QUEUE] ========== PROCESSING JOB ==========");
+  // console.log("[QUEUE] Job ID:", job.id);
+  // console.log("[QUEUE] Job data:", job.data);
 
   const { gameIdText, wsManager, logger } = job.data;
 
-  console.log("[QUEUE] Creating orchestrator...");
+  // console.log("[QUEUE] Creating orchestrator...");
   const orchestrator = new TournamentOrchestrator(prisma, wsManager, logger);
 
-  console.log("[QUEUE] Calling handleMatchEnd...");
+  // console.log("[QUEUE] Calling handleMatchEnd...");
   await orchestrator.handleMatchEnd(gameIdText);
 
-  console.log("[QUEUE] ✅ Job completed successfully");
+  // console.log("[QUEUE] ✅ Job completed successfully");
   return { success: true };
 });
 
 tournamentQueue.on("completed", (job, result) => {
-  console.log(`[QUEUE] Job ${job.id} completed with result:`, result);
+  // console.log(`[QUEUE] Job ${job.id} completed with result:`, result);
 });
 
 tournamentQueue.on("failed", (job, err) => {
@@ -52,7 +52,7 @@ tournamentQueue.on("error", (error) => {
 });
 
 tournamentQueue.on("ready", () => {
-  console.log("[QUEUE] ✅ Connected to Redis successfully!");
+  // console.log("[QUEUE] ✅ Connected to Redis successfully!");
 });
 
-console.log("[QUEUE] Event listeners registered");
+// console.log("[QUEUE] Event listeners registered");

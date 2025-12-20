@@ -129,11 +129,16 @@ const TournamentBracket = () => {
       case "TOURNAMENT_FINISHED":
         toast({
           title: "🏆 Torneio Finalizado!",
-          description: `Campeão: ${message.data.championName}`,
-          duration: 10000,
+          description: `Campeão: ${message.data.championName}. Redirecionando para resultados...`,
+          duration: 5000,
         });
         fetchTournamentData();
         fetchBracket();
+
+        // Redireciona para a página de resultados após 5 segundos
+        setTimeout(() => {
+          navigate(`/tournament/${tournamentId}/results`);
+        }, 5000);
         break;
       case "TOURNAMENT_STARTED":
         toast({
@@ -240,6 +245,18 @@ const TournamentBracket = () => {
 
       if (data.tournament.status === "IN_PROGRESS") {
         await fetchBracket();
+      }
+
+      // Se o torneio já terminou, redireciona para a página de resultados
+      if (data.tournament.status === "FINISHED") {
+        toast({
+          title: "Torneio Finalizado",
+          description: "Redirecionando para resultados...",
+          duration: 3000,
+        });
+        setTimeout(() => {
+          navigate(`/tournament/${tournamentId}/results`);
+        }, 3000);
       }
     } catch (error) {
       setError(error.message);

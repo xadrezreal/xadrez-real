@@ -41,7 +41,7 @@ export const useGameEffects = ({
   const getBotMove = useCallback(() => {
     const move = getAdvancedBotMove(game.fen(), game.turn(), botLevel);
     if (move) {
-      console.log(`[BOT] Nível ${botLevel} jogando:`, move.san || move);
+      // console.log(`[BOT] Nível ${botLevel} jogando:`, move.san || move);
       makeMove(move, true);
     } else {
       console.warn('[BOT] Nenhum movimento disponível');
@@ -109,11 +109,11 @@ export const useGameEffects = ({
 
   useEffect(() => {
     if (gameType === "bot") {
-      console.log('[BOT_INIT] Inicializando jogo com bot...');
+      // console.log('[BOT_INIT] Inicializando jogo com bot...');
       const newGame = new Chess();
       const timeControl = location.state?.timeControl || 600;
-      console.log('[BOT_INIT] Cor do jogador:', location.state?.playerColor);
-      console.log('[BOT_INIT] Nível do bot:', location.state?.botLevel);
+      // console.log('[BOT_INIT] Cor do jogador:', location.state?.playerColor);
+      // console.log('[BOT_INIT] Nível do bot:', location.state?.botLevel);
       setGame(newGame);
       updateBoard(newGame);
       setWhiteTime(timeControl);
@@ -121,7 +121,7 @@ export const useGameEffects = ({
       setIsGameLoading(false);
       setGameStatus("playing");
       gameInitialized.current = true;
-      console.log('[BOT_INIT] ✅ Jogo inicializado');
+      // console.log('[BOT_INIT] ✅ Jogo inicializado');
     }
   }, [
     gameType,
@@ -135,7 +135,7 @@ export const useGameEffects = ({
   ]);
 
   useEffect(() => {
-    console.log('[BOT_EFFECT] Verificando condições:', {
+    // console.log('[BOT_EFFECT] Verificando condições:', {
       gameType,
       isPlayerTurn,
       gameStatus,
@@ -143,7 +143,7 @@ export const useGameEffects = ({
     });
 
     if (gameType === "bot" && !isPlayerTurn && gameStatus === "playing") {
-      console.log('[BOT_EFFECT] ✅ Agendando movimento do bot...');
+      // console.log('[BOT_EFFECT] ✅ Agendando movimento do bot...');
       const botMoveTimeout = setTimeout(() => getBotMove(), 500);
       return () => clearTimeout(botMoveTimeout);
     }
@@ -257,7 +257,7 @@ export const useGameEffects = ({
     // Só executar quando o jogo inicializar
     const shouldStartTimer = isGameActive && gameStatus === "playing" && gameInitialized.current;
 
-    console.log('[TIMER_EFFECT] Verificando:', {
+    // console.log('[TIMER_EFFECT] Verificando:', {
       isGameActive,
       gameStatus,
       gameType,
@@ -267,7 +267,7 @@ export const useGameEffects = ({
     });
 
     if (!shouldStartTimer) {
-      console.log('[TIMER_EFFECT] ❌ Condições não atendidas');
+      // console.log('[TIMER_EFFECT] ❌ Condições não atendidas');
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -277,13 +277,13 @@ export const useGameEffects = ({
 
     // Para jogos online, precisa de gameData
     if (gameType !== "bot" && (!gameData || !gameData.white_player_id || !gameData.black_player_id)) {
-      console.log('[TIMER_EFFECT] ❌ Jogo online sem gameData completo');
+      // console.log('[TIMER_EFFECT] ❌ Jogo online sem gameData completo');
       return;
     }
 
     // Não recriar timer se já existe
     if (timerRef.current) {
-      console.log('[TIMER_EFFECT] ⚠️ Timer já existe, não recriando');
+      // console.log('[TIMER_EFFECT] ⚠️ Timer já existe, não recriando');
       return;
     }
 
@@ -291,7 +291,7 @@ export const useGameEffects = ({
       timeoutHandledRef.current = false;
     }
 
-    console.log('[TIMER] Iniciando timer único...');
+    // console.log('[TIMER] Iniciando timer único...');
 
     timerRef.current = setInterval(() => {
       // Usar a ref atualizada ao invés da dependência

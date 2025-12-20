@@ -16,7 +16,7 @@ const GameOverModal = ({
 }) => {
   const { width, height } = useWindowSize();
 
-  console.log('[GAME_OVER_MODAL] gameType:', gameType);
+  // console.log('[GAME_OVER_MODAL] gameType:', gameType);
 
   const getTitle = () => {
     switch (gameStatus) {

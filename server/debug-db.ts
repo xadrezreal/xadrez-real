@@ -7,7 +7,7 @@ async function debugDB() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  console.log("========== TOURNAMENTS (Today) ==========");
+  // console.log("========== TOURNAMENTS (Today) ==========");
   const tournaments = await prisma.tournament.findMany({
     where: {
       createdAt: {
@@ -25,9 +25,9 @@ async function debugDB() {
       createdAt: "desc",
     },
   });
-  console.log(JSON.stringify(tournaments, null, 2));
+  // console.log(JSON.stringify(tournaments, null, 2));
 
-  console.log("\n========== TOURNAMENT MATCHES (Today) ==========");
+  // console.log("\n========== TOURNAMENT MATCHES (Today) ==========");
   const matches = await prisma.tournamentMatch.findMany({
     where: {
       createdAt: {
@@ -44,9 +44,9 @@ async function debugDB() {
       createdAt: "desc",
     },
   });
-  console.log(JSON.stringify(matches, null, 2));
+  // console.log(JSON.stringify(matches, null, 2));
 
-  console.log("\n========== GAMES (Today) ==========");
+  // console.log("\n========== GAMES (Today) ==========");
   const games = await prisma.game.findMany({
     where: {
       tournament_id: {
@@ -60,9 +60,9 @@ async function debugDB() {
       createdAt: "desc",
     },
   });
-  console.log(JSON.stringify(games, null, 2));
+  // console.log(JSON.stringify(games, null, 2));
 
-  console.log("\n========== SPECIFIC TOURNAMENT ==========");
+  // console.log("\n========== SPECIFIC TOURNAMENT ==========");
   const specificTournament = await prisma.tournament.findUnique({
     where: {
       id: "cmgipjv670094kv6d1zu4cjom",
@@ -75,9 +75,9 @@ async function debugDB() {
       },
     },
   });
-  console.log(JSON.stringify(specificTournament, null, 2));
+  // console.log(JSON.stringify(specificTournament, null, 2));
 
-  console.log("\n========== MATCHES FOR SPECIFIC TOURNAMENT ==========");
+  // console.log("\n========== MATCHES FOR SPECIFIC TOURNAMENT ==========");
   const specificMatches = await prisma.tournamentMatch.findMany({
     where: {
       tournamentId: "cmgipjv670094kv6d1zu4cjom",
@@ -92,9 +92,9 @@ async function debugDB() {
       matchNumber: "asc",
     },
   });
-  console.log(JSON.stringify(specificMatches, null, 2));
+  // console.log(JSON.stringify(specificMatches, null, 2));
 
-  console.log("\n========== GAMES FOR SPECIFIC TOURNAMENT ==========");
+  // console.log("\n========== GAMES FOR SPECIFIC TOURNAMENT ==========");
   const specificGames = await prisma.game.findMany({
     where: {
       tournament_id: "cmgipjv670094kv6d1zu4cjom",
@@ -103,7 +103,7 @@ async function debugDB() {
       createdAt: "asc",
     },
   });
-  console.log(JSON.stringify(specificGames, null, 2));
+  // console.log(JSON.stringify(specificGames, null, 2));
 
   await prisma.$disconnect();
 }

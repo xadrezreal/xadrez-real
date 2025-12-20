@@ -73,7 +73,7 @@ const TournamentCard = React.memo(
     const handleViewTournament = async () => {
       try {
         const testResult = await tournamentService.getTournament(tournament.id);
-        console.log("✅ Torneio encontrado:", testResult);
+        // console.log("✅ Torneio encontrado:", testResult);
         navigate(`/tournament/${tournament.id}`);
       } catch (error) {
         console.error("❌ Erro ao buscar torneio:", error);
@@ -206,7 +206,7 @@ const TournamentView = () => {
         const newTournaments = data.tournaments || [];
 
         if (prevTournaments.length !== newTournaments.length) {
-          console.log("📊 Tamanho diferente - atualizando");
+          // console.log("📊 Tamanho diferente - atualizando");
           return newTournaments;
         }
 
@@ -220,7 +220,7 @@ const TournamentView = () => {
           const idChanged = prevT.id !== newT.id;
 
           if (participantsChanged || statusChanged || idChanged) {
-            console.log(`🔄 Mudança detectada no torneio ${newT.name}:`, {
+            // console.log(`🔄 Mudança detectada no torneio ${newT.name}:`, {
               participantsChanged,
               statusChanged,
               idChanged,
@@ -231,13 +231,13 @@ const TournamentView = () => {
         });
 
         if (!hasChanges) {
-          console.log(
+          // console.log(
             "🔒 Sem mudanças - MANTENDO estado anterior (sem re-render)"
           );
           return prevTournaments;
         }
 
-        console.log("✅ Atualizando com novos dados");
+        // console.log("✅ Atualizando com novos dados");
         return newTournaments;
       });
     } catch (error) {

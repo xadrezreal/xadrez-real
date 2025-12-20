@@ -66,7 +66,7 @@ const Deposit = () => {
         return;
       }
 
-      console.log("[DEPOSIT] Criando checkout:", {
+      // console.log("[DEPOSIT] Criando checkout:", {
         priceId: selectedOption.priceId,
         amount: selectedOption.amount,
       });
@@ -89,7 +89,7 @@ const Deposit = () => {
       }
 
       const data = await response.json();
-      console.log("[DEPOSIT] Checkout criado:", data);
+      // console.log("[DEPOSIT] Checkout criado:", data);
 
       if (data.url) {
         window.location.href = data.url;

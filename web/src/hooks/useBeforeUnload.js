@@ -18,7 +18,7 @@ export const useBeforeUnload = (
         gameType !== "bot" &&
         gameData
       ) {
-        console.log(
+        // console.log(
           "[BEFOREUNLOAD] Page closing during active game - saving state"
         );
 
@@ -39,7 +39,7 @@ export const useBeforeUnload = (
           });
 
           navigator.sendBeacon(apiEndpoint, blob);
-          console.log("[BEFOREUNLOAD] Game end sent via beacon");
+          // console.log("[BEFOREUNLOAD] Game end sent via beacon");
         }
       }
     };

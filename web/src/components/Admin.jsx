@@ -91,7 +91,7 @@ export function Admin() {
 
         try {
           const usersData = JSON.parse(rawText);
-          console.log("✅ Users data:", usersData);
+          // console.log("✅ Users data:", usersData);
           setUsers(usersData.users || []);
         } catch (e) {}
       }
@@ -101,7 +101,7 @@ export function Admin() {
 
         try {
           const tournamentsData = JSON.parse(rawText);
-          console.log("✅ Tournaments data:", tournamentsData);
+          // console.log("✅ Tournaments data:", tournamentsData);
           setTournaments(tournamentsData.tournaments || []);
         } catch (e) {}
       }

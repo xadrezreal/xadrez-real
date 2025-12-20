@@ -7,7 +7,7 @@ async function websocketRoutesPlugin(fastify: FastifyInstance) {
 
   fastify.decorate("wsManager", wsManager);
 
-  console.log("[WS] Socket.IO WebSocketManager initialized");
+  // console.log("[WS] Socket.IO WebSocketManager initialized");
 
   fastify.get("/ws/health", async () => {
     return {

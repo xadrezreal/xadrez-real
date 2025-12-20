@@ -115,7 +115,7 @@ const start = async () => {
 
     await fastify.register(websocketRoutes);
 
-    console.log("[SERVER] wsManager registered:", !!fastify.wsManager);
+    // console.log("[SERVER] wsManager registered:", !!fastify.wsManager);
 
     await fastify.register(authRoutes, { prefix: "/auth" });
     await fastify.register(userRoutes, { prefix: "/users" });
@@ -130,7 +130,7 @@ const start = async () => {
       return { status: "OK", timestamp: new Date().toISOString() };
     });
 
-    console.log(
+    // console.log(
       "[SERVER] Creating TournamentUpdater, wsManager:",
       !!fastify.wsManager
     );
@@ -138,7 +138,7 @@ const start = async () => {
     const isMainWorker = !process.env.pm_id || process.env.pm_id === "0";
 
     if (isMainWorker) {
-      console.log("🎯 [MAIN WORKER] Starting background services");
+      // console.log("🎯 [MAIN WORKER] Starting background services");
 
       const tournamentUpdater = new TournamentUpdater(
         prisma,
@@ -154,7 +154,7 @@ const start = async () => {
         await prisma.$disconnect();
       });
     } else {
-      console.log(`⚙️ [WORKER ${process.env.pm_id}] API mode only`);
+      // console.log(`⚙️ [WORKER ${process.env.pm_id}] API mode only`);
 
       fastify.addHook("onClose", async () => {
         await prisma.$disconnect();
@@ -163,10 +163,10 @@ const start = async () => {
 
     const port = parseInt(process.env.PORT || "3000");
     await fastify.listen({ port, host: "0.0.0.0" });
-    console.log(`🚀 Server is running on http://localhost:${port}`);
-    console.log(`🔌 WebSocket available on ws://localhost:${port}/ws/`);
-    console.log(`💰 Payment routes available on /payments/*`);
-    console.log(`📊 Subscription routes available on /subscription/*`);
+    // console.log(`🚀 Server is running on http://localhost:${port}`);
+    // console.log(`🔌 WebSocket available on ws://localhost:${port}/ws/`);
+    // console.log(`💰 Payment routes available on /payments/*`);
+    // console.log(`📊 Subscription routes available on /subscription/*`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

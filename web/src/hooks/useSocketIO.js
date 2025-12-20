@@ -11,14 +11,14 @@ export const useSocketIO = (namespace, options = {}) => {
 
   useEffect(() => {
     if (!user?.id) {
-      console.log("[SOCKET.IO] User not loaded yet");
+      // console.log("[SOCKET.IO] User not loaded yet");
       setConnectionStatus("Waiting");
       return;
     }
 
     const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-    console.log("[SOCKET.IO] Connecting to:", API_URL);
+    // console.log("[SOCKET.IO] Connecting to:", API_URL);
 
     const newSocket = io(API_URL, {
       transports: ["websocket", "polling"],
@@ -33,7 +33,7 @@ export const useSocketIO = (namespace, options = {}) => {
     socketRef.current = newSocket;
 
     newSocket.on("connect", () => {
-      console.log("[SOCKET.IO] ✅ Connected:", newSocket.id);
+      // console.log("[SOCKET.IO] ✅ Connected:", newSocket.id);
       setConnectionStatus("Open");
       setSocket(newSocket);
 
@@ -43,7 +43,7 @@ export const useSocketIO = (namespace, options = {}) => {
     });
 
     newSocket.on("message", (message) => {
-      console.log("[SOCKET.IO] 📨 Message received:", message);
+      // console.log("[SOCKET.IO] 📨 Message received:", message);
       setLastMessage(message);
 
       if (options.onMessage) {
@@ -52,7 +52,7 @@ export const useSocketIO = (namespace, options = {}) => {
     });
 
     newSocket.on("game_message", (message) => {
-      console.log("[SOCKET.IO] 🎮 Game message:", message);
+      // console.log("[SOCKET.IO] 🎮 Game message:", message);
       setLastMessage(message);
 
       if (options.onMessage) {
@@ -61,11 +61,11 @@ export const useSocketIO = (namespace, options = {}) => {
     });
 
     newSocket.on("connection_confirmed", (data) => {
-      console.log("[SOCKET.IO] Connection confirmed:", data);
+      // console.log("[SOCKET.IO] Connection confirmed:", data);
     });
 
     newSocket.on("disconnect", (reason) => {
-      console.log("[SOCKET.IO] Disconnected:", reason);
+      // console.log("[SOCKET.IO] Disconnected:", reason);
       setConnectionStatus("Closed");
       setSocket(null);
 
@@ -84,14 +84,14 @@ export const useSocketIO = (namespace, options = {}) => {
     });
 
     return () => {
-      console.log("[SOCKET.IO] Cleanup - disconnecting");
+      // console.log("[SOCKET.IO] Cleanup - disconnecting");
       newSocket.disconnect();
     };
   }, [user?.id]);
 
   const joinTournament = (tournamentId) => {
     if (socketRef.current?.connected) {
-      console.log("[SOCKET.IO] Joining tournament:", tournamentId);
+      // console.log("[SOCKET.IO] Joining tournament:", tournamentId);
       socketRef.current.emit("join_tournament", {
         tournamentId,
         userId: user?.id,
@@ -101,28 +101,28 @@ export const useSocketIO = (namespace, options = {}) => {
 
   const leaveTournament = (tournamentId) => {
     if (socketRef.current?.connected) {
-      console.log("[SOCKET.IO] Leaving tournament:", tournamentId);
+      // console.log("[SOCKET.IO] Leaving tournament:", tournamentId);
       socketRef.current.emit("leave_tournament", { tournamentId });
     }
   };
 
   const joinGame = (gameId) => {
     if (socketRef.current?.connected) {
-      console.log("[SOCKET.IO] Joining game:", gameId);
+      // console.log("[SOCKET.IO] Joining game:", gameId);
       socketRef.current.emit("join_game", { gameId, userId: user?.id });
     }
   };
 
   const leaveGame = (gameId) => {
     if (socketRef.current?.connected) {
-      console.log("[SOCKET.IO] Leaving game:", gameId);
+      // console.log("[SOCKET.IO] Leaving game:", gameId);
       socketRef.current.emit("leave_game", { gameId });
     }
   };
 
   const sendGameMessage = (gameId, type, data) => {
     if (socketRef.current?.connected) {
-      console.log("[SOCKET.IO] 📤 Sending game message:", type);
+      // console.log("[SOCKET.IO] 📤 Sending game message:", type);
       socketRef.current.emit("game_message", {
         gameId,
         type,
@@ -140,7 +140,7 @@ export const useSocketIO = (namespace, options = {}) => {
 
   const sendMessage = (message) => {
     if (socketRef.current?.connected) {
-      console.log("[SOCKET.IO] 📤 Sending message:", message);
+      // console.log("[SOCKET.IO] 📤 Sending message:", message);
       socketRef.current.emit("message", message);
       return true;
     }

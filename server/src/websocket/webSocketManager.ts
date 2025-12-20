@@ -40,7 +40,7 @@ export class WebSocketManager {
 
       this.io.adapter(createAdapter(this.pubClient, this.subClient));
 
-      console.log("✅ [WEBSOCKET] Socket.IO Redis adapter connected");
+      // console.log("✅ [WEBSOCKET] Socket.IO Redis adapter connected");
     } catch (error) {
       console.error("❌ [WEBSOCKET] Redis adapter connection failed:", error);
     }
@@ -48,14 +48,14 @@ export class WebSocketManager {
 
   private setupEventHandlers() {
     this.io.on("connection", (socket: Socket) => {
-      console.log(`[WS] Client connected: ${socket.id}`);
+      // console.log(`[WS] Client connected: ${socket.id}`);
 
       socket.on(
         "join_tournament",
         (data: { tournamentId: string; userId?: string }) => {
           const roomId = `tournament:${data.tournamentId}`;
           socket.join(roomId);
-          console.log(
+          // console.log(
             `[WS] Socket ${socket.id} joined tournament ${data.tournamentId}`
           );
 
@@ -70,7 +70,7 @@ export class WebSocketManager {
       socket.on("leave_tournament", (data: { tournamentId: string }) => {
         const roomId = `tournament:${data.tournamentId}`;
         socket.leave(roomId);
-        console.log(
+        // console.log(
           `[WS] Socket ${socket.id} left tournament ${data.tournamentId}`
         );
       });
@@ -78,7 +78,7 @@ export class WebSocketManager {
       socket.on("join_game", (data: { gameId: string; userId?: string }) => {
         const roomId = `game:${data.gameId}`;
         socket.join(roomId);
-        console.log(`[WS] Socket ${socket.id} joined game ${data.gameId}`);
+        // console.log(`[WS] Socket ${socket.id} joined game ${data.gameId}`);
 
         socket.emit("connection_confirmed", {
           gameId: data.gameId,
@@ -90,14 +90,14 @@ export class WebSocketManager {
       socket.on("leave_game", (data: { gameId: string }) => {
         const roomId = `game:${data.gameId}`;
         socket.leave(roomId);
-        console.log(`[WS] Socket ${socket.id} left game ${data.gameId}`);
+        // console.log(`[WS] Socket ${socket.id} left game ${data.gameId}`);
       });
 
       socket.on("game_message", (data: any) => {
         const gameId = data.gameId;
         if (!gameId) return;
 
-        console.log(`[WS] Game message from ${socket.id}:`, data.type);
+        // console.log(`[WS] Game message from ${socket.id}:`, data.type);
 
         switch (data.type) {
           case "move":
@@ -147,23 +147,23 @@ export class WebSocketManager {
       });
 
       socket.on("disconnect", () => {
-        console.log(`[WS] Client disconnected: ${socket.id}`);
+        // console.log(`[WS] Client disconnected: ${socket.id}`);
       });
     });
   }
 
   broadcastToTournament(tournamentId: string, message: any): void {
     this.io.to(`tournament:${tournamentId}`).emit("message", message);
-    console.log(`[WS] Broadcast to tournament ${tournamentId}:`, message.type);
+    // console.log(`[WS] Broadcast to tournament ${tournamentId}:`, message.type);
   }
 
   broadcastToGame(gameId: string, message: any): void {
     this.io.to(`game:${gameId}`).emit("message", message);
-    console.log(`[WS] Broadcast to game ${gameId}:`, message.type);
+    // console.log(`[WS] Broadcast to game ${gameId}:`, message.type);
   }
 
   startHeartbeat(): void {
-    console.log(
+    // console.log(
       "[WS] Heartbeat started (Socket.IO handles this automatically)"
     );
   }

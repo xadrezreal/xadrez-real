@@ -71,7 +71,7 @@ const CustomTournamentRegistration = () => {
     const hasReloaded = localStorage.getItem(reloadKey);
 
     if (hasReloaded) {
-      console.log("[REGISTRATION_RELOAD] Already reloaded, skipping");
+      // console.log("[REGISTRATION_RELOAD] Already reloaded, skipping");
       return;
     }
 
@@ -80,7 +80,7 @@ const CustomTournamentRegistration = () => {
       const now = new Date();
       const timeUntilStart = startTime - now;
 
-      console.log(
+      // console.log(
         `[REGISTRATION_RELOAD] Time until start: ${Math.ceil(
           timeUntilStart / 1000
         )}s`
@@ -104,7 +104,7 @@ const CustomTournamentRegistration = () => {
 
   const socketIO = useSocketIO(null, {
     onMessage: (message) => {
-      console.log("WebSocket message received:", message);
+      // console.log("WebSocket message received:", message);
       switch (message.type) {
         case "TOURNAMENT_STATUS_CHANGED":
         case "tournament_started":
@@ -145,7 +145,7 @@ const CustomTournamentRegistration = () => {
           break;
 
         default:
-          console.log("Unknown WebSocket message type:", message.type);
+          // console.log("Unknown WebSocket message type:", message.type);
       }
     },
   });
@@ -172,7 +172,7 @@ const CustomTournamentRegistration = () => {
     if (!tournament) return;
 
     if (prevStatus === "WAITING" && tournament.status === "IN_PROGRESS") {
-      console.log("Tournament started! Fetching updated data...");
+      // console.log("Tournament started! Fetching updated data...");
       fetchTournament();
     }
 
@@ -181,7 +181,7 @@ const CustomTournamentRegistration = () => {
 
   useEffect(() => {
     if (socketIO.lastMessage) {
-      console.log("WebSocket message received:", socketIO.lastMessage);
+      // console.log("WebSocket message received:", socketIO.lastMessage);
     }
   }, [socketIO.lastMessage]);
 

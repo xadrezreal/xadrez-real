@@ -245,42 +245,42 @@ const ChessGame = () => {
   }, [gameStatus, winner, isTournamentGame, gameData, navigate, user, toast]);
 
   const handleResignClick = () => {
-    console.log("handleResignClick - gameStatus:", gameStatus);
+    // console.log("handleResignClick - gameStatus:", gameStatus);
     if (gameStatus === "playing") {
-      console.log("Abrindo dialog resign");
+      // console.log("Abrindo dialog resign");
       setShowResignDialog(true);
     }
   };
 
   const handleReturnHomeClick = () => {
-    console.log("handleReturnHomeClick - gameStatus:", gameStatus);
+    // console.log("handleReturnHomeClick - gameStatus:", gameStatus);
     if (gameStatus === "playing") {
-      console.log("Abrindo dialog leave");
+      // console.log("Abrindo dialog leave");
       setShowLeaveDialog(true);
     } else {
-      console.log("Navegando direto");
+      // console.log("Navegando direto");
       handleReturnHome();
     }
   };
 
   const handleConfirmResign = () => {
-    console.log("handleConfirmResign confirmado");
+    // console.log("handleConfirmResign confirmado");
     setShowResignDialog(false);
     setTimeout(() => {
-      console.log("Executando handleResign");
+      // console.log("Executando handleResign");
       handleResign();
     }, 100);
   };
 
   const handleConfirmLeave = () => {
-    console.log("handleConfirmLeave confirmado");
+    // console.log("handleConfirmLeave confirmado");
     setShowLeaveDialog(false);
     if (gameStatus === "playing") {
-      console.log("Chamando handleResign");
+      // console.log("Chamando handleResign");
       handleResign();
     }
     setTimeout(() => {
-      console.log("Navegando");
+      // console.log("Navegando");
       handleReturnHome();
     }, 100);
   };
@@ -324,7 +324,7 @@ const ChessGame = () => {
     return <WaitingForOpponent />;
   }
 
-  console.log("ChessGame - States:", {
+  // console.log("ChessGame - States:", {
     showResignDialog,
     showLeaveDialog,
     gameStatus,

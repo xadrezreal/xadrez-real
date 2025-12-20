@@ -25,23 +25,12 @@ function generateEmail(firstName: string, lastName: string, index: number): stri
 }
 
 async function seedTestTournament() {
-  console.log('🎮 Iniciando criação de torneio de teste...\n');
-
   // SEGURANÇA: Não executar em produção sem confirmação explícita
   if (process.env.NODE_ENV === 'production' && process.env.ALLOW_TEST_TOURNAMENT !== 'yes') {
     console.error('❌ ERRO: Este script não pode ser executado em produção sem confirmação!');
     console.error('   Este é um script de TESTE apenas para ambiente de desenvolvimento.');
     console.error('   Para executar em produção, defina: ALLOW_TEST_TOURNAMENT=yes');
     process.exit(1);
-  }
-
-  if (process.env.NODE_ENV === 'production') {
-    console.log('🚨 ATENÇÃO: Executando em PRODUÇÃO!');
-    console.log('   Dados fictícios serão criados no banco de produção.');
-    console.log('   Lembre-se de deletar depois!\n');
-  } else {
-    console.log('⚠️  AVISO: Este script criará dados fictícios no banco de dados.');
-    console.log('   Ambiente: DESENVOLVIMENTO\n');
   }
 
   try {
@@ -51,7 +40,6 @@ async function seedTestTournament() {
     });
 
     if (!adminUser) {
-      console.log('👤 Criando usuário admin...');
       const hashedPassword = await bcrypt.hash('admin123', 10);
       adminUser = await prisma.user.create({
         data: {
@@ -59,17 +47,13 @@ async function seedTestTournament() {
           name: 'Administrador',
           password: hashedPassword,
           role: 'ADMIN',
-          balance: 100000, // Saldo alto para testes
+          balance: 100000,
           tournamentPoints: 0
         }
       });
-      console.log('✅ Admin criado\n');
-    } else {
-      console.log('✅ Admin já existe\n');
     }
 
     // 2. Criar 32 jogadores fictícios
-    console.log('👥 Criando 32 jogadores fictícios...');
     const players = [];
     const hashedPassword = await bcrypt.hash('teste123', 10);
 
@@ -95,18 +79,18 @@ async function seedTestTournament() {
             tournamentPoints: 0
           }
         });
-        console.log(`  ✓ ${player.name}`);
+        // console.log(`  ✓ ${player.name}`);
       } else {
-        console.log(`  → ${player.name} já existe`);
+        // console.log(`  → ${player.name} já existe`);
       }
 
       players.push(player);
     }
 
-    console.log(`\n✅ ${players.length} jogadores prontos\n`);
+    // console.log(`\n✅ ${players.length} jogadores prontos\n`);
 
     // 3. Criar torneio de teste
-    console.log('🏆 Criando torneio de teste...');
+    // console.log('🏆 Criando torneio de teste...');
     const entryFee = 50; // R$ 50 de entrada
     const expectedPrizePool = entryFee * players.length; // R$ 1.600 total
     const housePercentage = expectedPrizePool > 5000 ? 20 : 10; // 10% para potes < R$ 5.000
@@ -129,15 +113,15 @@ async function seedTestTournament() {
       }
     });
 
-    console.log(`  ✓ Torneio criado: ${tournament.name}`);
-    console.log(`  ✓ ID: ${tournament.id}`);
-    console.log(`  ✓ Taxa de entrada: R$ ${entryFee.toFixed(2)}`);
-    console.log(`  ✓ Pote total coletado: R$ ${expectedPrizePool.toFixed(2)}`);
-    console.log(`  ✓ Taxa da casa (${housePercentage}%): R$ ${houseTake.toFixed(2)}`);
-    console.log(`  ✓ Pote de prêmios: R$ ${netPrizePool.toFixed(2)}\n`);
+    // console.log(`  ✓ Torneio criado: ${tournament.name}`);
+    // console.log(`  ✓ ID: ${tournament.id}`);
+    // console.log(`  ✓ Taxa de entrada: R$ ${entryFee.toFixed(2)}`);
+    // console.log(`  ✓ Pote total coletado: R$ ${expectedPrizePool.toFixed(2)}`);
+    // console.log(`  ✓ Taxa da casa (${housePercentage}%): R$ ${houseTake.toFixed(2)}`);
+    // console.log(`  ✓ Pote de prêmios: R$ ${netPrizePool.toFixed(2)}\n`);
 
     // 4. Registrar todos os jogadores no torneio
-    console.log('📝 Registrando jogadores no torneio...');
+    // console.log('📝 Registrando jogadores no torneio...');
     for (const player of players) {
       await prisma.tournamentParticipant.create({
         data: {
@@ -158,10 +142,10 @@ async function seedTestTournament() {
         }
       });
     }
-    console.log(`✅ ${players.length} jogadores registrados e pagamento processado\n`);
+    // console.log(`✅ ${players.length} jogadores registrados e pagamento processado\n`);
 
     // 5. Simular bracket completo (5 rodadas)
-    console.log('🎲 Simulando bracket do torneio...\n');
+    // console.log('🎲 Simulando bracket do torneio...\n');
 
     // Embaralha jogadores aleatoriamente
     const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
@@ -169,7 +153,7 @@ async function seedTestTournament() {
 
     for (let round = 1; round <= 5; round++) {
       const matchesInRound = Math.ceil(currentRoundPlayers.length / 2);
-      console.log(`  Rodada ${round}/5 (${matchesInRound} partidas):`);
+      // console.log(`  Rodada ${round}/5 (${matchesInRound} partidas):`);
 
       const winners = [];
 
@@ -190,7 +174,7 @@ async function seedTestTournament() {
               winnerId: player1.id
             }
           });
-          console.log(`    ✓ ${player1.name} avança (BYE)`);
+          // console.log(`    ✓ ${player1.name} avança (BYE)`);
         } else {
           // Simula partida - vencedor aleatório (50/50)
           const winner = Math.random() > 0.5 ? player1 : player2;
@@ -208,12 +192,12 @@ async function seedTestTournament() {
             }
           });
 
-          console.log(`    ✓ ${winner.name} vence ${winner.id === player1.id ? player2.name : player1.name}`);
+          // console.log(`    ✓ ${winner.name} vence ${winner.id === player1.id ? player2.name : player1.name}`);
         }
       }
 
       currentRoundPlayers = winners;
-      console.log('');
+      // console.log('');
     }
 
     // O último vencedor é o campeão
@@ -225,10 +209,10 @@ async function seedTestTournament() {
       }
     });
 
-    console.log(`🏆 CAMPEÃO: ${champion.name}\n`);
+    // console.log(`🏆 CAMPEÃO: ${champion.name}\n`);
 
     // 6. Calcular e distribuir prêmios
-    console.log('💰 Calculando distribuição de prêmios...\n');
+    // console.log('💰 Calculando distribuição de prêmios...\n');
 
     // Determinar posições finais baseado no bracket
     const finalPositions = new Map<string, number>();
@@ -307,12 +291,12 @@ async function seedTestTournament() {
       participantsWithPositions
     );
 
-    console.log('📊 RESUMO DA DISTRIBUIÇÃO:\n');
-    console.log(`  Total arrecadado: R$ ${expectedPrizePool.toFixed(2)}`);
-    console.log(`  Taxa da casa (${housePercentage}%): R$ ${houseTake.toFixed(2)}`);
-    console.log(`  Pote de prêmios: R$ ${prizeCalculation.netPrizePool.toFixed(2)}\n`);
+    // console.log('📊 RESUMO DA DISTRIBUIÇÃO:\n');
+    // console.log(`  Total arrecadado: R$ ${expectedPrizePool.toFixed(2)}`);
+    // console.log(`  Taxa da casa (${housePercentage}%): R$ ${houseTake.toFixed(2)}`);
+    // console.log(`  Pote de prêmios: R$ ${prizeCalculation.netPrizePool.toFixed(2)}\n`);
 
-    console.log('🏅 PREMIAÇÃO:\n');
+    // console.log('🏅 PREMIAÇÃO:\n');
 
     let totalDistributed = 0;
     for (const prize of prizeCalculation.prizes) {
@@ -343,17 +327,17 @@ async function seedTestTournament() {
         totalDistributed += prize.amount;
 
         const medal = prize.position === 1 ? '🥇' : prize.position === 2 ? '🥈' : prize.position === 3 ? '🥉' : '  ';
-        console.log(`  ${medal} ${prize.position}º lugar - ${player.name.padEnd(25)} R$ ${prize.amount.toFixed(2).padStart(10)}`);
+        // console.log(`  ${medal} ${prize.position}º lugar - ${player.name.padEnd(25)} R$ ${prize.amount.toFixed(2).padStart(10)}`);
       }
     }
 
-    console.log('\n' + '─'.repeat(60));
-    console.log(`  TOTAL DISTRIBUÍDO: R$ ${totalDistributed.toFixed(2)}`);
-    console.log(`  LUCRO DA CASA: R$ ${houseTake.toFixed(2)}`);
-    console.log('─'.repeat(60));
+    // console.log('\n' + '─'.repeat(60));
+    // console.log(`  TOTAL DISTRIBUÍDO: R$ ${totalDistributed.toFixed(2)}`);
+    // console.log(`  LUCRO DA CASA: R$ ${houseTake.toFixed(2)}`);
+    // console.log('─'.repeat(60));
 
     // 7. Criar transações para auditoria
-    console.log('\n💳 Registrando transações...');
+    // console.log('\n💳 Registrando transações...');
 
     // Transações de entrada
     for (const player of players) {
@@ -388,20 +372,20 @@ async function seedTestTournament() {
       });
     }
 
-    console.log('✅ Transações registradas\n');
+    // console.log('✅ Transações registradas\n');
 
-    console.log('━'.repeat(60));
-    console.log('🎉 TORNEIO DE TESTE CRIADO COM SUCESSO!');
-    console.log('━'.repeat(60));
-    console.log(`\n📋 ID do Torneio: ${tournament.id}`);
-    console.log(`👥 Total de jogadores: ${players.length}`);
-    console.log(`💰 Pote de prêmios: R$ ${netPrizePool.toFixed(2)}`);
-    console.log(`🏆 Campeão: ${champion.name}`);
-    console.log(`🥇 Prêmio do campeão: R$ ${prizeCalculation.prizes[0].amount.toFixed(2)}\n`);
+    // console.log('━'.repeat(60));
+    // console.log('🎉 TORNEIO DE TESTE CRIADO COM SUCESSO!');
+    // console.log('━'.repeat(60));
+    // console.log(`\n📋 ID do Torneio: ${tournament.id}`);
+    // console.log(`👥 Total de jogadores: ${players.length}`);
+    // console.log(`💰 Pote de prêmios: R$ ${netPrizePool.toFixed(2)}`);
+    // console.log(`🏆 Campeão: ${champion.name}`);
+    // console.log(`🥇 Prêmio do campeão: R$ ${prizeCalculation.prizes[0].amount.toFixed(2)}\n`);
 
-    console.log('🔗 Para visualizar:');
-    console.log(`   - Resultados: /tournament/${tournament.id}/results`);
-    console.log(`   - Bracket: /tournament/${tournament.id}/bracket\n`);
+    // console.log('🔗 Para visualizar:');
+    // console.log(`   - Resultados: /tournament/${tournament.id}/results`);
+    // console.log(`   - Bracket: /tournament/${tournament.id}/bracket\n`);
 
   } catch (error) {
     console.error('❌ Erro ao criar torneio de teste:', error);
@@ -414,7 +398,7 @@ async function seedTestTournament() {
 // Executa o seed
 seedTestTournament()
   .then(() => {
-    console.log('✅ Script finalizado!');
+    // console.log('✅ Script finalizado!');
     process.exit(0);
   })
   .catch((error) => {

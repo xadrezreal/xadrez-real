@@ -126,7 +126,7 @@ const AppContent = () => {
   useEffect(() => {
     if (user.id && user.isRegistered) {
       const updatePresence = async () => {
-        console.log("User online:", user.name);
+        // console.log("User online:", user.name);
       };
 
       updatePresence();
