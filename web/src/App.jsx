@@ -24,7 +24,6 @@ import WagerMatch from "./components/WagerMatch";
 import Store from "./pages/Store";
 import ProductDetailPage from "./pages/ProductDetailPage";
 import Success from "./pages/Success";
-import ShoppingCart from "./components/ShoppingCart";
 import CreateTournament from "./components/CreateTournament";
 import CustomTournamentRegistration from "./components/CustomTournamentRegistration";
 import TournamentBracket from "./components/TournamentBracket";
@@ -40,7 +39,6 @@ import {
   Crown,
   DollarSign,
   Store as StoreIcon,
-  ShoppingCart as ShoppingCartIcon,
   PlusCircle,
   Swords,
   User as UserIcon,
@@ -49,7 +47,6 @@ import {
 import { BoardThemeContext } from "./contexts/BoardThemeContext";
 import { UserContext } from "./contexts/UserContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { CartProvider, useCart } from "./hooks/useCart";
 import { Button } from "./components/ui/button";
 import { useTranslation } from "react-i18next";
 import SubscriptionManager from "./components/SubscriptionManager";
@@ -95,14 +92,10 @@ const PaidRoute = ({ children }) => {
 };
 
 const AppContent = () => {
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const { cartItems } = useCart();
   const { user: authUser, initialLoading, isAuthenticated } = useAuth();
   const { user, setUser: setUserContext } = useContext(UserContext);
   const { t } = useTranslation();
   const isAdmin = authUser?.role === "ADMIN";
-
-  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   useEffect(() => {
     if (isAuthenticated && authUser) {
@@ -154,7 +147,7 @@ const AppContent = () => {
   }, [user.id, user.name, user.status, user.currentGameId, user.isRegistered]);
 
   const navLinkClasses = ({ isActive }) =>
-    `flex flex-col items-center justify-center text-center gap-1 px-2 py-2 rounded-lg transition-all duration-300 w-20 ${
+    `flex flex-col items-center justify-center text-center gap-1 px-2 py-2 rounded-sm transition-all duration-300 w-20 ${
       isActive
         ? "bg-cyan-500/20 text-cyan-300 shadow-inner"
         : "text-gray-400 hover:bg-slate-700/50 hover:text-white"
@@ -218,18 +211,6 @@ const AppContent = () => {
               </div>
               <div className="flex items-center ml-auto pl-4">
                 <LanguageSwitcher />
-                <Button
-                  onClick={() => setIsCartOpen(true)}
-                  variant="ghost"
-                  className="relative text-white hover:bg-white/10"
-                >
-                  <ShoppingCartIcon className="w-6 h-6" />
-                  {totalItems > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {totalItems}
-                    </span>
-                  )}
-                </Button>
               </div>
             </div>
           </nav>
@@ -283,7 +264,6 @@ const AppContent = () => {
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>
-        <ShoppingCart isCartOpen={isCartOpen} setIsCartOpen={setIsCartOpen} />
         <Toaster />
       </div>
     </div>
@@ -317,20 +297,18 @@ function App() {
       <AuthProvider>
         <UserContext.Provider value={userContextValue}>
           <BoardThemeContext.Provider value={boardContextValue}>
-            <CartProvider>
-              <DndProvider backend={HTML5Backend}>
-                <Router>
-                  <Helmet>
-                    <title>Xadrez Real</title>
-                    <meta
-                      name="description"
-                      content="Jogue xadrez online, participe de campeonatos e melhore sua pontuação."
-                    />
-                  </Helmet>
-                  <AppContent />
-                </Router>
-              </DndProvider>
-            </CartProvider>
+            <DndProvider backend={HTML5Backend}>
+              <Router>
+                <Helmet>
+                  <title>Xadrez Real</title>
+                  <meta
+                    name="description"
+                    content="Jogue xadrez online, participe de campeonatos e melhore sua pontuação."
+                  />
+                </Helmet>
+                <AppContent />
+              </Router>
+            </DndProvider>
           </BoardThemeContext.Provider>
         </UserContext.Provider>
       </AuthProvider>
