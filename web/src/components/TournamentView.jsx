@@ -220,11 +220,7 @@ const TournamentView = () => {
           const idChanged = prevT.id !== newT.id;
 
           if (participantsChanged || statusChanged || idChanged) {
-            // console.log(`🔄 Mudança detectada no torneio ${newT.name}:`, {
-              participantsChanged,
-              statusChanged,
-              idChanged,
-            });
+            // Mudança detectada no torneio
           }
 
           return participantsChanged || statusChanged || idChanged;
