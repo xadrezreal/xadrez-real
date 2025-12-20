@@ -35,7 +35,7 @@ const LanguageSwitcher = () => {
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-white/10 rounded-sm"
+          className="text-white hover:bg-white/10 rounded-md"
         >
           <Globe className="h-5 w-5" />
         </Button>

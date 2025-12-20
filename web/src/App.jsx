@@ -147,7 +147,7 @@ const AppContent = () => {
   }, [user.id, user.name, user.status, user.currentGameId, user.isRegistered]);
 
   const navLinkClasses = ({ isActive }) =>
-    `flex flex-col items-center justify-center text-center gap-1 px-2 py-2 rounded-sm transition-all duration-300 w-20 ${
+    `flex flex-col items-center justify-center text-center gap-1 px-2 py-2 rounded-md transition-all duration-300 w-20 ${
       isActive
         ? "bg-cyan-500/20 text-cyan-300 shadow-inner"
         : "text-gray-400 hover:bg-slate-700/50 hover:text-white"
